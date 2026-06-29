@@ -52,14 +52,14 @@ Non-Windows devices (Linux kiosks, tablets, KDS screens) need: easy deployment, 
 
 ## Open Questions
 
-- See [OI-0009 — MAUI App Update Delivery](../issues/open/OI-0009-maui-app-update-delivery.md)
+- See [OI-0009 — MAUI App Update Delivery](../../issues/open/OI-0009-maui-app-update-delivery.md)
 - Which Windows POS hardware models will be targeted first?
-- See [OI-0003 — Local Server Reference Hardware](../issues/open/OI-0003-local-server-reference-hardware.md)
+- See [OI-0003 — Local Server Reference Hardware](../../issues/open/OI-0003-local-server-reference-hardware.md)
 
 ## Related Documents
 
-- [Architecture: Device Strategy](../architecture/device-strategy.md)
+- [Architecture: Device Strategy](../../architecture/device-strategy.md)
 - [ADR-0008 — Device Identity vs User Identity](ADR-0008-device-identity-vs-user-identity.md)
-- [PLAN-0006 — Terminal, Display, PWA](../plans/active/PLAN-0006-terminal-display-pwa-planning.md)
-- [Module: Customer Display](../modules/customer-display.md)
-- [Module: KDS](../modules/kds.md)
+- [PLAN-0006 — Terminal, Display, PWA](../../plans/active/PLAN-0006-terminal-display-pwa-planning.md)
+- [Module: Customer Display](../../modules/customer-display.md)
+- [Module: KDS](../../modules/kds.md)

@@ -56,7 +56,7 @@ Daxa POS treats financially meaningful records as **append-only or reversal-base
 
 - [ADR-0006 — Tax-Line Based Tax Engine](ADR-0006-tax-line-based-tax-engine.md)
 - [ADR-0007 — Local/Hybrid Sync Principles](ADR-0007-local-hybrid-sync-principles.md)
-- [Module: Audit](../modules/audit.md)
-- [Module: Payments](../modules/payments.md)
-- [Module: Refunds](../modules/refunds.md)
-- [PLAN-0005 — Payments, Receipts, Printing](../plans/active/PLAN-0005-payments-receipts-printing-planning.md)
+- [Module: Audit](../../modules/audit.md)
+- [Module: Payments](../../modules/payments.md)
+- [Module: Refunds](../../modules/refunds.md)
+- [PLAN-0005 — Payments, Receipts, Printing](../../plans/active/PLAN-0005-payments-receipts-printing-planning.md)

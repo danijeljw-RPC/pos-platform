@@ -9,7 +9,7 @@ See [ADR-0004](../adr/proposed/ADR-0004-windows-maui-and-pwa-device-strategy.md)
 ## Device Types and App Assignments
 
 | Device / OS | App Type | Notes |
-|-------------|----------|-------|
+| ----------- | -------- | ----- |
 | Windows POS terminal | .NET MAUI (Daxa Terminal) | Native Windows, full-screen/borderless |
 | Windows customer-facing display | .NET MAUI second window (Daxa Display) | Same process as Daxa Terminal |
 | Linux mini PC / kiosk | PWA in Chromium kiosk mode | No MAUI on Linux for production |

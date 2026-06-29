@@ -42,12 +42,12 @@ Local-to-cloud and cloud-to-local sync in Daxa POS follows these principles:
 
 ## Open Questions
 
-- See [OI-0006 — Hybrid Sync Conflict Rules](../issues/open/OI-0006-hybrid-sync-conflict-rules.md)
+- See [OI-0006 — Hybrid Sync Conflict Rules](../../issues/open/OI-0006-hybrid-sync-conflict-rules.md)
 
 ## Related Documents
 
 - [ADR-0002 — Cloud, Local, Hybrid Deployment](ADR-0002-cloud-local-hybrid-deployment.md)
 - [ADR-0010 — Financial Records Ledger and Audit](ADR-0010-financial-records-ledger-and-audit.md)
-- [Architecture: Sync](../architecture/sync.md)
-- [Module: Sync](../modules/sync.md)
-- [PLAN-0007 — Sync, Local, Hybrid](../plans/active/PLAN-0007-sync-local-hybrid-planning.md)
+- [Architecture: Sync](../../architecture/sync.md)
+- [Module: Sync](../../modules/sync.md)
+- [PLAN-0007 — Sync, Local, Hybrid](../../plans/active/PLAN-0007-sync-local-hybrid-planning.md)

@@ -59,6 +59,6 @@ F = GST-free
 ## Related Documents
 
 - [ADR-0006 — Tax-Line Based Tax Engine](ADR-0006-tax-line-based-tax-engine.md)
-- [Module: Tax](../modules/tax.md)
-- [Module: Receipts](../modules/receipts.md)
-- [Region: AU/NZ Tax](../regions/01-au-nz-tax.md)
+- [Module: Tax](../../modules/tax.md)
+- [Module: Receipts](../../modules/receipts.md)
+- [Region: AU/NZ Tax](../../regions/01-au-nz-tax.md)

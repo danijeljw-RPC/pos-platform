@@ -54,13 +54,13 @@ Cloud deployment strategy (Kubernetes, Azure Container Apps, AWS ECS, etc.) is a
 
 ## Open Questions
 
-- See [OI-0003 — Local Server Reference Hardware](../issues/open/OI-0003-local-server-reference-hardware.md)
+- See [OI-0003 — Local Server Reference Hardware](../../issues/open/OI-0003-local-server-reference-hardware.md)
 - What is the minimum RAM/CPU for a local Daxa server running the full Docker Compose stack?
 - Should the Docker images be signed and distributed via a private registry?
 
 ## Related Documents
 
 - [ADR-0002 — Cloud, Local, Hybrid Deployment Modes](ADR-0002-cloud-local-hybrid-deployment.md)
-- [Deployment: Docker](../deployment/docker.md)
-- [Deployment: Local](../deployment/local.md)
-- [PLAN-0008 — Testing, Security, Deployment](../plans/active/PLAN-0008-testing-security-deployment-planning.md)
+- [Deployment: Docker](../../deployment/docker.md)
+- [Deployment: Local](../../deployment/local.md)
+- [PLAN-0008 — Testing, Security, Deployment](../../plans/active/PLAN-0008-testing-security-deployment-planning.md)

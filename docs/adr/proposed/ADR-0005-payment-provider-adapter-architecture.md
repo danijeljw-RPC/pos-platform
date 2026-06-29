@@ -67,13 +67,13 @@ Staff do not manually enter payment amounts into integrated terminals. The POS s
 
 ## Open Questions
 
-- See [OI-0001 — First Payment Provider](../issues/open/OI-0001-first-payment-provider.md)
-- See [OI-0005 — First Payment Terminal Reference Device](../issues/open/OI-0005-first-payment-terminal-reference-device.md)
+- See [OI-0001 — First Payment Provider](../../issues/open/OI-0001-first-payment-provider.md)
+- See [OI-0005 — First Payment Terminal Reference Device](../../issues/open/OI-0005-first-payment-terminal-reference-device.md)
 
 ## Related Documents
 
-- [Architecture: Payment Adapters](../architecture/payment-adapters.md)
-- [Module: Payments](../modules/payments.md)
-- [PLAN-0005 — Payments, Receipts, Printing](../plans/active/PLAN-0005-payments-receipts-printing-planning.md)
-- [Integrations: Tyro](../integrations/payments/tyro.md)
-- [Integrations: Stripe Terminal](../integrations/payments/stripe-terminal.md)
+- [Architecture: Payment Adapters](../../architecture/payment-adapters.md)
+- [Module: Payments](../../modules/payments.md)
+- [PLAN-0005 — Payments, Receipts, Printing](../../plans/active/PLAN-0005-payments-receipts-printing-planning.md)
+- [Integrations: Tyro](../../integrations/payments/tyro.md)
+- [Integrations: Stripe Terminal](../../integrations/payments/stripe-terminal.md)

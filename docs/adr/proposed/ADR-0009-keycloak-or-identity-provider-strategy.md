@@ -54,14 +54,14 @@ This decision is **proposed** and requires further evaluation before acceptance 
 
 ## Open Questions
 
-- See [OI-0002 — Identity Provider for Local, Cloud, Hybrid](../issues/open/OI-0002-identity-provider-local-cloud-hybrid.md)
-- See [OI-0010 — Local Keycloak vs Cloud Keycloak](../issues/open/OI-0010-local-keycloak-vs-cloud-keycloak.md)
+- See [OI-0002 — Identity Provider for Local, Cloud, Hybrid](../../issues/open/OI-0002-identity-provider-local-cloud-hybrid.md)
+- See [OI-0010 — Local Keycloak vs Cloud Keycloak](../../issues/open/OI-0010-local-keycloak-vs-cloud-keycloak.md)
 - Can staff PIN login be implemented cleanly within a Keycloak flow?
 - What is the minimum spec for a local Keycloak deployment?
 
 ## Related Documents
 
 - [ADR-0008 — Device Identity vs User Identity](ADR-0008-device-identity-vs-user-identity.md)
-- [Architecture: Security](../architecture/security.md)
-- [Architecture: Tenancy](../architecture/tenancy.md)
-- [PLAN-0003 — Identity, Tenancy, Locations, Devices](../plans/active/PLAN-0003-identity-tenancy-locations-devices.md)
+- [Architecture: Security](../../architecture/security.md)
+- [Architecture: Tenancy](../../architecture/tenancy.md)
+- [PLAN-0003 — Identity, Tenancy, Locations, Devices](../../plans/active/PLAN-0003-identity-tenancy-locations-devices.md)

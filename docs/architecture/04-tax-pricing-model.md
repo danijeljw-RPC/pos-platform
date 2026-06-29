@@ -48,7 +48,7 @@ OrderLine
 ## Example line calculation
 
 | Line | Total inc GST | Tax category | Taxable amount | GST |
-|---|---:|---|---:|---:|
+| --- | ---: | --- | ---: | ---: |
 | Flat white | $5.50 | AU_GST_10 | $5.00 | $0.50 |
 | Chocolate cake slice | $8.80 | AU_GST_10 | $8.00 | $0.80 |
 | Loaf of bread | $6.00 | AU_GST_FREE | $6.00 | $0.00 |

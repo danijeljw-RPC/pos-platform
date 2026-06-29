@@ -69,14 +69,14 @@ F = GST-free
 
 ## Open Questions
 
-- See [OI-0007 — Tax Configuration Editing Permissions](../issues/open/OI-0007-tax-configuration-editing-permissions.md)
+- See [OI-0007 — Tax Configuration Editing Permissions](../../issues/open/OI-0007-tax-configuration-editing-permissions.md)
 - Should AU GST rounding use standard ATO rounding rules per line?
 - Should NZ GST calculation use the same engine with a 15% rate?
 
 ## Related Documents
 
-- [Architecture: Tax Engine](../architecture/tax-engine.md)
+- [Architecture: Tax Engine](../../architecture/tax-engine.md)
 - [ADR-0011 — Receipt Tax Marker Strategy](ADR-0011-receipt-tax-marker-strategy.md)
-- [Module: Tax](../modules/tax.md)
-- [PLAN-0004 — Catalog, Menu, Tax, Pricing](../plans/active/PLAN-0004-catalog-menu-tax-pricing-planning.md)
-- [Region: AU/NZ Tax](../regions/01-au-nz-tax.md)
+- [Module: Tax](../../modules/tax.md)
+- [PLAN-0004 — Catalog, Menu, Tax, Pricing](../../plans/active/PLAN-0004-catalog-menu-tax-pricing-planning.md)
+- [Region: AU/NZ Tax](../../regions/01-au-nz-tax.md)
