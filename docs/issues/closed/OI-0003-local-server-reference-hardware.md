@@ -2,7 +2,7 @@
 
 ## Status
 
-Open
+Closed
 
 ## Area
 
@@ -52,3 +52,55 @@ Define a **minimum spec** of 8GB RAM / 4-core Intel/AMD x86-64 / 256GB SSD NVMe,
 
 - [Deployment: Local](../../deployment/local.md)
 - [Deployment: Docker](../../deployment/docker.md)
+
+---
+
+## Answer / Decision Input (2026-06-30)
+
+The Daxa Local server should use a published hardware capability baseline rather than require one specific vendor device.
+
+### Minimum Hardware
+
+- 8GB RAM.
+- 4-core Intel/AMD x86-64 CPU.
+- 256GB NVMe SSD.
+- Wired Ethernet strongly preferred.
+- Capable of running Linux and Docker Compose reliably.
+- Suitable for always-on venue operation.
+
+### Recommended Hardware
+
+- 16GB RAM.
+- 4-core Intel/AMD x86-64 CPU.
+- 512GB NVMe SSD.
+- Wired Ethernet.
+- Business/industrial mini PC or small form-factor PC.
+- Suitable thermal profile for always-on operation inside a venue.
+
+### Production Position
+
+Raspberry Pi / ARM hardware is not recommended for production Daxa Local deployments at this stage. It may be useful for experimentation, but it adds compatibility and support risk for Docker images, Keycloak/identity services, PostgreSQL performance, and long-running venue operation.
+
+Venue-owned existing hardware may be allowed only if it satisfies the published minimum specification. Unsupported or under-powered hardware should be rejected for production support.
+
+### Reference Device Strategy
+
+Daxa should initially publish minimum and recommended specifications rather than lock the product to one exact model.
+
+Daxa may later publish a tested reference device list or offer a Daxa-supplied appliance once real-world deployment testing has identified reliable, available hardware models.
+
+The preferred first production path is:
+
+1. Define the hardware capability baseline.
+2. Test on at least one Intel/AMD x86-64 mini PC.
+3. Document the tested model as a known-good reference.
+4. Allow customer-supplied hardware only where it meets or exceeds the minimum specification.
+5. Consider a Daxa-supplied appliance after deployment and support requirements are clearer.
+
+### Decision Summary
+
+- Minimum spec: 8GB RAM / 4-core x86-64 / 256GB NVMe SSD.
+- Recommended spec: 16GB RAM / 4-core x86-64 / 512GB NVMe SSD.
+- Production architecture should assume Linux + Docker Compose on x86-64 hardware.
+- Raspberry Pi / ARM is not a production target unless separately validated later.
+- Daxa does not need to mandate a single hardware model at this stage.

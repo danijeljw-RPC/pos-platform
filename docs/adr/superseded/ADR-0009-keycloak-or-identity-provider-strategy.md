@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed
+Superseeded
 
 ## Context
 
@@ -65,3 +65,20 @@ This decision is **proposed** and requires further evaluation before acceptance 
 - [Architecture: Security](../../architecture/security.md)
 - [Architecture: Tenancy](../../architecture/tenancy.md)
 - [PLAN-0003 — Identity, Tenancy, Locations, Devices](../../plans/active/PLAN-0003-identity-tenancy-locations-devices.md)
+
+---
+
+## Superseded By
+
+ADR-0009 is superseded by ADR-0013 — Cloud Identity and Local POS Authentication Strategy.
+
+ADR-0009 asked whether Daxa POS should use Keycloak or another identity provider as a broad system-wide identity strategy.
+
+That framing was replaced because Daxa POS requires a mixed authentication model:
+
+- Cloud/admin identity uses Keycloak or an equivalent identity provider.
+- Local POS staff authentication uses trusted device identity plus staff ID/PIN.
+- Local manager/admin authentication may use username/password through the Daxa WebAPI for MVP simplicity.
+- The Daxa WebAPI owns application-level authorization across all authentication methods.
+
+Status: **Superseded**

@@ -2,7 +2,7 @@
 
 ## Status
 
-Open
+Closed
 
 ## Area
 
@@ -55,3 +55,38 @@ Which provider to integrate first, and what hardware terminal model to certify f
 - [Integration: Tyro](../../integrations/payments/tyro.md)
 - [Integration: Stripe Terminal](../../integrations/payments/stripe-terminal.md)
 - [Region: Payment Provider Roadmap](../../regions/03-payment-provider-roadmap.md)
+
+---
+
+## Decision
+
+Stripe Terminal is selected as the first integrated payment provider for Daxa POS.
+
+This decision supports the MVP goal of implementing a clean, developer-friendly integrated payment flow while preserving the provider-agnostic adapter architecture defined in ADR-0005.
+
+Stripe Terminal will be implemented first through the `DaxaPos.PaymentProviders.StripeTerminal` adapter.
+
+Other AU/NZ providers such as Tyro, Zeller, Square, and Windcave remain valid future provider adapters, but they are not part of the first payment integration.
+
+## Rationale
+
+Stripe Terminal is selected first because:
+
+- It has a strong developer experience and API model.
+- It fits well with the planned provider adapter architecture.
+- It allows the MVP payment flow to be implemented and tested without coupling the core POS logic to one provider.
+- It supports a clear first reference hardware path via Stripe-supported terminals.
+- It allows future AU/NZ commercial provider decisions to be made later without blocking MVP implementation.
+
+## Outcome
+
+- First payment provider: **Stripe Terminal**
+- First provider adapter: `DaxaPos.PaymentProviders.StripeTerminal`
+- First reference terminal decision is captured in OI-0005.
+- ADR-0005 can now be accepted with Stripe Terminal as the first implemented provider.
+
+## Status Update
+
+This open issue is resolved by selecting **Stripe Terminal** as the first payment provider.
+
+Status: **Closed**

@@ -14,7 +14,9 @@ See [ADR-0004](../adr/proposed/ADR-0004-windows-maui-and-pwa-device-strategy.md)
 | Windows customer-facing display | .NET MAUI second window (Daxa Display) | Same process as Daxa Terminal |
 | Linux mini PC / kiosk | PWA in Chromium kiosk mode | No MAUI on Linux for production |
 | Android tablet | PWA | |
+| Android mobile | PWA | |
 | iPad | PWA | |
+| iPhone | PWA | |
 | KDS screen (any OS) | PWA (Daxa KDS) | Separate device/session |
 | Admin / back-office | PWA (Daxa Back Office) | Web browser |
 | Self-ordering kiosk | PWA + OS kiosk lockdown | Future |

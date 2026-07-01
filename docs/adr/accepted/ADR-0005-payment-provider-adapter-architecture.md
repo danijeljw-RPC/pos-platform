@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed
+Accepted
 
 ## Context
 
@@ -34,7 +34,7 @@ public interface IPaymentTerminalProvider
 
 **Provider modules:**
 
-```
+```text
 DaxaPos.PaymentProviders.Tyro
 DaxaPos.PaymentProviders.Zeller
 DaxaPos.PaymentProviders.Square
@@ -77,3 +77,73 @@ Staff do not manually enter payment amounts into integrated terminals. The POS s
 - [PLAN-0005 — Payments, Receipts, Printing](../../plans/active/PLAN-0005-payments-receipts-printing-planning.md)
 - [Integrations: Tyro](../../integrations/payments/tyro.md)
 - [Integrations: Stripe Terminal](../../integrations/payments/stripe-terminal.md)
+
+---
+
+## Acceptance Addendum
+
+ADR-0005 is accepted.
+
+The first implementation of the payment provider adapter architecture will use **Stripe Terminal** as the first payment provider and the **Stripe BBPOS WisePOS E** as the first payment terminal reference device.
+
+This resolves the related open questions:
+
+- OI-0001 — First Payment Provider: **Stripe Terminal**
+- OI-0005 — First Payment Terminal Reference Device: **Stripe BBPOS WisePOS E**
+
+## Accepted Implementation Direction
+
+The core payment flow must remain provider-agnostic.
+
+The first concrete provider adapter will be:
+
+```text
+DaxaPos.PaymentProviders.StripeTerminal
+```
+
+The Stripe Terminal adapter will implement the common payment terminal provider interface used by the POS payment flow.
+
+The POS must not call Stripe-specific code directly from core order, checkout, or payment workflow logic. Stripe-specific behaviour must stay inside the Stripe Terminal adapter.
+
+The first hardware implementation target will be:
+
+```text
+Stripe BBPOS WisePOS E
+```
+
+## MVP Scope
+
+The first accepted implementation should support:
+
+- Starting a card payment from the POS.
+- Sending the payment amount from the POS to the terminal.
+- Preventing staff from manually entering payment amounts for integrated payments.
+- Receiving payment success, failure, and cancellation outcomes.
+- Recording the payment result against the POS order.
+- Checking terminal status where supported.
+- Cancelling an in-progress payment where supported.
+
+The first implementation does not need to support every provider-specific feature.
+
+The following can be added later as provider extensions or follow-up work:
+
+- Terminal-based tipping.
+- Offline payment mode.
+- Provider-specific surcharge handling.
+- Advanced reconciliation.
+- Multi-provider certification.
+- Additional Stripe terminal models.
+- Additional AU/NZ providers such as Tyro, Zeller, Square, or Windcave.
+
+## Consequence
+
+The ADR is now accepted with a phased implementation approach:
+
+1. Build the provider-agnostic payment adapter interface.
+2. Implement Stripe Terminal first.
+3. Test against the Stripe BBPOS WisePOS E.
+4. Keep the architecture open for future payment providers without changing the core POS payment flow.
+
+## Status Update
+
+Status: **Accepted**
