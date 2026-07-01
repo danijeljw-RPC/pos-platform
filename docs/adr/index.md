@@ -20,16 +20,13 @@ Architecture Decision Records for Daxa POS.
 | [ADR-0011](accepted/ADR-0011-receipt-tax-marker-strategy.md) | Receipt Tax Marker Strategy | Tax / Receipts |
 | [ADR-0012](accepted/ADR-0012-docker-local-deployment-strategy.md) | Docker and Docker Compose Local Deployment Strategy | Deployment / Infrastructure |
 | [ADR-0013](accepted/ADR-0013-cloud-identity-and-local-pos-authentication-strategy.md) | Cloud Identity and Local POS Authentication Strategy | Identity / Security |
+| [ADR-0014](accepted/ADR-0014-inter-module-communication.md) | Inter-Module Communication Pattern | Architecture |
 
 ---
 
 ## Proposed
 
-| ADR | Title | Area |
-|-----|-------|------|
-| [ADR-0014](proposed/ADR-0014-inter-module-communication.md) | Inter-Module Communication Pattern | Architecture |
-
-Requires human review and acceptance before PLAN-0002 module scaffolding relies on it.
+None. All current ADRs have been accepted.
 
 ---
 

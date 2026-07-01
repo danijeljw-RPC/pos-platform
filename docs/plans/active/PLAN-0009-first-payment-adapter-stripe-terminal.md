@@ -52,7 +52,7 @@ src/DaxaPos.Infrastructure/                   (provider credential encryption/st
 
 - The adapter resolves at runtime from per-location/per-terminal configuration, per ADR-0005 — no provider-specific code appears in the core order/payment flow.
 - Payments are ledgered and idempotent (ADR-0010); this plan extends that ledger, it does not create a parallel one.
-- Module communication with Orders/Receipts/Audit follows ADR-0014 (direct calls for synchronous confirmation, domain events for side effects such as audit logging and future receipt triggering) once ADR-0014 is accepted.
+- Module communication with Orders/Receipts/Audit follows ADR-0014 (accepted): direct calls for synchronous confirmation, in-process domain events for side effects such as audit logging and future receipt triggering. The Stripe Terminal `StartPaymentAsync`/`RefundAsync` calls themselves are direct, user-initiated calls (not event-handler-triggered), so ADR-0014's Handler I/O Rule doesn't apply to them; it does apply if a future domain-event handler (e.g. reacting to `PaymentSucceededDomainEvent`) needs to call out to an external system — that must go through the outbox/`DaxaPos.Workers` path, not run inline.
 
 ## Domain Assumptions
 

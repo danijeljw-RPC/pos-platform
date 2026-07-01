@@ -19,7 +19,7 @@ This folder contains all planning, architecture, decision, and module documentat
 
 - [ADR Index](adr/index.md)
 
-12 ADRs (ADR-0001 through ADR-0013, excluding superseded ADR-0009) are accepted and live under `adr/accepted/`. ADR-0009 is superseded by ADR-0013 and is under `adr/superseded/`. ADR-0014 (inter-module communication) is newly proposed and awaits human review under `adr/proposed/`.
+13 ADRs (ADR-0001 through ADR-0014, excluding superseded ADR-0009) are accepted and live under `adr/accepted/`. ADR-0009 is superseded by ADR-0013 and is under `adr/superseded/`.
 
 ---
 

@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed
+Accepted
 
 ## Date
 
@@ -60,14 +60,51 @@ Daxa POS adopts the **hybrid approach (Option 4)** for MVP:
 - **No external queue/message broker for MVP.** The local order queue described in PLAN-0007 is a PostgreSQL-backed outbox table specific to hybrid/local-to-cloud sync durability — it is not a general-purpose broker for other module-to-module concerns, and this ADR does not change it.
 - Revisit this decision if/when a concrete requirement emerges that direct calls and in-process events cannot satisfy: cross-process horizontal scaling of the API, durable async retry for payment-provider webhooks beyond what an outbox table can economically provide, or cloud-mode multi-region fan-out.
 
+## Handler I/O Rule
+
+**Domain event handlers must not directly perform slow, unreliable, or external I/O inside the request path.**
+
+An in-process handler that calls out to an external service, printer, payment provider, webhook, email service, cloud sync endpoint, or any other slow/unreliable dependency turns a fire-and-forget internal notification into an unbounded, failure-prone extension of the triggering HTTP request — exactly the failure mode the "Negative"/"Risks" sections below warn about.
+
+If a handler needs that kind of work done, it must not do it inline. Instead it must:
+
+1. Write a durable outbox/work item row to PostgreSQL, in the same transaction as the domain change that raised the event (or immediately after, using the outbox pattern), and
+2. Let `DaxaPos.Workers` pick up and process that work item asynchronously, outside the request path, with its own retry policy.
+
+Examples of work that must go through the outbox → `DaxaPos.Workers` path rather than a direct in-process handler call:
+
+```text
+Sending a receipt to a printer
+Calling a payment provider adapter from a non-payment-initiating context (e.g. a reconciliation sweep)
+Delivering a webhook
+Sending an email or notification
+Pushing to a cloud sync endpoint
+Calling any other network-dependent or slow external system
+```
+
+Examples of work that is fine directly inside an in-process handler (fast, local, reliable):
+
+```text
+Writing an audit log row to the local database
+Updating an in-memory read model / cache
+Raising a further in-process domain event
+```
+
+This rule does not change the outbox mechanism itself — the PLAN-0007 local order queue/outbox remains the sync-specific durability table described elsewhere in this ADR. It generalises the same pattern (durable row + background worker, not inline I/O) to any domain event handler that needs to reach outside the current process.
+
 ## Rule of thumb
 
 ```text
 Need a return value right now?            -> direct call through an Application-layer interface
-One event, several independent reactors?  -> in-process domain event
+One event, several independent reactors,
+all fast/local/reliable work?             -> in-process domain event
+One event, but a reactor needs slow,
+unreliable, or external I/O?              -> in-process domain event handler writes a durable
+                                              outbox/work item; DaxaPos.Workers processes it
 Needs to survive a process crash/restart
 before being handled, or cross a process
-boundary?                                 -> not yet in MVP scope; revisit this ADR
+boundary, and isn't covered by the outbox
+pattern above?                            -> not yet in MVP scope; revisit this ADR
 ```
 
 ## Impact on project references and module boundaries
@@ -116,8 +153,8 @@ Only the `Infrastructure` implementation changes; `Domain`, `Application`, and t
 
 ### Negative
 
-- Domain event handlers running synchronously add latency to the triggering request if not kept fast; slow work should go to `DaxaPos.Workers` background processing rather than growing an ad hoc broker.
-- Requires discipline to keep the direct-call vs. domain-event boundary consistent — this ADR's "rule of thumb" exists specifically to prevent that drift.
+- Domain event handlers running synchronously add latency to the triggering request if not kept fast; slow, unreliable, or external I/O must go through the outbox → `DaxaPos.Workers` path defined in the Handler I/O Rule above, not run inline.
+- Requires discipline to keep the direct-call vs. domain-event boundary, and the in-process-handler vs. outbox boundary, consistent — this ADR's "rule of thumb" and "Handler I/O Rule" exist specifically to prevent that drift.
 
 ### Risks
 
@@ -132,9 +169,10 @@ Only the `Infrastructure` implementation changes; `Domain`, `Application`, and t
 
 ## Follow-Up Work
 
-- Satisfies PLAN-0001 step 8 ("Document module communication patterns") once accepted.
-- PLAN-0002 should scaffold the `IDomainEventDispatcher` abstraction in `DaxaPos.Application` and its in-process implementation in `DaxaPos.Infrastructure` as part of the initial skeleton.
-- PLAN-0007 (Sync) should reference this ADR to confirm the local order queue/outbox is a sync-specific durability mechanism, not a general-purpose broker.
+- Satisfies PLAN-0001 step 8 ("Document module communication patterns").
+- PLAN-0002 scaffolds only the minimal `IDomainEvent`/`IDomainEventDispatcher` abstraction and a simple in-process dispatcher — no real domain events, no handlers, and no outbox table yet, since there is no business logic to raise events from in that plan.
+- The first real domain event handler that needs external I/O (expected around PLAN-0005/PLAN-0007) must implement the generic outbox/work-item mechanism described in the Handler I/O Rule, not just the sync-specific queue — the two should likely share one outbox table/worker pattern rather than being built twice.
+- PLAN-0007 (Sync) should reference this ADR to confirm the local order queue/outbox is one instance of this general outbox pattern, not a separate, unrelated mechanism.
 
 ## Related Documents
 
@@ -145,3 +183,15 @@ Only the `Infrastructure` implementation changes; `Domain`, `Application`, and t
 - [ADR-0012 — Docker and Docker Compose Local Deployment Strategy](../accepted/ADR-0012-docker-local-deployment-strategy.md)
 - [Architecture Overview](../../architecture/overview.md)
 - [Implementation Readiness Report](../../plans/active/implementation-readiness-report.md)
+
+---
+
+## Acceptance Addendum
+
+ADR-0014 is accepted, with the Handler I/O Rule added before acceptance: domain event handlers must not perform slow, unreliable, or external I/O directly; that work must be written as a durable outbox/work item and processed by `DaxaPos.Workers`.
+
+PLAN-0002 (Platform Skeleton) may include only the minimal communication abstractions needed for the skeleton — `IDomainEvent`, `IDomainEventDispatcher`, a simple in-process dispatcher, and basic DI registration. It must not add real domain events, event handlers for business workflows, or an outbox table; those arrive with the first plan that actually needs them.
+
+## Status Update
+
+Status: **Accepted**

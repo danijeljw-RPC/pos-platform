@@ -64,7 +64,7 @@ src/DaxaPos.Api/             (cloud/admin auth endpoints, POS staff PIN session 
 - POS terminal staff sessions use a separate, short-lived session token issued directly by the Daxa WebAPI after staff ID + PIN validation on a trusted registered device. This token is not an OIDC/Keycloak token and does not require a round trip to Keycloak.
 - Local manager/admin login (MVP) uses Daxa WebAPI-owned username/password, not Keycloak.
 - All authentication methods (`CloudIdentityProvider`, `LocalUsernamePassword`, `LocalStaffPin`, `DeviceToken`, `SupportAccess`, per ADR-0013) are normalised into one shared `AuthContext` before any authorization check runs.
-- Module-to-module communication (e.g. publishing an audit event when a staff session starts) follows ADR-0014 once accepted — direct calls for synchronous needs, in-process domain events for fan-out such as audit logging.
+- Module-to-module communication (e.g. publishing an audit event when a staff session starts) follows ADR-0014 (accepted) — direct calls for synchronous needs, in-process domain events for fan-out such as audit logging. Audit log writes are fast/local and may run directly in an event handler per ADR-0014's Handler I/O Rule; nothing in this plan's scope requires the outbox/DaxaPos.Workers path.
 
 ## Domain Assumptions
 
@@ -83,7 +83,7 @@ src/DaxaPos.Api/             (cloud/admin auth endpoints, POS staff PIN session 
 - Staff PIN storage/hashing and brute-force/lockout protection must be implemented independently of Keycloak — there is no reuse of Keycloak's password policy machinery for this path.
 - Hybrid sync of staff/role/permission data must propagate a cloud-side "user disabled" fast enough that a disabled user cannot keep trading locally for an extended period during an outage.
 - Multi-tenant EF Core query filters must be applied to every query, across both the Keycloak-backed and WebAPI-native code paths.
-- This plan depends on ADR-0014 (inter-module communication) being accepted, since audit-event publishing for login/session activity should follow that pattern rather than being invented ad hoc here.
+- This plan depends on ADR-0014 (inter-module communication, accepted), since audit-event publishing for login/session activity should follow that pattern rather than being invented ad hoc here.
 
 ## Implementation / Documentation Steps
 
@@ -122,7 +122,7 @@ src/DaxaPos.Api/             (cloud/admin auth endpoints, POS staff PIN session 
 ## ADRs Required
 
 - ADR-0003, ADR-0008, ADR-0013 (all already accepted). No new ADR is required for this plan's identity model.
-- ADR-0014 (inter-module communication, proposed) should be accepted before step 1, since audit-event publishing for session activity depends on it.
+- ADR-0014 (inter-module communication) is already accepted.
 
 ## Open Issues Required
 
@@ -145,7 +145,7 @@ docs: update tenancy, security, and device docs
 
 ## Handoff Notes
 
-This plan depends on PLAN-0002 (Platform Skeleton) and on ADR-0014 (inter-module communication) being accepted, since `AuthContext` propagation and session/audit-event publishing depend on that pattern.
+This plan depends on PLAN-0002 (Platform Skeleton), which scaffolds the `IDomainEvent`/`IDomainEventDispatcher` abstraction that `AuthContext` propagation and session/audit-event publishing build on, per ADR-0014.
 
 **What changed in this rewrite (2026-07-01):** the previous version of this plan cited the superseded ADR-0009, framed the entire identity model around "Keycloak integration (OIDC)" as the primary mechanism (including a realm-per-tenant-vs-shared-realm decision for POS PIN login), and listed "Resolve OI-0002 and OI-0010" as its first step. All of that is now resolved by ADR-0013: Keycloak is scoped to cloud/admin/back-office/support/external identity only; POS terminal staff sessions are a Daxa WebAPI-native staff ID + PIN flow that must keep working offline. A worker picking up the old version of this plan would very likely have built POS staff PIN login as an OIDC flow, which would have required significant rework once ADR-0013 was checked against the implementation.
 

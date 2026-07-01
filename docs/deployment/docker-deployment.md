@@ -19,6 +19,8 @@ Daxa POS must support:
 
 Docker must support development and local/on-prem deployment. Cloud deployment may use containers or managed services depending on the selected cloud infrastructure.
 
+> **Current implementation status (PLAN-0002, 2026-07-01):** everything below is the target design. Today, `deploy/docker-compose.yml` only runs `db` and `keycloak`; there is no `api`/`worker`/`proxy` service or Dockerfile yet, and Keycloak is not wired into any application code. See [docker.md](docker.md) § Current Skeleton Status for what actually exists right now.
+
 ---
 
 # Deployment Modes

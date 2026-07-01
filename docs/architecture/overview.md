@@ -125,4 +125,4 @@ All decisions below are accepted ADRs unless noted otherwise. See [ADR Index](..
 | Receipt tax marker | ADR-0011 |
 | Docker deployment | ADR-0012 |
 | Cloud identity and local POS authentication | ADR-0013 (supersedes ADR-0009) |
-| Inter-module communication pattern | ADR-0014 (Proposed — pending human review) |
+| Inter-module communication pattern | ADR-0014 |

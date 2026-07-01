@@ -10,6 +10,8 @@ A Daxa Local Server runs inside the venue's own network. All POS operations are 
 
 Data may optionally sync or back up to Daxa Cloud.
 
+> **Current implementation status (PLAN-0002, 2026-07-01):** the server stack below is the target production design. Today only the developer-facing skeleton exists — `deploy/docker-compose.yml` running `db` and `keycloak`, with the API run directly via `dotnet run`. No `daxa-worker` or `daxa-sync` service exists yet. See [docker.md](docker.md) § Current Skeleton Status.
+
 ---
 
 ## Server Stack (Docker Compose)
