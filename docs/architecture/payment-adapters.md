@@ -2,7 +2,7 @@
 
 Daxa Payments uses a provider-agnostic adapter architecture. See also `docs/architecture/03-payment-adapter-architecture.md`.
 
-See [ADR-0005](../adr/proposed/ADR-0005-payment-provider-adapter-architecture.md) for the decision record.
+See [ADR-0005](../adr/accepted/ADR-0005-payment-provider-adapter-architecture.md) for the decision record.
 
 ---
 
@@ -102,14 +102,14 @@ Each adapter must declare:
 
 ## Open Questions
 
-- See [OI-0001 — First Payment Provider](../issues/open/OI-0001-first-payment-provider.md)
-- See [OI-0005 — First Payment Terminal Reference Device](../issues/open/OI-0005-first-payment-terminal-reference-device.md)
+- See [OI-0001 — First Payment Provider](../issues/closed/OI-0001-first-payment-provider.md)
+- See [OI-0005 — First Payment Terminal Reference Device](../issues/closed/OI-0005-first-payment-terminal-reference-device.md)
 
 ---
 
 ## Related Documents
 
-- [ADR-0005 — Payment Provider Adapter Architecture](../adr/proposed/ADR-0005-payment-provider-adapter-architecture.md)
+- [ADR-0005 — Payment Provider Adapter Architecture](../adr/accepted/ADR-0005-payment-provider-adapter-architecture.md)
 - [Architecture: 03-payment-adapter-architecture.md](03-payment-adapter-architecture.md)
 - [Module: Payments](../modules/payments.md)
 - [PLAN-0005 — Payments, Receipts, Printing](../plans/active/PLAN-0005-payments-receipts-printing-planning.md)

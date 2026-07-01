@@ -14,7 +14,7 @@ AU, NZ, US, UK, EU, SG, and others — broad global coverage.
 
 ## Priority
 
-AU/NZ MVP — recommended as the first integrated provider for developer experience and global coverage. See [OI-0001](../../issues/open/OI-0001-first-payment-provider.md).
+AU/NZ MVP — recommended as the first integrated provider for developer experience and global coverage. See [OI-0001](../../issues/closed/OI-0001-first-payment-provider.md).
 
 ## Notes
 
@@ -32,6 +32,6 @@ AU/NZ MVP — recommended as the first integrated provider for developer experie
 ## Related Documents
 
 - [Architecture: Payment Adapters](../../architecture/payment-adapters.md)
-- [ADR-0005 — Payment Provider Adapter Architecture](../../adr/proposed/ADR-0005-payment-provider-adapter-architecture.md)
-- [OI-0001 — First Payment Provider](../../issues/open/OI-0001-first-payment-provider.md)
-- [OI-0005 — First Payment Terminal Reference Device](../../issues/open/OI-0005-first-payment-terminal-reference-device.md)
+- [ADR-0005 — Payment Provider Adapter Architecture](../../adr/accepted/ADR-0005-payment-provider-adapter-architecture.md)
+- [OI-0001 — First Payment Provider](../../issues/closed/OI-0001-first-payment-provider.md)
+- [OI-0005 — First Payment Terminal Reference Device](../../issues/closed/OI-0005-first-payment-terminal-reference-device.md)

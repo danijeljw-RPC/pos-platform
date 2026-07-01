@@ -17,7 +17,7 @@ Completed a full documentation structure build-out for the Daxa POS repository. 
 ### Directory Structure
 
 Created all required missing directories:
-- `docs/adr/proposed/`
+- `docs/adr/accepted/`
 - `docs/adr/accepted/`
 - `docs/adr/superseded/`
 - `docs/plans/templates/`
@@ -46,10 +46,10 @@ Created all required missing directories:
 - `docs/plans/active/PLAN-0008-testing-security-deployment-planning.md`
 
 **ADRs (all Proposed):**
-- `docs/adr/proposed/ADR-0001` through `ADR-0012` (12 files)
+- `docs/adr/accepted/ADR-0001` through `ADR-0012` (12 files)
 
 **Issues:**
-- `docs/issues/open/OI-0001` through `OI-0010` (10 files)
+- `docs/issues/closed/OI-0001` through `OI-0010` (10 files)
 - `docs/issues/index.md`
 
 **Architecture:**

@@ -2,7 +2,7 @@
 
 Daxa POS supports three deployment modes. All modes use the same codebase.
 
-See [ADR-0002](../adr/proposed/ADR-0002-cloud-local-hybrid-deployment.md) for the decision record.
+See [ADR-0002](../adr/accepted/ADR-0002-cloud-local-hybrid-deployment.md) for the decision record.
 
 ---
 
@@ -115,9 +115,9 @@ Configuration flows from cloud to local. Operational data flows from local to cl
 
 ## Related Documents
 
-- [ADR-0001 — Single Codebase](../adr/proposed/ADR-0001-single-codebase.md)
-- [ADR-0002 — Cloud, Local, Hybrid](../adr/proposed/ADR-0002-cloud-local-hybrid-deployment.md)
-- [ADR-0007 — Sync Principles](../adr/proposed/ADR-0007-local-hybrid-sync-principles.md)
+- [ADR-0001 — Single Codebase](../adr/accepted/ADR-0001-single-codebase.md)
+- [ADR-0002 — Cloud, Local, Hybrid](../adr/accepted/ADR-0002-cloud-local-hybrid-deployment.md)
+- [ADR-0007 — Sync Principles](../adr/accepted/ADR-0007-local-hybrid-sync-principles.md)
 - [Deployment: Cloud](../deployment/cloud.md)
 - [Deployment: Local](../deployment/local.md)
 - [Deployment: Hybrid](../deployment/hybrid.md)

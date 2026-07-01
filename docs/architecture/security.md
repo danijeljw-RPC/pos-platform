@@ -1,33 +1,81 @@
 # Security Architecture — Daxa POS
 
-## Identity
+## Identity and Authentication
 
-Daxa POS uses Keycloak (or an equivalent, per ADR-0009) for identity and access management.
+Daxa POS uses a mixed authentication strategy, as defined in [ADR-0013](../adr/accepted/ADR-0013-cloud-identity-and-local-pos-authentication-strategy.md). ADR-0009 (single Keycloak strategy) is superseded.
 
-- Staff PIN login: short-lived token for fast counter access.
-- Admin login: OIDC (email + password or SSO).
-- Device registration: separate device token, not tied to a user session.
-- Support access: separate Daxa-staff admin realm, all access audited.
+| Use case | Authentication method | Owner |
+|---|---|---|
+| Cloud admin / back office | Keycloak or equivalent identity provider | Cloud identity provider |
+| Cloud employee self-service | Username/password via Keycloak or equivalent | Cloud identity provider |
+| Local POS staff login | Staff ID + PIN on trusted registered device | Daxa WebAPI |
+| Local manager/admin login | Username/password through Daxa WebAPI (MVP) | Daxa WebAPI |
+| Device registration | Device registration PIN/token | Daxa WebAPI |
 
-## Authentication
+Local POS staff authentication must continue to work during internet outages. Local Keycloak is not required for MVP.
 
-- All API calls require a valid JWT bearer token.
-- Tokens are issued by Keycloak.
-- Token validation is performed in ASP.NET Core middleware.
-- Token claims include: `tenant_id`, `organisation_id`, `location_ids`, `roles`, `user_id`.
+See [ADR-0013](../adr/accepted/ADR-0013-cloud-identity-and-local-pos-authentication-strategy.md) for the full authentication model.
 
-## Authorisation
+---
 
-- Role-based access control (RBAC) enforced in API middleware.
-- Permissions are checked per endpoint.
-- Roles include: `SystemAdmin`, `OrganisationOwner`, `VenueManager`, `Staff`, `SupportAccess`.
-- Financial operations (refunds, voids, discounts) require elevated roles.
+## Staff PIN Login Rules
+
+Staff ID/PIN login is for local POS operational use only.
+
+Permitted actions:
+
+- Creating orders.
+- Editing open orders.
+- Sending orders to preparation stations.
+- Taking payments.
+- Clock-on/clock-off where enabled.
+- Low-risk manager-approved operational actions.
+
+Not permitted:
+
+- Editing tax configuration.
+- Editing payment provider settings.
+- Editing users, roles, or permissions.
+- Accessing payroll or employee personal data.
+- Exporting financial data or reports.
+- Accessing cloud administration features.
+
+---
+
+## Authorization
+
+Authentication method may vary by deployment mode. Authorization must remain consistent.
+
+The Daxa WebAPI owns application-level authorization.
+
+All successful authentication methods are normalised into a common authorization context:
+
+```text
+AuthContext
+- ClientId
+- OrganisationId
+- LocationId
+- UserId
+- StaffMemberId
+- DeviceId
+- AuthMethod (CloudIdentityProvider / LocalUsernamePassword / LocalStaffPin / DeviceToken / SupportAccess)
+- Roles
+- Permissions
+```
+
+Roles include: `SystemAdmin`, `OrganisationOwner`, `VenueManager`, `Staff`, `SupportAccess`.
+
+Financial operations (refunds, voids, discounts) require elevated roles.
+
+---
 
 ## Tenant Isolation
 
 - EF Core global query filters enforce tenant boundary on every database query.
 - No cross-tenant data access is permitted via API.
-- Tenant ID is extracted from the JWT, not from a URL parameter.
+- Tenant ID is extracted from the JWT or authenticated session, not from a URL parameter.
+
+---
 
 ## Payment Security
 
@@ -35,30 +83,30 @@ Daxa POS uses Keycloak (or an equivalent, per ADR-0009) for identity and access 
 - Provider credentials are never returned in API responses.
 - Provider credentials are never logged.
 - Integrated payment amounts are sent from the POS to the terminal — staff do not type amounts manually.
+- Daxa POS does not store raw card data.
+
+---
 
 ## Audit
 
 All security-significant events are written to the audit log:
 
-- Login (success and failure).
-- PIN login.
-- Device registration.
+- Login (success and failure) — all authentication methods.
+- Device registration and deregistration.
 - Support access.
-- Refunds, voids, discounts, manual overrides.
+- Refunds, voids, discounts, and manual overrides.
 - Tax configuration changes.
-- User and role changes.
+- User, role, and permission changes.
 - Receipt reprints.
+- Manager approval actions.
 
-## Open Questions
-
-- See [OI-0002 — Identity Provider](../issues/open/OI-0002-identity-provider-local-cloud-hybrid.md)
-- See [OI-0010 — Local Keycloak vs Cloud Keycloak](../issues/open/OI-0010-local-keycloak-vs-cloud-keycloak.md)
+---
 
 ## Related Documents
 
-- [ADR-0008 — Device Identity vs User Identity](../adr/proposed/ADR-0008-device-identity-vs-user-identity.md)
-- [ADR-0009 — Keycloak or Identity Provider Strategy](../adr/proposed/ADR-0009-keycloak-or-identity-provider-strategy.md)
-- [ADR-0010 — Financial Records, Ledger, and Audit](../adr/proposed/ADR-0010-financial-records-ledger-and-audit.md)
+- [ADR-0008 — Device Identity vs User Identity](../adr/accepted/ADR-0008-device-identity-vs-user-identity.md)
+- [ADR-0013 — Cloud Identity and Local POS Authentication Strategy](../adr/accepted/ADR-0013-cloud-identity-and-local-pos-authentication-strategy.md)
+- [ADR-0010 — Financial Records, Ledger, and Audit](../adr/accepted/ADR-0010-financial-records-ledger-and-audit.md)
 - [Architecture: Tenancy](tenancy.md)
 - [Module: Audit](../modules/audit.md)
 - [PLAN-0003 — Identity, Tenancy, Locations, Devices](../plans/active/PLAN-0003-identity-tenancy-locations-devices.md)

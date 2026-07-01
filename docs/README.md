@@ -19,7 +19,7 @@ This folder contains all planning, architecture, decision, and module documentat
 
 - [ADR Index](adr/index.md)
 
-All 12 ADRs (ADR-0001 through ADR-0013, excluding superseded ADR-0009) are accepted. Accepted ADRs are under `adr/accepted/`. ADR-0009 is superseded by ADR-0013 and is under `adr/superseded/`.
+12 ADRs (ADR-0001 through ADR-0013, excluding superseded ADR-0009) are accepted and live under `adr/accepted/`. ADR-0009 is superseded by ADR-0013 and is under `adr/superseded/`. ADR-0014 (inter-module communication) is newly proposed and awaits human review under `adr/proposed/`.
 
 ---
 
@@ -34,6 +34,7 @@ All 12 ADRs (ADR-0001 through ADR-0013, excluding superseded ADR-0009) are accep
 - [PLAN-0006 — Terminal, Display, PWA](plans/active/PLAN-0006-terminal-display-pwa-planning.md)
 - [PLAN-0007 — Sync, Local, Hybrid](plans/active/PLAN-0007-sync-local-hybrid-planning.md)
 - [PLAN-0008 — Testing, Security, Deployment](plans/active/PLAN-0008-testing-security-deployment-planning.md)
+- [PLAN-0009 — First Payment Adapter: Stripe Terminal](plans/active/PLAN-0009-first-payment-adapter-stripe-terminal.md)
 - [PLAN-docs-consolidation — Documentation Consolidation](plans/active/PLAN-docs-consolidation.md)
 - [Implementation Readiness Report](plans/active/implementation-readiness-report.md)
 

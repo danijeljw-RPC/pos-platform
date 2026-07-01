@@ -21,5 +21,5 @@ See also: `docs/modules/09-tax-engine.md`, `docs/architecture/tax-engine.md`.
 ## Related Plans
 
 - [PLAN-0004 — Catalog, Menu, Tax, Pricing](../plans/active/PLAN-0004-catalog-menu-tax-pricing-planning.md)
-- [ADR-0006 — Tax-Line Based Tax Engine](../adr/proposed/ADR-0006-tax-line-based-tax-engine.md)
-- [ADR-0011 — Receipt Tax Marker Strategy](../adr/proposed/ADR-0011-receipt-tax-marker-strategy.md)
+- [ADR-0006 — Tax-Line Based Tax Engine](../adr/accepted/ADR-0006-tax-line-based-tax-engine.md)
+- [ADR-0011 — Receipt Tax Marker Strategy](../adr/accepted/ADR-0011-receipt-tax-marker-strategy.md)

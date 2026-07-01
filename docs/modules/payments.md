@@ -48,4 +48,4 @@ PaymentLedgerEntry
 ## Related Plans
 
 - [PLAN-0005 — Payments, Receipts, Printing](../plans/active/PLAN-0005-payments-receipts-printing-planning.md)
-- [ADR-0005 — Payment Adapter Architecture](../adr/proposed/ADR-0005-payment-provider-adapter-architecture.md)
+- [ADR-0005 — Payment Adapter Architecture](../adr/accepted/ADR-0005-payment-provider-adapter-architecture.md)

@@ -45,7 +45,7 @@ Venues may have limited IT support. POS terminal updates must be reliable, testa
 
 ## Related ADRs
 
-- [ADR-0004 — Windows MAUI and PWA Device Strategy](../../adr/proposed/ADR-0004-windows-maui-and-pwa-device-strategy.md)
+- [ADR-0004 — Windows MAUI and PWA Device Strategy](../../adr/accepted/ADR-0004-windows-maui-and-pwa-device-strategy.md)
 
 ## Related Documents
 

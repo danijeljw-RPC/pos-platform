@@ -45,8 +45,8 @@ Define a **minimum spec** of 8GB RAM / 4-core Intel/AMD x86-64 / 256GB SSD NVMe,
 
 ## Related ADRs
 
-- [ADR-0002 — Cloud, Local, Hybrid Deployment Modes](../../adr/proposed/ADR-0002-cloud-local-hybrid-deployment.md)
-- [ADR-0012 — Docker Local Deployment Strategy](../../adr/proposed/ADR-0012-docker-local-deployment-strategy.md)
+- [ADR-0002 — Cloud, Local, Hybrid Deployment Modes](../../adr/accepted/ADR-0002-cloud-local-hybrid-deployment.md)
+- [ADR-0012 — Docker Local Deployment Strategy](../../adr/accepted/ADR-0012-docker-local-deployment-strategy.md)
 
 ## Related Documents
 

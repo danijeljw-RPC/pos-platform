@@ -2,7 +2,7 @@
 
 Daxa Sync is the local-to-cloud and cloud-to-local synchronisation layer for Daxa Local and Daxa Hybrid deployments.
 
-See [ADR-0007](../adr/proposed/ADR-0007-local-hybrid-sync-principles.md) for the decision record.
+See [ADR-0007](../adr/accepted/ADR-0007-local-hybrid-sync-principles.md) for the decision record.
 
 ---
 
@@ -74,13 +74,13 @@ This ensures correctness even if realtime events were missed during outage.
 
 ## Open Questions
 
-- See [OI-0006 — Hybrid Sync Conflict Rules](../issues/open/OI-0006-hybrid-sync-conflict-rules.md)
+- See [OI-0006 — Hybrid Sync Conflict Rules](../issues/closed/OI-0006-hybrid-sync-conflict-rules.md)
 
 ---
 
 ## Related Documents
 
-- [ADR-0007 — Local/Hybrid Sync Principles](../adr/proposed/ADR-0007-local-hybrid-sync-principles.md)
-- [ADR-0010 — Financial Records, Ledger, and Audit](../adr/proposed/ADR-0010-financial-records-ledger-and-audit.md)
+- [ADR-0007 — Local/Hybrid Sync Principles](../adr/accepted/ADR-0007-local-hybrid-sync-principles.md)
+- [ADR-0010 — Financial Records, Ledger, and Audit](../adr/accepted/ADR-0010-financial-records-ledger-and-audit.md)
 - [Module: Sync](../modules/sync.md)
 - [PLAN-0007 — Sync, Local, Hybrid](../plans/active/PLAN-0007-sync-local-hybrid-planning.md)

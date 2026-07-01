@@ -35,7 +35,7 @@ Venue (connects over internet)
 
 ## Cloud Region
 
-Cloud region is to be decided. See [OI-0008 — Cloud Data Region Strategy](../issues/open/OI-0008-cloud-data-region-strategy.md).
+Cloud region is to be decided. See [OI-0008 — Cloud Data Region Strategy](../issues/closed/OI-0008-cloud-data-region-strategy.md).
 
 For AU/NZ launch, Sydney region (AWS ap-southeast-2 or Azure Australia East) is the initial recommendation.
 
@@ -71,6 +71,6 @@ Secrets must not be committed to the repository.
 ## Related Documents
 
 - [Architecture: Deployment Modes](../architecture/deployment-modes.md)
-- [ADR-0002 — Cloud, Local, Hybrid](../adr/proposed/ADR-0002-cloud-local-hybrid-deployment.md)
-- [OI-0008 — Cloud Data Region Strategy](../issues/open/OI-0008-cloud-data-region-strategy.md)
+- [ADR-0002 — Cloud, Local, Hybrid](../adr/accepted/ADR-0002-cloud-local-hybrid-deployment.md)
+- [OI-0008 — Cloud Data Region Strategy](../issues/closed/OI-0008-cloud-data-region-strategy.md)
 - [PLAN-0008 — Testing, Security, Deployment](../plans/active/PLAN-0008-testing-security-deployment-planning.md)

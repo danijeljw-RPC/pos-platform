@@ -52,8 +52,8 @@ This requires hardware to support local Keycloak — see OI-0003.
 
 ## Related ADRs
 
-- [ADR-0009 — Keycloak or Identity Provider Strategy](../../adr/proposed/ADR-0009-keycloak-or-identity-provider-strategy.md)
-- [ADR-0002 — Cloud, Local, Hybrid Deployment Modes](../../adr/proposed/ADR-0002-cloud-local-hybrid-deployment.md)
+- [ADR-0009 — Keycloak or Identity Provider Strategy](../../adr/superseded/ADR-0009-keycloak-or-identity-provider-strategy.md)
+- [ADR-0002 — Cloud, Local, Hybrid Deployment Modes](../../adr/accepted/ADR-0002-cloud-local-hybrid-deployment.md)
 
 ## Related Documents
 

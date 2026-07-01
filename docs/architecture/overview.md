@@ -109,7 +109,7 @@ tests/
 
 ## Key Architecture Decisions
 
-All major decisions are documented as proposed ADRs. See [ADR Index](../adr/index.md).
+All decisions below are accepted ADRs unless noted otherwise. See [ADR Index](../adr/index.md).
 
 | Decision | ADR |
 |----------|-----|
@@ -121,7 +121,8 @@ All major decisions are documented as proposed ADRs. See [ADR Index](../adr/inde
 | Tax-line based tax engine | ADR-0006 |
 | Sync principles | ADR-0007 |
 | Device vs user identity | ADR-0008 |
-| Identity provider | ADR-0009 |
 | Financial records ledger | ADR-0010 |
 | Receipt tax marker | ADR-0011 |
 | Docker deployment | ADR-0012 |
+| Cloud identity and local POS authentication | ADR-0013 (supersedes ADR-0009) |
+| Inter-module communication pattern | ADR-0014 (Proposed — pending human review) |

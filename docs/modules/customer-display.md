@@ -42,4 +42,4 @@ Daxa Display is **not** the KDS.
 
 - [PLAN-0006 — Terminal, Display, PWA](../plans/active/PLAN-0006-terminal-display-pwa-planning.md)
 - [Architecture: Device Strategy](../architecture/device-strategy.md)
-- [ADR-0004 — Windows MAUI and PWA Device Strategy](../adr/proposed/ADR-0004-windows-maui-and-pwa-device-strategy.md)
+- [ADR-0004 — Windows MAUI and PWA Device Strategy](../adr/accepted/ADR-0004-windows-maui-and-pwa-device-strategy.md)

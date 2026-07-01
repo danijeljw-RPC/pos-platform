@@ -28,7 +28,7 @@ You must:
 2. Understand the current repository structure.
 3. Clean up and standardise `./docs`.
 4. Build out missing planning documents.
-5. Propose ADRs under `docs/adr/proposed/`.
+5. Propose ADRs under `docs/adr/accepted/`.
 6. Update existing documents to match Daxa POS standards.
 7. Create or update active plan files under `docs/plans/active/`.
 8. Create or update issue files under `docs/issues/open/`.
@@ -327,7 +327,7 @@ Daxa Local can be local-first for that deployment mode, but the whole product is
 Create proposed ADRs under:
 
 ```text
-docs/adr/proposed/
+docs/adr/accepted/
 ```
 
 Do not mark ADRs as accepted unless explicitly instructed by the human.

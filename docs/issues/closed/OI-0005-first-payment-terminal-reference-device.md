@@ -46,7 +46,7 @@ Choose the terminal that corresponds to the chosen provider from OI-0001. If Str
 
 ## Related ADRs
 
-- [ADR-0005 — Payment Provider Adapter Architecture](../../adr/proposed/ADR-0005-payment-provider-adapter-architecture.md)
+- [ADR-0005 — Payment Provider Adapter Architecture](../../adr/accepted/ADR-0005-payment-provider-adapter-architecture.md)
 
 ## Related Documents
 

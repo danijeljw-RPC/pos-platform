@@ -2,7 +2,7 @@
 
 Daxa POS is multi-tenant from the ground up. Every tenant supports multi-location by default.
 
-See [ADR-0003](../adr/proposed/ADR-0003-multi-location-by-default.md) for the decision record.
+See [ADR-0003](../adr/accepted/ADR-0003-multi-location-by-default.md) for the decision record.
 
 ---
 
@@ -66,7 +66,7 @@ A `Terminal` is a registered POS device at a Location. Terminals have:
 - Payment terminal mapping.
 - Display configuration.
 
-Device identity and user identity are separate (see [ADR-0008](../adr/proposed/ADR-0008-device-identity-vs-user-identity.md)).
+Device identity and user identity are separate (see [ADR-0008](../adr/accepted/ADR-0008-device-identity-vs-user-identity.md)).
 
 ---
 
@@ -88,8 +88,8 @@ Location (inherits organisation defaults)
 
 ## Related Documents
 
-- [ADR-0003 — Multi-Location by Default](../adr/proposed/ADR-0003-multi-location-by-default.md)
-- [ADR-0008 — Device Identity vs User Identity](../adr/proposed/ADR-0008-device-identity-vs-user-identity.md)
+- [ADR-0003 — Multi-Location by Default](../adr/accepted/ADR-0003-multi-location-by-default.md)
+- [ADR-0008 — Device Identity vs User Identity](../adr/accepted/ADR-0008-device-identity-vs-user-identity.md)
 - [Architecture: Multi-Location](multi-location.md)
 - [Architecture: Security](security.md)
 - [PLAN-0003 — Identity, Tenancy, Locations, Devices](../plans/active/PLAN-0003-identity-tenancy-locations-devices.md)

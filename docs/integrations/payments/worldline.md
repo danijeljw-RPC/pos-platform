@@ -30,5 +30,5 @@ Phase 3+ (APAC expansion).
 ## Related Documents
 
 - [Architecture: Payment Adapters](../../architecture/payment-adapters.md)
-- [ADR-0005 — Payment Provider Adapter Architecture](../../adr/proposed/ADR-0005-payment-provider-adapter-architecture.md)
+- [ADR-0005 — Payment Provider Adapter Architecture](../../adr/accepted/ADR-0005-payment-provider-adapter-architecture.md)
 - [Region: Payment Provider Roadmap](../../regions/03-payment-provider-roadmap.md)

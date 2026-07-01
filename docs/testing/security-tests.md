@@ -62,7 +62,7 @@ tests/DaxaPos.Api.Tests/          (API-level security tests)
 
 ## Related Documents
 
-- [ADR-0009 — Keycloak or Identity Provider Strategy](../adr/proposed/ADR-0009-keycloak-or-identity-provider-strategy.md)
-- [ADR-0010 — Financial Records, Ledger, and Audit](../adr/proposed/ADR-0010-financial-records-ledger-and-audit.md)
+- [ADR-0009 — Keycloak or Identity Provider Strategy](../adr/superseded/ADR-0009-keycloak-or-identity-provider-strategy.md)
+- [ADR-0010 — Financial Records, Ledger, and Audit](../adr/accepted/ADR-0010-financial-records-ledger-and-audit.md)
 - [Architecture: Security](../architecture/security.md)
 - [Architecture: Tenancy](../architecture/tenancy.md)

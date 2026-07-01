@@ -19,9 +19,10 @@ Docker Compose services:
 ├─ daxa-api          ASP.NET Core Web API
 ├─ daxa-worker       Background workers
 ├─ db                PostgreSQL
-├─ keycloak          Identity provider
 └─ daxa-sync         Sync service (optional, for Hybrid)
 ```
+
+Keycloak is not included in the default Daxa Local stack. Local POS authentication is handled by the Daxa WebAPI using staff ID/PIN and local username/password. See [ADR-0013](../adr/accepted/ADR-0013-cloud-identity-and-local-pos-authentication-strategy.md).
 
 See [Deployment: Docker](docker.md) for Docker Compose configuration.
 
@@ -29,9 +30,13 @@ See [Deployment: Docker](docker.md) for Docker Compose configuration.
 
 ## Hardware Requirements
 
-Minimum and recommended hardware specifications are to be defined. See [OI-0003 — Local Server Reference Hardware](../issues/open/OI-0003-local-server-reference-hardware.md).
+See [OI-0003 — Local Server Reference Hardware](../issues/closed/OI-0003-local-server-reference-hardware.md) for the full decision.
 
-Initial recommendation: 8GB RAM / 4-core x86-64 / 256GB SSD NVMe minimum.
+**Minimum:** 8GB RAM / 4-core x86-64 / 256GB NVMe SSD / wired Ethernet.
+
+**Recommended:** 16GB RAM / 4-core x86-64 / 512GB NVMe SSD / wired Ethernet / business mini PC or small form-factor PC suitable for always-on venue operation.
+
+Raspberry Pi / ARM hardware is not supported for production Daxa Local deployments. Linux + Docker Compose on x86-64 is the production target.
 
 ---
 
@@ -39,7 +44,7 @@ Initial recommendation: 8GB RAM / 4-core x86-64 / 256GB SSD NVMe minimum.
 
 - Venue devices connect to the Daxa Local Server over the venue's local network.
 - Static IP or DNS entry for the local server is recommended.
-- Port 443 (HTTPS) for API and Keycloak.
+- Port 443 (HTTPS) for the Daxa API.
 - Port 5432 (PostgreSQL) — internal Docker network only, not exposed externally.
 
 ---
@@ -58,6 +63,6 @@ Daxa Local supports:
 - [Architecture: Deployment Modes](../architecture/deployment-modes.md)
 - [Deployment: Docker](docker.md)
 - [Deployment: Hybrid](hybrid.md)
-- [ADR-0002 — Cloud, Local, Hybrid](../adr/proposed/ADR-0002-cloud-local-hybrid-deployment.md)
-- [ADR-0012 — Docker Local Deployment Strategy](../adr/proposed/ADR-0012-docker-local-deployment-strategy.md)
-- [OI-0003 — Local Server Reference Hardware](../issues/open/OI-0003-local-server-reference-hardware.md)
+- [ADR-0002 — Cloud, Local, Hybrid](../adr/accepted/ADR-0002-cloud-local-hybrid-deployment.md)
+- [ADR-0012 — Docker Local Deployment Strategy](../adr/accepted/ADR-0012-docker-local-deployment-strategy.md)
+- [OI-0003 — Local Server Reference Hardware](../issues/closed/OI-0003-local-server-reference-hardware.md)

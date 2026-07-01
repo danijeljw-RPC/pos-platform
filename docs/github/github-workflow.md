@@ -115,7 +115,7 @@ Use issues for:
 Docs issue files should use:
 
 ```text
-docs/issues/open/OI-xxxx-title.md
+docs/issues/closed/OI-xxxx-title.md
 ```
 
 Include:
@@ -185,7 +185,7 @@ Significant decisions require ADRs.
 Create proposed ADRs under:
 
 ```text
-docs/adr/proposed/
+docs/adr/accepted/
 ```
 
 ## Accepted ADRs

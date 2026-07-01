@@ -44,7 +44,7 @@ Device identity and user identity are **separate concerns** in Daxa POS.
 
 ## Related Documents
 
-- [ADR-0009 — Identity Provider Strategy](ADR-0009-keycloak-or-identity-provider-strategy.md)
+- [ADR-0013 — Cloud Identity and Local POS Authentication Strategy](ADR-0013-cloud-identity-and-local-pos-authentication-strategy.md) (supersedes ADR-0009)
 - [Architecture: Device Strategy](../../architecture/device-strategy.md)
 - [Module: Devices](../../modules/devices.md)
 - [PLAN-0003 — Identity, Tenancy, Locations, Devices](../../plans/active/PLAN-0003-identity-tenancy-locations-devices.md)

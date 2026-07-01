@@ -2,7 +2,7 @@
 
 Daxa POS uses Docker and Docker Compose for local development and on-premises (Daxa Local) deployment.
 
-See [ADR-0012](../adr/proposed/ADR-0012-docker-local-deployment-strategy.md) for the decision record.
+See [ADR-0012](../adr/accepted/ADR-0012-docker-local-deployment-strategy.md) for the decision record.
 
 For the full detailed deployment reference, see [docker-deployment.md](docker-deployment.md) — this file contains the comprehensive Docker deployment guide including all environment variables, volumes, ports, health checks, backup procedures, and worker configuration.
 
@@ -54,5 +54,5 @@ DAXA_DEPLOYMENT_MODE=Hybrid
 - [docker-deployment.md](docker-deployment.md) — full reference
 - [Deployment: Local](local.md)
 - [Deployment: Hybrid](hybrid.md)
-- [ADR-0012 — Docker Local Deployment Strategy](../adr/proposed/ADR-0012-docker-local-deployment-strategy.md)
+- [ADR-0012 — Docker Local Deployment Strategy](../adr/accepted/ADR-0012-docker-local-deployment-strategy.md)
 - [PLAN-0002 — Platform Skeleton](../plans/active/PLAN-0002-platform-skeleton.md)

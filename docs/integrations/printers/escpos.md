@@ -33,7 +33,7 @@ Daxa POS uses ESC/POS for receipt printing and cash drawer kick commands.
 
 ## Reference Device
 
-See [OI-0004 — First Receipt Printer Reference Device](../../issues/open/OI-0004-first-receipt-printer-reference-device.md).
+See [OI-0004 — First Receipt Printer Reference Device](../../issues/closed/OI-0004-first-receipt-printer-reference-device.md).
 
 Recommended initial reference: Epson TM-T88VI (80mm, network, full ESC/POS support).
 
@@ -72,5 +72,5 @@ Potential .NET ESC/POS libraries:
 
 - [Module: Printing](../../modules/printing.md)
 - [Module: Receipts](../../modules/receipts.md)
-- [OI-0004 — First Receipt Printer Reference Device](../../issues/open/OI-0004-first-receipt-printer-reference-device.md)
+- [OI-0004 — First Receipt Printer Reference Device](../../issues/closed/OI-0004-first-receipt-printer-reference-device.md)
 - [PLAN-0005 — Payments, Receipts, Printing](../../plans/active/PLAN-0005-payments-receipts-printing-planning.md)

@@ -2,7 +2,7 @@
 
 Daxa POS uses .NET MAUI for Windows POS terminals and PWA for all other device types.
 
-See [ADR-0004](../adr/proposed/ADR-0004-windows-maui-and-pwa-device-strategy.md) for the decision record.
+See [ADR-0004](../adr/accepted/ADR-0004-windows-maui-and-pwa-device-strategy.md) for the decision record.
 
 ---
 
@@ -63,21 +63,21 @@ Device identity and user identity are separate:
 - A `User` logs in to the terminal for their session.
 - Terminal configuration (printers, payment terminal) is not affected by user login/logout.
 
-See [ADR-0008](../adr/proposed/ADR-0008-device-identity-vs-user-identity.md).
+See [ADR-0008](../adr/accepted/ADR-0008-device-identity-vs-user-identity.md).
 
 ---
 
 ## Open Questions
 
-- See [OI-0009 — MAUI App Update Delivery](../issues/open/OI-0009-maui-app-update-delivery.md)
-- See [OI-0003 — Local Server Reference Hardware](../issues/open/OI-0003-local-server-reference-hardware.md)
+- See [OI-0009 — MAUI App Update Delivery](../issues/closed/OI-0009-maui-app-update-delivery.md)
+- See [OI-0003 — Local Server Reference Hardware](../issues/closed/OI-0003-local-server-reference-hardware.md)
 
 ---
 
 ## Related Documents
 
-- [ADR-0004 — Windows MAUI and PWA Device Strategy](../adr/proposed/ADR-0004-windows-maui-and-pwa-device-strategy.md)
-- [ADR-0008 — Device Identity vs User Identity](../adr/proposed/ADR-0008-device-identity-vs-user-identity.md)
+- [ADR-0004 — Windows MAUI and PWA Device Strategy](../adr/accepted/ADR-0004-windows-maui-and-pwa-device-strategy.md)
+- [ADR-0008 — Device Identity vs User Identity](../adr/accepted/ADR-0008-device-identity-vs-user-identity.md)
 - [Module: Devices](../modules/devices.md)
 - [Module: Customer Display](../modules/customer-display.md)
 - [Module: KDS](../modules/kds.md)

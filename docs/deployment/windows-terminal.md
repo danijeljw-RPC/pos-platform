@@ -26,7 +26,7 @@ A second MAUI window (Daxa Display) is shown on the customer-facing display.
 
 ## Installation
 
-App delivery method is pending decision. See [OI-0009 — MAUI App Update Delivery](../issues/open/OI-0009-maui-app-update-delivery.md).
+App delivery method is pending decision. See [OI-0009 — MAUI App Update Delivery](../issues/closed/OI-0009-maui-app-update-delivery.md).
 
 Recommended: MSIX package + Daxa-hosted AppInstaller feed.
 
@@ -61,6 +61,6 @@ For venues that want the POS to lock down to Daxa Terminal only:
 ## Related Documents
 
 - [Architecture: Device Strategy](../architecture/device-strategy.md)
-- [ADR-0004 — Windows MAUI and PWA Device Strategy](../adr/proposed/ADR-0004-windows-maui-and-pwa-device-strategy.md)
-- [OI-0009 — MAUI App Update Delivery](../issues/open/OI-0009-maui-app-update-delivery.md)
+- [ADR-0004 — Windows MAUI and PWA Device Strategy](../adr/accepted/ADR-0004-windows-maui-and-pwa-device-strategy.md)
+- [OI-0009 — MAUI App Update Delivery](../issues/closed/OI-0009-maui-app-update-delivery.md)
 - [PLAN-0006 — Terminal, Display, PWA](../plans/active/PLAN-0006-terminal-display-pwa-planning.md)

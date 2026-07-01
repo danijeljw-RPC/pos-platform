@@ -45,7 +45,7 @@ The challenge is: Keycloak is heavy for on-premises (Daxa Local) deployments on 
 
 ## Related ADRs
 
-- [ADR-0009 — Keycloak or Identity Provider Strategy](../../adr/proposed/ADR-0009-keycloak-or-identity-provider-strategy.md)
+- [ADR-0009 — Keycloak or Identity Provider Strategy](../../adr/superseded/ADR-0009-keycloak-or-identity-provider-strategy.md)
 
 ## Related Documents
 

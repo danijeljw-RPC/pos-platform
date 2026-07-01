@@ -57,7 +57,7 @@ tests/DaxaPos.IntegrationTests/
 
 ## Related Documents
 
-- [ADR-0007 — Local/Hybrid Sync Principles](../adr/proposed/ADR-0007-local-hybrid-sync-principles.md)
+- [ADR-0007 — Local/Hybrid Sync Principles](../adr/accepted/ADR-0007-local-hybrid-sync-principles.md)
 - [Architecture: Sync](../architecture/sync.md)
 - [Module: Sync](../modules/sync.md)
-- [OI-0006 — Hybrid Sync Conflict Rules](../issues/open/OI-0006-hybrid-sync-conflict-rules.md)
+- [OI-0006 — Hybrid Sync Conflict Rules](../issues/closed/OI-0006-hybrid-sync-conflict-rules.md)

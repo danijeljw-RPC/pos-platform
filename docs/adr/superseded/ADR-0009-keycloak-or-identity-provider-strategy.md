@@ -2,7 +2,7 @@
 
 ## Status
 
-Superseeded
+Superseded
 
 ## Context
 
@@ -54,8 +54,8 @@ This decision is **proposed** and requires further evaluation before acceptance 
 
 ## Open Questions
 
-- See [OI-0002 — Identity Provider for Local, Cloud, Hybrid](../../issues/open/OI-0002-identity-provider-local-cloud-hybrid.md)
-- See [OI-0010 — Local Keycloak vs Cloud Keycloak](../../issues/open/OI-0010-local-keycloak-vs-cloud-keycloak.md)
+- See [OI-0002 — Identity Provider for Local, Cloud, Hybrid](../../issues/closed/OI-0002-identity-provider-local-cloud-hybrid.md)
+- See [OI-0010 — Local Keycloak vs Cloud Keycloak](../../issues/closed/OI-0010-local-keycloak-vs-cloud-keycloak.md)
 - Can staff PIN login be implemented cleanly within a Keycloak flow?
 - What is the minimum spec for a local Keycloak deployment?
 

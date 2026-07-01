@@ -82,6 +82,6 @@ GET /api/v1/reports/sales?locationId=xxx
 
 ## Related Documents
 
-- [ADR-0003 — Multi-Location by Default](../adr/proposed/ADR-0003-multi-location-by-default.md)
+- [ADR-0003 — Multi-Location by Default](../adr/accepted/ADR-0003-multi-location-by-default.md)
 - [Architecture: Tenancy](tenancy.md)
 - [PLAN-0003 — Identity, Tenancy, Locations, Devices](../plans/active/PLAN-0003-identity-tenancy-locations-devices.md)

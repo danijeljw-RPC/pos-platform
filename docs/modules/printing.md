@@ -26,7 +26,7 @@ The printer service routes print jobs to receipt, kitchen, bar, and label printe
 
 ## Reference Device
 
-See [OI-0004 — First Receipt Printer Reference Device](../issues/open/OI-0004-first-receipt-printer-reference-device.md).
+See [OI-0004 — First Receipt Printer Reference Device](../issues/closed/OI-0004-first-receipt-printer-reference-device.md).
 
 ## Related Plans
 

@@ -2,7 +2,7 @@
 
 ## Status
 
-Open
+Closed
 
 ## Area
 
@@ -47,8 +47,8 @@ Some venues may require that data does not leave Australia or New Zealand. Enter
 
 ## Related ADRs
 
-- [ADR-0002 — Cloud, Local, Hybrid Deployment Modes](../../adr/proposed/ADR-0002-cloud-local-hybrid-deployment.md)
-- [ADR-0012 — Docker Local Deployment Strategy](../../adr/proposed/ADR-0012-docker-local-deployment-strategy.md)
+- [ADR-0002 — Cloud, Local, Hybrid Deployment Modes](../../adr/accepted/ADR-0002-cloud-local-hybrid-deployment.md)
+- [ADR-0012 — Docker Local Deployment Strategy](../../adr/accepted/ADR-0012-docker-local-deployment-strategy.md)
 
 ## Related Documents
 

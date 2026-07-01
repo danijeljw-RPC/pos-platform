@@ -47,7 +47,7 @@ Which provider to integrate first, and what hardware terminal model to certify f
 
 ## Related ADRs
 
-- [ADR-0005 — Payment Provider Adapter Architecture](../../adr/proposed/ADR-0005-payment-provider-adapter-architecture.md)
+- [ADR-0005 — Payment Provider Adapter Architecture](../../adr/accepted/ADR-0005-payment-provider-adapter-architecture.md)
 
 ## Related Documents
 

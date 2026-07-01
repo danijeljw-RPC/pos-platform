@@ -45,8 +45,8 @@ Option 4 for tax rates (country-template-locked at launch). Tax category assignm
 
 ## Related ADRs
 
-- [ADR-0006 — Tax-Line Based Tax Engine](../../adr/proposed/ADR-0006-tax-line-based-tax-engine.md)
-- [ADR-0010 — Financial Records, Ledger, and Audit](../../adr/proposed/ADR-0010-financial-records-ledger-and-audit.md)
+- [ADR-0006 — Tax-Line Based Tax Engine](../../adr/accepted/ADR-0006-tax-line-based-tax-engine.md)
+- [ADR-0010 — Financial Records, Ledger, and Audit](../../adr/accepted/ADR-0010-financial-records-ledger-and-audit.md)
 
 ## Related Documents
 

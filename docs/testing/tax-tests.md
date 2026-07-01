@@ -60,7 +60,7 @@ tests/DaxaPos.Tax.Tests/
 
 ## Related Documents
 
-- [ADR-0006 — Tax-Line Based Tax Engine](../adr/proposed/ADR-0006-tax-line-based-tax-engine.md)
-- [ADR-0011 — Receipt Tax Marker Strategy](../adr/proposed/ADR-0011-receipt-tax-marker-strategy.md)
+- [ADR-0006 — Tax-Line Based Tax Engine](../adr/accepted/ADR-0006-tax-line-based-tax-engine.md)
+- [ADR-0011 — Receipt Tax Marker Strategy](../adr/accepted/ADR-0011-receipt-tax-marker-strategy.md)
 - [Architecture: Tax Engine](../architecture/tax-engine.md)
 - [Module: Tax](../modules/tax.md)

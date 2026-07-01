@@ -6,7 +6,7 @@ Windcave (formerly Payment Express) is an AU/NZ payment provider with strong reg
 
 ## Status
 
-Planned — adapter not yet implemented. Pending resolution of [OI-0001](../../issues/open/OI-0001-first-payment-provider.md).
+Planned — adapter not yet implemented. Pending resolution of [OI-0001](../../issues/closed/OI-0001-first-payment-provider.md).
 
 ## Region
 
@@ -30,5 +30,5 @@ AU/NZ MVP — medium-high priority for regional depth.
 ## Related Documents
 
 - [Architecture: Payment Adapters](../../architecture/payment-adapters.md)
-- [ADR-0005 — Payment Provider Adapter Architecture](../../adr/proposed/ADR-0005-payment-provider-adapter-architecture.md)
-- [OI-0001 — First Payment Provider](../../issues/open/OI-0001-first-payment-provider.md)
+- [ADR-0005 — Payment Provider Adapter Architecture](../../adr/accepted/ADR-0005-payment-provider-adapter-architecture.md)
+- [OI-0001 — First Payment Provider](../../issues/closed/OI-0001-first-payment-provider.md)

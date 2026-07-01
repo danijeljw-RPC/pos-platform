@@ -173,7 +173,7 @@ Use ADRs for significant decisions.
 Proposed:
 
 ```text
-docs/adr/proposed/ADR-xxxx-title.md
+docs/adr/accepted/ADR-xxxx-title.md
 ```
 
 Accepted:
@@ -224,7 +224,7 @@ Create open issues for unresolved questions.
 Use:
 
 ```text
-docs/issues/open/OI-xxxx-title.md
+docs/issues/closed/OI-xxxx-title.md
 ```
 
 Closed issues:

@@ -53,6 +53,6 @@ tests/DaxaPos.Receipt.Tests/
 
 ## Related Documents
 
-- [ADR-0011 — Receipt Tax Marker Strategy](../adr/proposed/ADR-0011-receipt-tax-marker-strategy.md)
+- [ADR-0011 — Receipt Tax Marker Strategy](../adr/accepted/ADR-0011-receipt-tax-marker-strategy.md)
 - [Module: Receipts](../modules/receipts.md)
 - [Module: Tax](../modules/tax.md)

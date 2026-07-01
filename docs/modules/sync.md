@@ -28,5 +28,5 @@ See also: `docs/architecture/sync.md`.
 ## Related Plans
 
 - [PLAN-0007 — Sync, Local, Hybrid](../plans/active/PLAN-0007-sync-local-hybrid-planning.md)
-- [ADR-0007 — Local/Hybrid Sync Principles](../adr/proposed/ADR-0007-local-hybrid-sync-principles.md)
-- [OI-0006 — Hybrid Sync Conflict Rules](../issues/open/OI-0006-hybrid-sync-conflict-rules.md)
+- [ADR-0007 — Local/Hybrid Sync Principles](../adr/accepted/ADR-0007-local-hybrid-sync-principles.md)
+- [OI-0006 — Hybrid Sync Conflict Rules](../issues/closed/OI-0006-hybrid-sync-conflict-rules.md)

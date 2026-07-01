@@ -22,7 +22,7 @@ See also: `docs/modules/15-offline-device-admin-product-management.md`.
 
 Device identity is separate from user identity. A device is registered once and retains its configuration regardless of which staff member is logged in.
 
-See [ADR-0008](../adr/proposed/ADR-0008-device-identity-vs-user-identity.md).
+See [ADR-0008](../adr/accepted/ADR-0008-device-identity-vs-user-identity.md).
 
 ## Related Plans
 

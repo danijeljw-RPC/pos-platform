@@ -3,7 +3,7 @@
 The Daxa POS tax engine calculates tax per order line and stores immutable tax snapshots at sale time.
 
 See also `docs/architecture/04-tax-pricing-model.md` for the detailed model.
-See [ADR-0006](../adr/proposed/ADR-0006-tax-line-based-tax-engine.md) for the decision record.
+See [ADR-0006](../adr/accepted/ADR-0006-tax-line-based-tax-engine.md) for the decision record.
 
 ---
 
@@ -99,8 +99,8 @@ F = GST-free
 
 ## Related Documents
 
-- [ADR-0006 — Tax-Line Based Tax Engine](../adr/proposed/ADR-0006-tax-line-based-tax-engine.md)
-- [ADR-0011 — Receipt Tax Marker Strategy](../adr/proposed/ADR-0011-receipt-tax-marker-strategy.md)
+- [ADR-0006 — Tax-Line Based Tax Engine](../adr/accepted/ADR-0006-tax-line-based-tax-engine.md)
+- [ADR-0011 — Receipt Tax Marker Strategy](../adr/accepted/ADR-0011-receipt-tax-marker-strategy.md)
 - [Architecture: 04-tax-pricing-model.md](04-tax-pricing-model.md)
 - [Module: Tax](../modules/tax.md)
 - [Region: AU/NZ Tax](../regions/01-au-nz-tax.md)

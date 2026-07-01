@@ -66,7 +66,7 @@ tests/DaxaPos.IntegrationTests/
 
 ## Related Documents
 
-- [ADR-0005 — Payment Provider Adapter Architecture](../adr/proposed/ADR-0005-payment-provider-adapter-architecture.md)
-- [ADR-0010 — Financial Records, Ledger, and Audit](../adr/proposed/ADR-0010-financial-records-ledger-and-audit.md)
+- [ADR-0005 — Payment Provider Adapter Architecture](../adr/accepted/ADR-0005-payment-provider-adapter-architecture.md)
+- [ADR-0010 — Financial Records, Ledger, and Audit](../adr/accepted/ADR-0010-financial-records-ledger-and-audit.md)
 - [Module: Payments](../modules/payments.md)
 - [Module: Refunds](../modules/refunds.md)

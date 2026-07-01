@@ -407,7 +407,7 @@ The plan must include:
 If the worker discovers unresolved questions, create an issue:
 
 ```text
-docs/issues/open/OI-xxxx-title.md
+docs/issues/closed/OI-xxxx-title.md
 ```
 
 Update:
@@ -435,7 +435,7 @@ If the worker makes or proposes an architectural decision, create an ADR.
 Proposed ADRs:
 
 ```text
-docs/adr/proposed/ADR-xxxx-title.md
+docs/adr/accepted/ADR-xxxx-title.md
 ```
 
 Accepted ADRs after human approval:

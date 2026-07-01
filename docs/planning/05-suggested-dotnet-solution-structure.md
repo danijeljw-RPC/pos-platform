@@ -1,45 +1,45 @@
 # Suggested .NET Solution Structure
 
-This is a planning candidate, not final architecture.
+This is a planning candidate, not final architecture. The canonical, up-to-date solution structure is [`docs/architecture/overview.md`](../architecture/overview.md) § Solution Structure — this file is preserved as legacy planning reference (see `docs/README.md` § Planning).
 
 ```text
 src/
-  PosPlatform.Api/
-  PosPlatform.AdminPwa/
-  PosPlatform.PosMaui/
-  PosPlatform.KdsPwa/
-  PosPlatform.Workers/
+  DaxaPos.Api/
+  DaxaPos.AdminPwa/
+  DaxaPos.PosMaui/
+  DaxaPos.KdsPwa/
+  DaxaPos.Workers/
 
-  PosPlatform.Domain/
-  PosPlatform.Application/
-  PosPlatform.Infrastructure/
-  PosPlatform.Persistence/
+  DaxaPos.Domain/
+  DaxaPos.Application/
+  DaxaPos.Infrastructure/
+  DaxaPos.Persistence/
 
-  PosPlatform.Modules.Catalog/
-  PosPlatform.Modules.Orders/
-  PosPlatform.Modules.Payments/
-  PosPlatform.Modules.Tax/
-  PosPlatform.Modules.Pricing/
-  PosPlatform.Modules.Receipts/
-  PosPlatform.Modules.Inventory/
-  PosPlatform.Modules.Reporting/
-  PosPlatform.Modules.Audit/
-  PosPlatform.Modules.Devices/
-  PosPlatform.Modules.Customers/
+  DaxaPos.Modules.Catalog/
+  DaxaPos.Modules.Orders/
+  DaxaPos.Modules.Payments/
+  DaxaPos.Modules.Tax/
+  DaxaPos.Modules.Pricing/
+  DaxaPos.Modules.Receipts/
+  DaxaPos.Modules.Inventory/
+  DaxaPos.Modules.Reporting/
+  DaxaPos.Modules.Audit/
+  DaxaPos.Modules.Devices/
+  DaxaPos.Modules.Customers/
 
-  PosPlatform.PaymentProviders.Tyro/
-  PosPlatform.PaymentProviders.Zeller/
-  PosPlatform.PaymentProviders.Square/
-  PosPlatform.PaymentProviders.StripeTerminal/
-  PosPlatform.PaymentProviders.Windcave/
-  PosPlatform.PaymentProviders.Adyen/
+  DaxaPos.PaymentProviders.Tyro/
+  DaxaPos.PaymentProviders.Zeller/
+  DaxaPos.PaymentProviders.Square/
+  DaxaPos.PaymentProviders.StripeTerminal/
+  DaxaPos.PaymentProviders.Windcave/
+  DaxaPos.PaymentProviders.Adyen/
 
 tests/
-  PosPlatform.UnitTests/
-  PosPlatform.IntegrationTests/
-  PosPlatform.Api.Tests/
-  PosPlatform.PaymentProvider.Tests/
-  PosPlatform.Tax.Tests/
+  DaxaPos.UnitTests/
+  DaxaPos.IntegrationTests/
+  DaxaPos.Api.Tests/
+  DaxaPos.PaymentProvider.Tests/
+  DaxaPos.Tax.Tests/
 ```
 
 ## Shared libraries

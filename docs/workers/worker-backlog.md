@@ -82,7 +82,7 @@ Create the repository structure and documentation baseline for Daxa POS.
 ```text
 docs/README.md
 docs/adr/index.md
-docs/adr/proposed/
+docs/adr/accepted/
 docs/adr/accepted/
 docs/adr/superseded/
 docs/issues/index.md

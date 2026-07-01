@@ -60,7 +60,7 @@ See [Architecture: Sync](../architecture/sync.md) for full details.
 
 ## Identity in Hybrid Mode
 
-Identity for hybrid mode is pending decision. See [OI-0010 — Local Keycloak vs Cloud Keycloak](../issues/open/OI-0010-local-keycloak-vs-cloud-keycloak.md).
+Identity for hybrid mode is pending decision. See [OI-0010 — Local Keycloak vs Cloud Keycloak](../issues/closed/OI-0010-local-keycloak-vs-cloud-keycloak.md).
 
 ---
 

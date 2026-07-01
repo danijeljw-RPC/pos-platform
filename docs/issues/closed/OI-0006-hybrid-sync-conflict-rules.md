@@ -44,8 +44,8 @@ Option 4 with Option 2 for config: define operational records (orders, payments,
 
 ## Related ADRs
 
-- [ADR-0007 — Local/Hybrid Sync Principles](../../adr/proposed/ADR-0007-local-hybrid-sync-principles.md)
-- [ADR-0010 — Financial Records, Ledger, and Audit](../../adr/proposed/ADR-0010-financial-records-ledger-and-audit.md)
+- [ADR-0007 — Local/Hybrid Sync Principles](../../adr/accepted/ADR-0007-local-hybrid-sync-principles.md)
+- [ADR-0010 — Financial Records, Ledger, and Audit](../../adr/accepted/ADR-0010-financial-records-ledger-and-audit.md)
 
 ## Related Documents
 
