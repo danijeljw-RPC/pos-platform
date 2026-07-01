@@ -45,7 +45,44 @@ public class RequirePermissionFilterTests
         Assert.Equal("next-called", result);
     }
 
-    private static AuthContext CreateAuthContext(IReadOnlyCollection<string> permissions) => new(
+    [Fact]
+    public async Task InvokeAsync_ReturnsForbidden_WhenRejectStaffPinTrue_AndAuthMethodIsLocalStaffPin_EvenWithMatchingPermission()
+    {
+        var filter = new RequirePermissionFilter(Permissions.OrganisationsManage, rejectStaffPin: true);
+        var authContext = CreateAuthContext(permissions: [Permissions.OrganisationsManage], authMethod: AuthMethod.LocalStaffPin);
+        var context = CreateInvocationContext(authContext);
+
+        var result = await filter.InvokeAsync(context, _ => ValueTask.FromResult<object?>("next-called"));
+
+        var statusCodeResult = Assert.IsType<StatusCodeHttpResult>(result);
+        Assert.Equal(StatusCodes.Status403Forbidden, statusCodeResult.StatusCode);
+    }
+
+    [Fact]
+    public async Task InvokeAsync_CallsNext_WhenRejectStaffPinTrue_AndAuthMethodIsLocalUsernamePassword()
+    {
+        var filter = new RequirePermissionFilter(Permissions.OrganisationsManage, rejectStaffPin: true);
+        var authContext = CreateAuthContext(permissions: [Permissions.OrganisationsManage], authMethod: AuthMethod.LocalUsernamePassword);
+        var context = CreateInvocationContext(authContext);
+
+        var result = await filter.InvokeAsync(context, _ => ValueTask.FromResult<object?>("next-called"));
+
+        Assert.Equal("next-called", result);
+    }
+
+    [Fact]
+    public async Task InvokeAsync_CallsNext_WhenRejectStaffPinDefaultsToFalse_AndAuthMethodIsLocalStaffPin()
+    {
+        var filter = new RequirePermissionFilter(Permissions.OrganisationsManage);
+        var authContext = CreateAuthContext(permissions: [Permissions.OrganisationsManage], authMethod: AuthMethod.LocalStaffPin);
+        var context = CreateInvocationContext(authContext);
+
+        var result = await filter.InvokeAsync(context, _ => ValueTask.FromResult<object?>("next-called"));
+
+        Assert.Equal("next-called", result);
+    }
+
+    private static AuthContext CreateAuthContext(IReadOnlyCollection<string> permissions, AuthMethod authMethod = AuthMethod.LocalUsernamePassword) => new(
         TenantId: Guid.NewGuid(),
         OrganisationId: Guid.NewGuid(),
         LocationId: null,
@@ -53,7 +90,7 @@ public class RequirePermissionFilterTests
         UserId: Guid.NewGuid(),
         StaffMemberId: null,
         DeviceId: null,
-        AuthMethod: AuthMethod.LocalUsernamePassword,
+        AuthMethod: authMethod,
         Roles: ["OrganisationOwner"],
         Permissions: permissions);
 

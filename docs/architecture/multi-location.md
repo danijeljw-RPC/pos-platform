@@ -85,3 +85,7 @@ GET /api/v1/reports/sales?locationId=xxx
 - [ADR-0003 — Multi-Location by Default](../adr/accepted/ADR-0003-multi-location-by-default.md)
 - [Architecture: Tenancy](tenancy.md)
 - [PLAN-0003 — Identity, Tenancy, Locations, Devices](../plans/active/PLAN-0003-identity-tenancy-locations-devices.md)
+
+### Implementation status (PLAN-0003 Milestone D, 2026-07-02)
+
+`Location` and `Terminal` now have real create/read/rename/deactivate/reactivate endpoints (`/api/v1/locations`, `/api/v1/terminals`) — see [Architecture: Tenancy](tenancy.md)'s Milestone D note for the authorization model. No hard delete — an `IsActive` flag with dedicated deactivate/reactivate actions is used instead, since these entities are referenced by audit logs, sessions, devices, and (later) orders/payments/reports/sync data. Location/Terminal CRUD is not yet location-aware for staff (no `StaffMember` exists until Milestone F) — these are admin/management endpoints only, and explicitly reject a `LocalStaffPin` session (`rejectStaffPin: true`) even though no such session can exist yet.

@@ -16,6 +16,12 @@ public class TerminalConfiguration : IEntityTypeConfiguration<Terminal>
             .IsRequired()
             .HasMaxLength(200);
 
+        // Lifecycle state (PLAN-0003 Milestone D) — not part of the tenant-isolation query filter;
+        // see OrganisationConfiguration for why the two concerns are kept separate.
+        builder.Property(t => t.IsActive)
+            .IsRequired()
+            .HasDefaultValue(true);
+
         builder.Property(t => t.CreatedAtUtc)
             .IsRequired();
 

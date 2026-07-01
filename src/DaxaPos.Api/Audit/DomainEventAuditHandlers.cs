@@ -80,3 +80,81 @@ public sealed class AuthSessionRevokedAuditHandler(DaxaDbContext dbContext)
         await dbContext.SaveChangesAsync(cancellationToken);
     }
 }
+
+/// <summary>
+/// Writes one <see cref="AuditEvent"/> row per lifecycle action on an <see cref="Organisation"/>/
+/// <see cref="Location"/>/<see cref="Terminal"/> (PLAN-0003 Milestone D). <c>EventType</c> is built
+/// as <c>$"{EntityType}{Action}"</c> (e.g. <c>"OrganisationCreated"</c>), matching the
+/// <c>"LocalUserLoginSucceeded"</c>-style naming already used by the Milestone C handlers above.
+/// </summary>
+public sealed class OrganisationLifecycleAuditHandler(DaxaDbContext dbContext)
+    : IDomainEventHandler<OrganisationLifecycleDomainEvent>
+{
+    public async Task HandleAsync(OrganisationLifecycleDomainEvent domainEvent, CancellationToken cancellationToken = default)
+    {
+        dbContext.AuditEvents.Add(new AuditEvent
+        {
+            Id = Guid.NewGuid(),
+            TenantId = domainEvent.TenantId,
+            OrganisationId = domainEvent.OrganisationId,
+            UserId = domainEvent.UserId,
+            EventType = $"{nameof(Organisation)}{domainEvent.Action}",
+            EntityType = nameof(Organisation),
+            EntityId = domainEvent.OrganisationId,
+            BeforeValue = domainEvent.BeforeValue,
+            AfterValue = domainEvent.AfterValue,
+            OccurredAtUtc = domainEvent.OccurredAtUtc,
+        });
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+}
+
+public sealed class LocationLifecycleAuditHandler(DaxaDbContext dbContext)
+    : IDomainEventHandler<LocationLifecycleDomainEvent>
+{
+    public async Task HandleAsync(LocationLifecycleDomainEvent domainEvent, CancellationToken cancellationToken = default)
+    {
+        dbContext.AuditEvents.Add(new AuditEvent
+        {
+            Id = Guid.NewGuid(),
+            TenantId = domainEvent.TenantId,
+            OrganisationId = domainEvent.OrganisationId,
+            LocationId = domainEvent.LocationId,
+            UserId = domainEvent.UserId,
+            EventType = $"{nameof(Location)}{domainEvent.Action}",
+            EntityType = nameof(Location),
+            EntityId = domainEvent.LocationId,
+            BeforeValue = domainEvent.BeforeValue,
+            AfterValue = domainEvent.AfterValue,
+            OccurredAtUtc = domainEvent.OccurredAtUtc,
+        });
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+}
+
+public sealed class TerminalLifecycleAuditHandler(DaxaDbContext dbContext)
+    : IDomainEventHandler<TerminalLifecycleDomainEvent>
+{
+    public async Task HandleAsync(TerminalLifecycleDomainEvent domainEvent, CancellationToken cancellationToken = default)
+    {
+        dbContext.AuditEvents.Add(new AuditEvent
+        {
+            Id = Guid.NewGuid(),
+            TenantId = domainEvent.TenantId,
+            OrganisationId = domainEvent.OrganisationId,
+            LocationId = domainEvent.LocationId,
+            TerminalId = domainEvent.TerminalId,
+            UserId = domainEvent.UserId,
+            EventType = $"{nameof(Terminal)}{domainEvent.Action}",
+            EntityType = nameof(Terminal),
+            EntityId = domainEvent.TerminalId,
+            BeforeValue = domainEvent.BeforeValue,
+            AfterValue = domainEvent.AfterValue,
+            OccurredAtUtc = domainEvent.OccurredAtUtc,
+        });
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+}

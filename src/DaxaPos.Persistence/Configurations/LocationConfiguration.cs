@@ -16,6 +16,12 @@ public class LocationConfiguration : IEntityTypeConfiguration<Location>
             .IsRequired()
             .HasMaxLength(200);
 
+        // Lifecycle state (PLAN-0003 Milestone D) — not part of the tenant-isolation query filter;
+        // see OrganisationConfiguration for why the two concerns are kept separate.
+        builder.Property(l => l.IsActive)
+            .IsRequired()
+            .HasDefaultValue(true);
+
         builder.Property(l => l.CreatedAtUtc)
             .IsRequired();
 

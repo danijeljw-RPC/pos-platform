@@ -17,5 +17,7 @@ public class Terminal
 
     public Guid? DeviceId { get; set; }
 
+    public bool IsActive { get; set; } = true;
+
     public DateTimeOffset CreatedAtUtc { get; set; }
 }

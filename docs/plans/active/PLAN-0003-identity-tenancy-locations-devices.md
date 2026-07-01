@@ -4,10 +4,12 @@
 
 Approved 2026-07-01 — Milestone C complete. Human sign-off received on the plan and on [ADR-0015](../../adr/accepted/ADR-0015-tenant-isolation-and-session-token-mechanism.md) (now **Accepted**, moved from `proposed/` to `accepted/`), plus explicit decisions on Region/Country descoping, PIN/session policy defaults, dev-only bootstrap seeding, and single-home-location `StaffMember` for MVP — see "Human Decisions Needed" for the recorded answers.
 
+Milestone D implemented and complete 2026-07-02. Human approved the planning pass with clarifications (`IsActive` excluded from the tenant query filter; list hides inactive by default; single `GET` may return inactive rows; deactivate/reactivate must find inactive rows) — see "Human Decisions Needed" entry dated 2026-07-02 and `PLAN-0003-worker-notes.md`'s Milestone D Report for the full implementation record. `dotnet build`/`dotnet test` clean (92/92), migrations verified from a fresh database. **Not yet committed — awaiting explicit approval to commit.**
+
 - [x] Milestone A — Auth primitives (`AuthMethod`, `ICurrentTenantProvider`, `AuthContext`, hashers, token service, `DaxaPos.UnitTests` project) — complete, committed as `23f89c8`. See PLAN-0003-worker-notes.md for the report.
 - [x] Milestone B — Tenant isolation (`TenantId` on `Location`/`Device`/`Terminal`, fail-closed global query filters on `Organisation`/`Location`/`Device`/`Terminal`, migration `AddTenantIsolationColumns`, cross-tenant isolation tests) — complete, committed as `ba7e237`. See PLAN-0003-worker-notes.md for the Milestone B report.
 - [x] Milestone C — RBAC schema (`Role`/`Permission`/`RolePermission`/`User`/`UserRole`), local username/password login (`/auth/local/login`, `/auth/logout`, `/auth/me`), `AuthSession`, `AuditEvent` + audit plumbing, dev-only bootstrap admin seeding, migration `AddIdentityAndRbacCore` — complete, see PLAN-0003-worker-notes.md for the Milestone C report.
-- [ ] Milestone D — Organisation / Location / Terminal endpoints
+- [x] Milestone D — Organisation / Location / Terminal endpoints — complete, not yet committed (2026-07-02). See PLAN-0003-worker-notes.md for the Milestone D report.
 - [ ] Milestone E — Device registration and credentials
 - [ ] Milestone F — StaffMember and staff PIN login
 - [ ] Milestone G — Local/offline verification and RBAC consolidation
@@ -78,9 +80,12 @@ src/DaxaPos.Domain/
            UserRole.cs, StaffMemberRole.cs, AuthSession.cs, DeviceCredential.cs,
            DeviceRegistrationPin.cs, AuditEvent.cs                            (new)
   Entities/Location.cs, Device.cs, Terminal.cs                               (add TenantId)
+  Entities/Organisation.cs, Location.cs, Terminal.cs                         (Milestone D: add IsActive)
   Enums/AuthMethod.cs                                                        (new)
   Tenancy/ICurrentTenantProvider.cs                                          (new)
   Events/*DomainEvent.cs (10 new event records — see Implementation Steps)
+  Events/OrganisationLifecycleDomainEvent.cs, LocationLifecycleDomainEvent.cs,
+         TerminalLifecycleDomainEvent.cs                                     (Milestone D, new)
 
 src/DaxaPos.Application/
   Identity/AuthContext.cs, IAuthContextAccessor.cs, IPinHasher.cs,
@@ -95,20 +100,31 @@ src/DaxaPos.Infrastructure/
 
 src/DaxaPos.Persistence/
   Configurations/*.cs for every new entity + updates to Location/Device/Terminal configs
+  Configurations/OrganisationConfiguration.cs, LocationConfiguration.cs,
+                 TerminalConfiguration.cs                                   (Milestone D: IsActive column)
   DaxaDbContext.cs                                                         (ctor takes ICurrentTenantProvider; global query filters; new DbSets)
   Migrations/ (5 new migrations — see Implementation Steps)
+  Migrations/AddIsActiveToOrganisationLocationTerminal                     (Milestone D, new)
 
 src/DaxaPos.Api/
   Authentication/DeviceTokenAuthenticationHandler.cs, SessionAuthenticationHandler.cs (new)
   Authorization/RequirePermissionAttribute.cs or endpoint filter                       (new)
+  Authorization/RequirePermissionFilter.cs                                            (Milestone D: add rejectStaffPin)
   Audit/DomainEventAuditHandlers.cs                                                    (new)
+  Audit/DomainEventAuditHandlers.cs                                                    (Milestone D: add 3 lifecycle handlers)
   Endpoints/Identity/*.cs (organisations, locations, terminals, devices,
              device-registration, staff-members, users, auth, sessions)               (new)
+  Endpoints/Identity/OrganisationEndpoints.cs, LocationEndpoints.cs,
+             TerminalEndpoints.cs                                                     (Milestone D, new)
   Program.cs                                                                          (wire everything up)
 
 tests/DaxaPos.Api.Tests/
   TenantIsolationTests.cs, StaffPinLoginTests.cs, LocalUserLoginTests.cs,
   DeviceRegistrationTests.cs, RbacTests.cs, HybridOfflineLoginTests.cs                 (new)
+  OrganisationEndpointsTests.cs, LocationEndpointsTests.cs,
+  TerminalEndpointsTests.cs                                                           (Milestone D, new)
+  Support/RbacTestSeeder.cs                                                           (Milestone D, new)
+  RequirePermissionFilterTests.cs                                                     (Milestone D: add rejectStaffPin cases)
 
 tests/DaxaPos.UnitTests/                                                              (new project)
   DaxaPos.UnitTests.csproj
@@ -192,8 +208,38 @@ Organised as milestones in dependency order. Each milestone ends in one or more 
 
 ### Milestone D — Organisation / Location / Terminal endpoints
 
-22. Implement `POST /api/v1/organisations`, `GET /api/v1/organisations/{id}`, `POST /api/v1/organisations/{organisationId}/locations`, `GET /api/v1/organisations/{organisationId}/locations`, `GET /api/v1/locations/{id}`, `POST /api/v1/locations/{locationId}/terminals`, `GET /api/v1/locations/{locationId}/terminals`, `GET /api/v1/terminals/{id}` — each gated by the matching permission (`organisations.manage`, `locations.manage`, `terminals.manage`) with `rejectStaffPin: true`, scoped by the caller's `AuthContext.OrganisationId`/`TenantId`.
-23. Add tests covering: a non-owner organisation cannot create a location under another organisation's id; a `Staff`-role session (once staff-PIN login exists in Milestone F) is rejected outright — write this test now against the username/password path and revisit/extend once Milestone F lands.
+**Revised 2026-07-02** (planning pass, no code written yet): expanded from the original 8 create/read-only endpoints to non-destructive full CRUD (create, read, rename, deactivate, reactivate — never hard delete) per the human's explicit Milestone D scope decision recorded below. Routes are flat (not nested under a parent segment); the parent id is a request-body field, cross-checked against `AuthContext`, never a path segment used for scoping.
+
+22. **`rejectStaffPin` pulled forward from Milestone F.** Add a `rejectStaffPin` parameter to `RequirePermissionFilter`'s constructor and the `RequirePermission` extension method (default `false`, so the three existing Milestone C call sites — none of which set it — keep their exact current behaviour with zero code changes at those sites). When `true`, the filter returns 403 if `AuthContext.AuthMethod == AuthMethod.LocalStaffPin`, evaluated independently of the permission-code check (so a misconfigured role that happened to grant a sensitive permission to a staff-PIN session is still blocked — defense in depth, per ADR-0013's "must not be used for... editing user permissions" and the plan's own Architecture Assumptions). No `StaffMember`/staff-PIN login exists yet (Milestone F), so this is proven with a unit test that constructs an `AuthContext` with `AuthMethod.LocalStaffPin` directly (the same technique `RequirePermissionFilterTests.cs` already uses to construct contexts without a real HTTP login) — not an end-to-end staff-PIN HTTP test, which is impossible until Milestone F exists. TDD: extend `RequirePermissionFilterTests.cs` first (RED — the constructor doesn't accept the parameter yet), then implement.
+23. **Add `IsActive` (`bool`, required, default `true`) to `Organisation`, `Location`, `Terminal`** plus their EF configurations (`HasDefaultValue(true)`). Unlike the Milestone B `TenantId` column (whose `Guid.Empty` migration default was an inert placeholder because the table was verified empty), `true` here is the actually-correct value for every pre-existing row — no backfill concern. Create migration `AddIsActiveToOrganisationLocationTerminal`. Apply against the dev database and verify with `psql \d organisations/locations/terminals`, matching the verification style of every prior migration in this plan.
+24. **Add three lifecycle domain events**, one per entity rather than one per action (four actions × three entities = twelve near-identical event classes was rejected as unnecessary repetition — see "Design Decisions" below): `OrganisationLifecycleDomainEvent(Guid TenantId, Guid OrganisationId, Guid? UserId, string Action, string? BeforeValue, string? AfterValue, DateTimeOffset OccurredAtUtc)`, `LocationLifecycleDomainEvent(Guid TenantId, Guid OrganisationId, Guid LocationId, Guid? UserId, string Action, string? BeforeValue, string? AfterValue, DateTimeOffset OccurredAtUtc)`, `TerminalLifecycleDomainEvent(Guid TenantId, Guid OrganisationId, Guid LocationId, Guid TerminalId, Guid? UserId, string Action, string? BeforeValue, string? AfterValue, DateTimeOffset OccurredAtUtc)`. `Action` is one of `"Created"`, `"Updated"`, `"Deactivated"`, `"Reactivated"`. Add three corresponding `Api/Audit` handlers (`OrganisationLifecycleAuditHandler`, etc.) that write one `AuditEvent` row each, with `EventType` built as `$"{EntityType}{Action}"` (e.g. `"OrganisationCreated"`, `"LocationDeactivated"`) — consistent with the existing `"LocalUserLoginSucceeded"`-style naming. Register in `Program.cs` alongside the Milestone C handlers.
+25. **Implement `src/DaxaPos.Api/Endpoints/Identity/OrganisationEndpoints.cs`** (`app.MapGroup("/api/v1/organisations")`), gated `organisations.manage` + `rejectStaffPin: true` on every route:
+    - `POST /` — body `CreateOrganisationRequest(string Name, Guid? TenantId = null)`. 400 if `Name` is null/whitespace. **400 if `TenantId` is non-null** (explicit rejection, not silent ignoring — see Human Decisions Needed). Creates with `TenantId = AuthContext.TenantId`, `IsActive = true`. Raises `OrganisationLifecycleDomainEvent(Action: "Created")`. Returns 201 with `OrganisationResponse(Guid Id, Guid TenantId, string Name, bool IsActive, DateTimeOffset CreatedAtUtc)`.
+    - `GET /` — lists all organisations visible under the tenant-filtered `Organisations` `DbSet` (no further `AuthContext.OrganisationId` restriction — see "Design Decisions" on why Organisation-level endpoints scope to tenant, not to the caller's own organisation).
+    - `GET /{organisationId}` — 404 if not found under the tenant filter.
+    - `PATCH /{organisationId}` — body `UpdateOrganisationRequest(string Name, Guid? TenantId = null)`; same 400 rules as create; 404 if not found; raises `OrganisationLifecycleDomainEvent(Action: "Updated", BeforeValue/AfterValue = old/new name)`.
+    - `POST /{organisationId}/deactivate`, `POST /{organisationId}/reactivate` — no body; 404 if not found; flips `IsActive`; raises the matching lifecycle event. Idempotent (deactivating an already-inactive organisation is not an error — no complex lifecycle rules per the human's explicit instruction).
+26. **Implement `src/DaxaPos.Api/Endpoints/Identity/LocationEndpoints.cs`** (`app.MapGroup("/api/v1/locations")`), gated `locations.manage` + `rejectStaffPin: true`:
+    - `POST /` — body `CreateLocationRequest(string Name, Guid OrganisationId, Guid? TenantId = null)`. 400 rules as above. **404 (not 400/403) if `OrganisationId != AuthContext.OrganisationId`** — the literal application of ADR-0015's Context Provenance example, and consistent with the project's "fail closed, don't confirm existence" convention. Creates with `TenantId = AuthContext.TenantId`.
+    - `GET /` — lists locations where `OrganisationId == AuthContext.OrganisationId` (tenant filter applies automatically to the underlying `DbSet`).
+    - `GET /{locationId}`, `PATCH /{locationId}`, `POST /{locationId}/deactivate`, `POST /{locationId}/reactivate` — fetch via the tenant-filtered `DbSet` (404 if absent), then 404 if `location.OrganisationId != AuthContext.OrganisationId`. Same rename/toggle/audit shape as Organisation.
+27. **Implement `src/DaxaPos.Api/Endpoints/Identity/TerminalEndpoints.cs`** (`app.MapGroup("/api/v1/terminals")`), gated `terminals.manage` + `rejectStaffPin: true`:
+    - `POST /` — body `CreateTerminalRequest(string Name, Guid LocationId, Guid? TenantId = null)`. Fetch the referenced `Location` via the tenant-filtered `DbSet` (404 if absent), then 404 if `location.OrganisationId != AuthContext.OrganisationId`. Creates with `TenantId = AuthContext.TenantId`.
+    - `GET /` — joins `Terminals` to `Locations` (no navigation property exists on `Terminal` today — see `TerminalConfiguration.cs` — so this is an explicit LINQ join, not `.Include()`) filtering on `Location.OrganisationId == AuthContext.OrganisationId`.
+    - `GET /{terminalId}`, `PATCH /{terminalId}`, `POST /{terminalId}/deactivate`, `POST /{terminalId}/reactivate` — fetch `Terminal` (tenant filter, 404 if absent) → fetch its `Location` (tenant filter) → 404 if `location.OrganisationId != AuthContext.OrganisationId`. Same rename/toggle/audit shape.
+28. Wire `MapOrganisationEndpoints()`, `MapLocationEndpoints()`, `MapTerminalEndpoints()` in `Program.cs`, alongside the existing `MapAuthEndpoints()`.
+29. Add `tests/DaxaPos.Api.Tests/Support/RbacTestSeeder.cs` — a shared helper (avoids near-duplicating the same Tenant/Organisation/User/UserRole/login-token setup three times) that seeds a `Tenant` + `Organisation` + `User`, assigns a named seeded role (looked up by `Role.Name`, e.g. `"SystemAdmin"` or `"OrganisationOwner"`, from the Milestone C `HasData` catalogue — not `RbacSeedIds` directly, since that class is `internal` to `DaxaPos.Persistence` and not visible to the test project), logs in via `POST /api/v1/auth/local/login`, and returns the bearer token plus the seeded `TenantId`/`OrganisationId`. Add `OrganisationEndpointsTests.cs`, `LocationEndpointsTests.cs`, `TerminalEndpointsTests.cs` (per-entity, matching the one-file-per-feature convention already used by `LocalUserLoginTests.cs`) covering: happy-path create/list/get/update/deactivate/reactivate; 400 on client-supplied `TenantId` (create and update); 403 when the caller's role lacks the permission; 404 for a different tenant's row; 404 for a *different organisation in the same tenant*'s row (Location/Terminal only — this is the case that specifically exercises the `AuthContext.OrganisationId` cross-check independently of tenant filtering, so it needs two organisations seeded under one shared tenant); an `AuditEvent` row is written for create/update/deactivate/reactivate. Extend `RequirePermissionFilterTests.cs` with: `rejectStaffPin: true` + `AuthMethod.LocalStaffPin` (even with the matching permission) → 403; `rejectStaffPin: true` + `AuthMethod.LocalUsernamePassword` + matching permission → calls next (proves no regression to current admin sessions); `rejectStaffPin: false` (default) + `AuthMethod.LocalStaffPin` + matching permission → calls next (proves the flag is opt-in, matching the three untouched Milestone C call sites).
+
+#### Design Decisions (Milestone D, recorded before implementation)
+
+- **Never hard-delete.** Matches the codebase's own established convention (`AuthSession.RevokedAtUtc`, `User.IsActive`/`LockedOutUntilUtc`) of marking rows inactive/revoked rather than removing them — these three entities will accumulate references from audit logs, sessions, devices, and (later) orders/payments/reports/sync data, so an `IsActive` flag with dedicated deactivate/reactivate endpoints was chosen over hard `DELETE` (which would also fail unpredictably via `OnDelete: Restrict` FK violations the moment a row has any children). Explicit human decision, recorded 2026-07-02.
+- **`IsActive` is deliberately excluded from the tenant-isolation global query filter** — tenant isolation and lifecycle visibility are separate concerns (explicit human clarification, 2026-07-02). List endpoints (`GET /api/v1/organisations`, etc.) filter to `IsActive == true` in their own query, in application code, not via a second global filter. Single-record `GET`, `PATCH`, `deactivate`, and `reactivate` never filter on `IsActive` — a manage-permission caller can look up, rename, or reactivate an inactive row directly by id (deactivate/reactivate could not otherwise find their own target once it's inactive).
+- **Client-supplied `TenantId` is rejected with 400, not silently ignored.** ADR-0015's Context Provenance rule allows either "ignored or rejected"; the human chose explicit rejection so a caller who sends a stray/malicious `tenantId` field gets clear, auditable feedback rather than a silently-dropped field that might mask a client bug.
+- **Organisation-level endpoints scope to the caller's tenant, not to `AuthContext.OrganisationId`.** `organisations.manage` is granted only to `SystemAdmin` in the Initial Permission Catalogue, and the schema allows a tenant to own more than one `Organisation` (each has its own `TenantId`, not derived from a 1:1 relationship) — e.g. a `SystemAdmin` managing a holding-company tenant with multiple trading entities. Restricting Organisation endpoints to the caller's own `AuthContext.OrganisationId` would make a `SystemAdmin` unable to see or manage a second organisation they had just created. Location/Terminal endpoints, by contrast, are also granted to `OrganisationOwner`/`VenueManager` — roles that are legitimately scoped to exactly one organisation — so those endpoints apply the stricter `AuthContext.OrganisationId` cross-check ADR-0015 §Context Provenance illustrates. This is the plan's own interpretation of an accepted ADR's example, not a new ADR-level decision, but it is flagged here explicitly in case the human disagrees and wants Organisation endpoints scoped the same way.
+- **One domain event per entity (carrying an `Action` field), not one per action.** Twelve near-identical event classes (`OrganisationCreatedDomainEvent`, `OrganisationUpdatedDomainEvent`, ... × 3 entities) was judged excessive repetition versus three classes with an `Action` discriminator; this is a narrower, more targeted abstraction than a fully generic cross-entity lifecycle event (which no other milestone uses), so it stays consistent with this plan's existing per-domain, explicitly-named event style (`LocalUserLoginSucceededDomainEvent`, etc.) while avoiding the twelve-class blowup.
+- **Routes are flat** (`POST /api/v1/locations`, not `POST /api/v1/organisations/{organisationId}/locations`), per explicit human instruction — a deviation from the original step 22's nested route sketch. The parent id (`OrganisationId` on `CreateLocationRequest`, `LocationId` on `CreateTerminalRequest`) is a body field, not a path segment, and is cross-checked against `AuthContext` exactly the same way regardless of where in the request it appears.
+- **`PATCH` replaces the whole `Name` field**, not a partial merge-patch — `Name` is required (400 if blank) on `UpdateOrganisationRequest`/`UpdateLocationRequest`/`UpdateTerminalRequest`. No other fields are editable yet ("do not add complex lifecycle rules yet," per the human's explicit instruction) — re-parenting (moving a `Location` to a different `Organisation`, a `Terminal` to a different `Location`) is out of scope for this milestone.
+- **Create returns 201 with a `Location` header**, a small correctness improvement over the Milestone C login endpoint's `200 OK` (which is an action, not a resource creation) — idiomatic REST for these actual resource-creation endpoints.
 
 ### Milestone E — Device registration and credentials
 
@@ -278,6 +324,10 @@ All five were decided by explicit human approval; recorded here so later milesto
 4. **Bootstrap seeding — Approved**, dev/local-only, must not become an accidental production default. The seeded `SystemAdmin` password will be sourced from an environment variable with a documented local-dev default (not a hardcoded literal in migration source), and the bootstrap seed will be clearly commented as dev/local-only in code and in `docs/deployment/local.md`. No production admin credentials are ever seeded by this plan.
 5. **Single-location `StaffMember` — Approved for MVP**, with an explicit forward-compatibility requirement: the schema must not preclude adding multi-location staff assignment later without a full model rewrite. Addressed by modelling `StaffMember.LocationId` as the *home* location (used for staff-PIN login's location-match check) while keeping `StaffMemberRole.LocationId` as its own nullable scope column (already planned in Milestone F) — multi-location access can later be added as additional `StaffMemberRole`-style assignment rows (a new `StaffMemberLocation` table) without changing `StaffMember` itself or any existing session/audit code, since sessions already key off `AuthSession.LocationId` (the location the staff member is *currently* operating at), not off `StaffMember.LocationId` directly.
 
+## Human Decisions Needed — Recorded Answers (2026-07-02, Milestone D)
+
+6. **Milestone D CRUD scope — Approved as non-destructive full CRUD.** The originally-approved plan (step 22) scoped Milestone D to create+read only; the human expanded this to create/read/rename/deactivate/reactivate, explicitly ruling out hard `DELETE` endpoints ("these entities will be referenced by audit logs, sessions, devices, orders, payments, reports, and future sync data"). `IsActive` (default `true`) is added to `Organisation`/`Location`/`Terminal` via a small migration. Routes are flat, not nested (see Milestone D's "Design Decisions"). A client-supplied `TenantId` in any request body is rejected with 400, not merely ignored. `rejectStaffPin` support in `RequirePermissionFilter` is pulled forward from Milestone F to Milestone D and applied to every endpoint this milestone adds, even though no staff-PIN session exists yet to exercise it end-to-end (proven via a unit test constructing the `AuthContext` directly, per Milestone D step 22's TDD note).
+
 ## Commit Sequence
 
 ```
@@ -290,7 +340,13 @@ feat(identity): add RBAC schema (roles, permissions, users) with seed data
 feat(identity): add local username/password login and session authentication
 feat(audit): add AuditEvent and domain-event audit handlers for login activity
 test(identity): add local username/password login and audit tests
-feat(tenancy): add organisation, location, and terminal endpoints
+feat(identity): add rejectStaffPin support to RequirePermissionFilter
+test(identity): add rejectStaffPin filter tests
+feat(tenancy): add IsActive lifecycle column to organisation, location, and terminal
+feat(tenancy): add organisation CRUD endpoints with tenant-scoped authorization
+feat(tenancy): add location CRUD endpoints with organisation-scoped authorization
+feat(tenancy): add terminal CRUD endpoints with organisation-scoped authorization
+feat(audit): add lifecycle audit events for organisation, location, and terminal
 test(tenancy): add organisation/location/terminal authorization tests
 feat(devices): add device registration PINs, device credentials, and rotation/revocation
 test(devices): add device registration and device-token isolation tests

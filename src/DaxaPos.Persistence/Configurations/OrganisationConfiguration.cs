@@ -16,6 +16,14 @@ public class OrganisationConfiguration : IEntityTypeConfiguration<Organisation>
             .IsRequired()
             .HasMaxLength(200);
 
+        // Lifecycle state (PLAN-0003 Milestone D) — deliberately not part of the tenant-isolation
+        // query filter (DaxaDbContext.OnModelCreating): tenant isolation and lifecycle visibility
+        // are separate concerns. An inactive organisation is still visible to its own tenant; it is
+        // up to each endpoint to decide whether inactive rows should be included.
+        builder.Property(o => o.IsActive)
+            .IsRequired()
+            .HasDefaultValue(true);
+
         builder.Property(o => o.CreatedAtUtc)
             .IsRequired();
 

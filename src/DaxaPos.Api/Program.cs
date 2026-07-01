@@ -29,6 +29,12 @@ builder.Services.AddScoped<IDomainEventHandler<LocalUserLoginSucceededDomainEven
 builder.Services.AddScoped<IDomainEventHandler<LocalUserLoginFailedDomainEvent>, LocalUserLoginFailedAuditHandler>();
 builder.Services.AddScoped<IDomainEventHandler<AuthSessionRevokedDomainEvent>, AuthSessionRevokedAuditHandler>();
 
+// PLAN-0003 Milestone D: lifecycle audit handlers for Organisation/Location/Terminal create/update/
+// deactivate/reactivate actions.
+builder.Services.AddScoped<IDomainEventHandler<OrganisationLifecycleDomainEvent>, OrganisationLifecycleAuditHandler>();
+builder.Services.AddScoped<IDomainEventHandler<LocationLifecycleDomainEvent>, LocationLifecycleAuditHandler>();
+builder.Services.AddScoped<IDomainEventHandler<TerminalLifecycleDomainEvent>, TerminalLifecycleAuditHandler>();
+
 // Health checks cover the API/database path only. Keycloak is scoped to cloud/admin/back-office
 // auth (ADR-0013) and is intentionally not part of this check — the API must start and report
 // healthy whether or not Keycloak is reachable.
@@ -42,6 +48,9 @@ app.UseAuthorization();
 
 app.MapHealthChecks("/health");
 app.MapAuthEndpoints();
+app.MapOrganisationEndpoints();
+app.MapLocationEndpoints();
+app.MapTerminalEndpoints();
 
 // Dev/local-only bootstrap admin seeding (PLAN-0003 Milestone C) — see BootstrapAdminSeeder for
 // the production-safety rules (requires both env vars, idempotent, never overwrites an existing

@@ -43,3 +43,7 @@ AuditEvent
 
 - [ADR-0010 — Financial Records, Ledger, and Audit](../adr/accepted/ADR-0010-financial-records-ledger-and-audit.md)
 - [PLAN-0005 — Payments, Receipts, Printing](../plans/active/PLAN-0005-payments-receipts-printing-planning.md)
+
+## Implementation status (PLAN-0003 Milestone D, 2026-07-02)
+
+Confirmed: `BeforeValue`/`AfterValue` are stored as `jsonb` columns (not plain strings) — the audit handler assigns whatever the domain event carries directly, so callers constructing a lifecycle domain event must `JsonSerializer.Serialize(...)` the before/after snapshot themselves (a bare string like a plain name is not valid JSON and the write fails). `OrganisationLifecycleDomainEvent`/`LocationLifecycleDomainEvent`/`TerminalLifecycleDomainEvent` (one event type per entity, carrying an `Action` field) write `EventType` as `$"{EntityType}{Action}"` (e.g. `"OrganisationDeactivated"`), matching the existing `"LocalUserLoginSucceeded"`-style naming from Milestone C.
