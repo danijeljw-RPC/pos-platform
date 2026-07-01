@@ -28,8 +28,8 @@ Implement the product catalogue, menu management, tax engine, and pricing engine
 
 ## Context Read
 
-- `docs/adr/proposed/ADR-0006-tax-line-based-tax-engine.md`
-- `docs/adr/proposed/ADR-0011-receipt-tax-marker-strategy.md`
+- `docs/adr/accepted/ADR-0006-tax-line-based-tax-engine.md`
+- `docs/adr/accepted/ADR-0011-receipt-tax-marker-strategy.md`
 - `docs/architecture/tax-engine.md`
 - `docs/modules/catalog.md`
 - `docs/modules/tax.md`

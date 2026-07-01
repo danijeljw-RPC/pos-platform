@@ -23,16 +23,16 @@ Implement the payment service (cash, manual EFTPOS, integrated payment adapter f
 
 ## Non-goals
 
-- Full integrated payment provider implementations (first integration is a separate sub-plan).
+- Full integrated payment provider implementations — the first integration (Stripe Terminal) is [PLAN-0009](PLAN-0009-first-payment-adapter-stripe-terminal.md).
 - Kitchen/bar docket routing (PLAN-0006 onwards).
 - Gift cards and store credit.
 - Split bills.
 
 ## Context Read
 
-- `docs/adr/proposed/ADR-0005-payment-provider-adapter-architecture.md`
-- `docs/adr/proposed/ADR-0010-financial-records-ledger-and-audit.md`
-- `docs/adr/proposed/ADR-0011-receipt-tax-marker-strategy.md`
+- `docs/adr/accepted/ADR-0005-payment-provider-adapter-architecture.md`
+- `docs/adr/accepted/ADR-0010-financial-records-ledger-and-audit.md`
+- `docs/adr/accepted/ADR-0011-receipt-tax-marker-strategy.md`
 - `docs/modules/payments.md`
 - `docs/modules/refunds.md`
 - `docs/modules/receipts.md`
@@ -106,14 +106,11 @@ src/DaxaPos.PaymentProviders.*/  (interface + manual EFTPOS stub)
 
 ## ADRs Required
 
-- ADR-0005, ADR-0010, ADR-0011 (already proposed).
-- New ADR for first integrated payment provider (after OI-0001 is resolved).
+- ADR-0005, ADR-0010, ADR-0011 (all already accepted). ADR-0005's Acceptance Addendum already names Stripe Terminal as the first provider — no new ADR is required.
 
 ## Open Issues Required
 
-- OI-0001 (first payment provider) — resolve before implementing first integrated adapter.
-- OI-0004 (first receipt printer) — resolve before testing physical printing.
-- OI-0005 (first payment terminal reference device) — resolve alongside OI-0001.
+- None. OI-0001 (first payment provider → Stripe Terminal), OI-0004 (first receipt printer → Epson TM-T88VI), and OI-0005 (first payment terminal → Stripe BBPOS WisePOS E) are already resolved.
 
 ## Commit Sequence
 
@@ -131,4 +128,4 @@ docs: update payment, receipt, printing, and audit docs
 
 ## Handoff Notes
 
-Depends on PLAN-0004 (Catalog/Tax). Payment tests require the tax engine to be working. First integrated payment provider implementation can proceed in a sub-plan after OI-0001 is resolved. Next parallel track: PLAN-0006 (Terminal, Display, PWA).
+Depends on PLAN-0004 (Catalog/Tax). Payment tests require the tax engine to be working. The first integrated payment provider (Stripe Terminal) is implemented in [PLAN-0009](PLAN-0009-first-payment-adapter-stripe-terminal.md), which should proceed alongside or immediately after this plan's non-adapter work (order service, cash/manual EFTPOS, refunds, receipts, printing). Next parallel track: PLAN-0006 (Terminal, Display, PWA).

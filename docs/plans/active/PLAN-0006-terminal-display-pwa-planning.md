@@ -28,8 +28,8 @@ Implement the Daxa Terminal (.NET MAUI Windows POS app), Daxa Display (second MA
 
 ## Context Read
 
-- `docs/adr/proposed/ADR-0004-windows-maui-and-pwa-device-strategy.md`
-- `docs/adr/proposed/ADR-0008-device-identity-vs-user-identity.md`
+- `docs/adr/accepted/ADR-0004-windows-maui-and-pwa-device-strategy.md`
+- `docs/adr/accepted/ADR-0008-device-identity-vs-user-identity.md`
 - `docs/modules/customer-display.md`
 - `docs/modules/kds.md`
 - `docs/architecture/device-strategy.md`

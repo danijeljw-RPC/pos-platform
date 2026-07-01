@@ -27,11 +27,11 @@ Implement Daxa Sync — the local-to-cloud and cloud-to-local synchronisation la
 
 ## Context Read
 
-- `docs/adr/proposed/ADR-0007-local-hybrid-sync-principles.md`
-- `docs/adr/proposed/ADR-0002-cloud-local-hybrid-deployment.md`
+- `docs/adr/accepted/ADR-0007-local-hybrid-sync-principles.md`
+- `docs/adr/accepted/ADR-0002-cloud-local-hybrid-deployment.md`
 - `docs/modules/sync.md`
 - `docs/architecture/sync.md`
-- `docs/issues/open/OI-0006-hybrid-sync-conflict-rules.md`
+- `docs/issues/closed/OI-0006-hybrid-sync-conflict-rules.md`
 
 ## Files Likely To Change
 

@@ -29,9 +29,9 @@ Define and document the foundational architecture of Daxa POS before any applica
 - `CLAUDE.md` — suggested .NET solution structure section.
 - `docs/architecture/01-core-architecture.md`
 - `docs/architecture/02-domain-primitives.md`
-- `docs/adr/proposed/ADR-0001-single-codebase.md`
-- `docs/adr/proposed/ADR-0002-cloud-local-hybrid-deployment.md`
-- `docs/adr/proposed/ADR-0003-multi-location-by-default.md`
+- `docs/adr/accepted/ADR-0001-single-codebase.md`
+- `docs/adr/accepted/ADR-0002-cloud-local-hybrid-deployment.md`
+- `docs/adr/accepted/ADR-0003-multi-location-by-default.md`
 
 ## Files Likely To Change
 

@@ -29,9 +29,9 @@ Stand up a working but empty Daxa POS platform skeleton. This includes the .NET 
 ## Context Read
 
 - `docs/plans/active/PLAN-0001-architecture-foundation.md`
-- `docs/adr/proposed/ADR-0001-single-codebase.md`
-- `docs/adr/proposed/ADR-0009-keycloak-or-identity-provider-strategy.md`
-- `docs/adr/proposed/ADR-0012-docker-local-deployment-strategy.md`
+- `docs/adr/accepted/ADR-0001-single-codebase.md`
+- `docs/adr/accepted/ADR-0013-cloud-identity-and-local-pos-authentication-strategy.md`
+- `docs/adr/accepted/ADR-0012-docker-local-deployment-strategy.md`
 - `docs/deployment/docker.md`
 
 ## Files Likely To Change
@@ -72,7 +72,7 @@ docker-compose.override.yml
 2. Create project scaffolding (Api, Domain, Application, Infrastructure, Persistence).
 3. Configure `Program.cs` (no Startup.cs).
 4. Add PostgreSQL Docker Compose service.
-5. Add Keycloak Docker Compose service.
+5. Add Keycloak Docker Compose service. Per ADR-0013, Keycloak here is scoped to cloud/admin/back-office/support/external identity — the health check and skeleton must not depend on Keycloak being up, since local POS staff PIN login (PLAN-0003) is Daxa WebAPI-native and must work without it.
 6. Configure EF Core with PostgreSQL.
 7. Create initial migration (Tenant, Organisation, Location, Terminal).
 8. Add health check endpoint.
@@ -95,7 +95,7 @@ docker-compose.override.yml
 
 ## ADRs Required
 
-- ADR-0001, ADR-0009, ADR-0012 (already proposed).
+- ADR-0001, ADR-0012, ADR-0013 (all already accepted). ADR-0014 (inter-module communication, proposed) should also be accepted before this plan's module scaffolding.
 
 ## Open Issues Required
 

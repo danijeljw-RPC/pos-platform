@@ -26,14 +26,14 @@ Establish comprehensive test coverage, security hardening, and production-ready 
 
 ## Context Read
 
-- `docs/adr/proposed/ADR-0012-docker-local-deployment-strategy.md`
-- `docs/adr/proposed/ADR-0010-financial-records-ledger-and-audit.md`
+- `docs/adr/accepted/ADR-0012-docker-local-deployment-strategy.md`
+- `docs/adr/accepted/ADR-0010-financial-records-ledger-and-audit.md`
 - `docs/testing/strategy.md`
 - `docs/security/security-overview.md`
 - `docs/deployment/cloud.md`
 - `docs/deployment/local.md`
 - `docs/deployment/hybrid.md`
-- `docs/issues/open/OI-0008-cloud-data-region-strategy.md`
+- `docs/issues/closed/OI-0008-cloud-data-region-strategy.md`
 
 ## Files Likely To Change
 

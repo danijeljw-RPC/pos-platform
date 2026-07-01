@@ -61,7 +61,7 @@ All files under `docs/`. `CHANGELOG.md` (new).
 1. ✅ Create missing directory structure.
 2. ✅ Create `docs/README.md`.
 3. ✅ Create `docs/plans/templates/PLAN-template.md`.
-4. ✅ Create 12 proposed ADRs under `docs/adr/proposed/`.
+4. ✅ Create 12 proposed ADRs under `docs/adr/accepted/`.
 5. ✅ Update `docs/adr/index.md`.
 6. ✅ Create 9 active plan files under `docs/plans/active/`.
 7. Create 10 open issue files under `docs/issues/open/`.
