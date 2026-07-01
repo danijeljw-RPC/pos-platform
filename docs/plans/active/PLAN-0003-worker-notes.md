@@ -109,4 +109,74 @@ One thing worth flagging before Milestone B specifically (not a blocker, a heads
 
 ---
 
-*Milestone A completed: 2026-07-01.*
+## Milestone B Report (2026-07-01)
+
+Human approved Milestone B scope (tenant isolation columns, fail-closed EF Core global query filters, cross-tenant isolation tests, migration) with explicit rules: no staff PIN login, no order/tax/payment/sync/UI/KDS, no `Modules.*`, no Keycloak, no weakening fail-closed behaviour, no trusting client-supplied tenant IDs. All observed. TDD used throughout: `TenantIsolationTests.cs` written first, confirmed RED via compile failure (`TenantId` didn't exist on `Location`, `DaxaDbContext` didn't take an `ICurrentTenantProvider`), then implemented to GREEN.
+
+### Files changed
+
+New:
+- `tests/DaxaPos.Api.Tests/Support/FakeCurrentTenantProvider.cs` — test double for `ICurrentTenantProvider`.
+- `tests/DaxaPos.Api.Tests/TenantIsolationTests.cs` — 6 tests (see below).
+- `src/DaxaPos.Persistence/Migrations/20260701102312_AddTenantIsolationColumns.cs` (+ `.Designer.cs`, + updated `DaxaDbContextModelSnapshot.cs`).
+
+Modified:
+- `src/DaxaPos.Domain/Entities/Location.cs`, `Device.cs`, `Terminal.cs` — added `TenantId` property to each.
+- `src/DaxaPos.Persistence/Configurations/LocationConfiguration.cs`, `DeviceConfiguration.cs`, `TerminalConfiguration.cs` — `TenantId` required, indexed, FK to `Tenant` (`OnDelete: Restrict`).
+- `src/DaxaPos.Persistence/DaxaDbContext.cs` — constructor now takes `ICurrentTenantProvider` (from `DaxaPos.Domain.Tenancy`, no new project reference needed); added fail-closed `HasQueryFilter` for `Organisation`, `Location`, `Device`, `Terminal`.
+- `docs/architecture/tenancy.md` — added an "Implementation status" note (full consolidation still deferred to Milestone H per the plan).
+- `docs/plans/active/PLAN-0003-identity-tenancy-locations-devices.md` — Status/Milestone B section marked complete with actual-vs-planned notes.
+
+### Migration created
+
+`AddTenantIsolationColumns` (`20260701102312_AddTenantIsolationColumns`). Adds `TenantId` (uuid, not null, indexed, FK → `tenants.Id`, `ON DELETE RESTRICT`) to `locations`, `devices`, `terminals`. EF's migration-generation always requires a default-value expression for a new non-null column regardless of actual table contents (it doesn't inspect live data at generation time) — it used `Guid.Empty` as that expression, but this is inert: verified the tables were genuinely empty before applying (see below), so no row was ever assigned that value. No backfill logic was needed or written.
+
+**Notable discovery while applying:** the `deploy-db-1` Postgres container had no tables at all — `\dt` returned "Did not find any relations." The `db` container had been recreated fresh in the Milestone A session (new Docker volume) and `InitialCreate` had never actually been applied to it; only `dotnet ef database update` running both `InitialCreate` and `AddTenantIsolationColumns` together brought the dev DB to the expected schema. `HealthCheckTests` didn't catch this because its DB health check only verifies connectivity, not schema/table existence. Flagging in case a future worker sees an unexpectedly empty dev DB and wonders why — it's not a bug, just a fresh volume from earlier in this session that had never been migrated.
+
+### Tests added
+
+`tests/DaxaPos.Api.Tests/TenantIsolationTests.cs` (6):
+- `Location_IsVisible_ToItsOwnTenant`
+- `Location_IsNotVisible_ToADifferentTenant`
+- `Location_IsNotVisible_WhenTenantContextIsMissing`
+- `Organisation_IsNotVisible_ToADifferentTenant`
+- `Organisation_IsNotVisible_WhenTenantContextIsMissing`
+- `LocationList_OnlyContainsCallersTenant_WhenOtherTenantsHaveData`
+
+Each test seeds fresh, randomly-GUID'd `Tenant`/`Organisation`/`Location` rows directly via `DaxaDbContext` (no cleanup/transaction wrapping — consistent with the existing `HealthCheckTests` convention of hitting the persistent dev Postgres directly; safe because every test uses fresh GUIDs, so accumulated rows across runs never collide with a given test's assertions).
+
+### Commands run
+
+```
+dotnet build tests/DaxaPos.Api.Tests/DaxaPos.Api.Tests.csproj    (RED)
+dotnet build DaxaPos.sln                                          (GREEN, after implementation)
+dotnet ef migrations add AddTenantIsolationColumns \
+  --project src/DaxaPos.Persistence/DaxaPos.Persistence.csproj \
+  --startup-project src/DaxaPos.Api/DaxaPos.Api.csproj --output-dir Migrations
+docker compose exec -T db psql -U daxapos -d daxapos -c "\dt"     (discovered empty DB)
+dotnet ef database update \
+  --project src/DaxaPos.Persistence/DaxaPos.Persistence.csproj \
+  --startup-project src/DaxaPos.Api/DaxaPos.Api.csproj
+docker compose exec -T db psql -U daxapos -d daxapos -c "\d locations" -c "\d devices" -c "\d terminals"
+dotnet test tests/DaxaPos.Api.Tests/DaxaPos.Api.Tests.csproj
+dotnet build DaxaPos.sln && dotnet test DaxaPos.sln
+docker compose ps                                                  (confirmed Keycloak still not running)
+```
+
+### Build/test result
+
+`dotnet build DaxaPos.sln` — 0 warnings, 0 errors.
+`dotnet test DaxaPos.sln` (Postgres `db` running, both migrations applied, `keycloak` stopped) — **25/25 passed** (18 unit tests + 7 API tests: 1 health check + 6 new tenant isolation tests), 0 failed, 0 skipped.
+
+### Deviations from the written plan (flagged, not silently made)
+
+1. **`Organisation` also received the fail-closed filter**, not just `Location`/`Device`/`Terminal` as step 9's literal wording said. `Organisation` already had `TenantId` from PLAN-0002 but no filter — leaving it unfiltered would have contradicted the user's explicit Milestone B instruction to "ensure TenantId is applied consistently to tenant-owned entities." Two extra tests (`Organisation_IsNotVisible_*`) cover this.
+2. **Discovered and fixed a pre-existing gap, not introduced by this milestone:** the dev Postgres volume had never had `InitialCreate` applied. Both migrations were applied together; no code change was needed for this, just running `dotnet ef database update` instead of assuming the schema already matched.
+
+### Blockers before Milestone C
+
+None. `dotnet build`/`dotnet test` are clean, Keycloak remains stopped and unused, fail-closed behaviour is verified by 6 passing tests, and no migration/entity/endpoint work strayed into Milestone C–H territory (no `Role`/`Permission`/`User`/`StaffMember`/`AuthSession` entities, no login endpoints, no `RequirePermission`, nothing added under `DaxaPos.Modules.*`).
+
+---
+
+*Milestone B completed: 2026-07-01.*

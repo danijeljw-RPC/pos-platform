@@ -25,5 +25,16 @@ public class LocationConfiguration : IEntityTypeConfiguration<Location>
             .WithMany()
             .HasForeignKey(l => l.OrganisationId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        // Denormalized for tenant-isolation query filters (ADR-0015) — not derived via a join to
+        // Organisation, so DaxaDbContext's global query filter stays a single indexed comparison.
+        builder.Property(l => l.TenantId).IsRequired();
+
+        builder.HasIndex(l => l.TenantId);
+
+        builder.HasOne<Tenant>()
+            .WithMany()
+            .HasForeignKey(l => l.TenantId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }

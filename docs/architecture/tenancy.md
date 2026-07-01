@@ -23,10 +23,14 @@ A single-location business is a tenant with one Organisation, one Country, one L
 
 ## Tenant Isolation
 
-- Every API call is scoped to a tenant via the JWT claim.
+- Every API call is scoped to a tenant via the authenticated session/device context (never a client-supplied route or body value — see ADR-0015's Context Provenance rule).
 - EF Core global query filters enforce tenant isolation on every query.
 - Cross-tenant data access is not permitted.
 - Support access by Daxa staff is audited.
+
+### Implementation status (PLAN-0003 Milestone B, 2026-07-01)
+
+Tenant isolation is implemented via a denormalized `TenantId` column on every tenant-owned table (`Organisation`, `Location`, `Device`, `Terminal` so far) plus a fail-closed EF Core global query filter in `DaxaDbContext`, fed by `ICurrentTenantProvider` (`DaxaPos.Domain.Tenancy`). A missing tenant context (`TenantId == null`) matches zero rows, never an unfiltered query — see [ADR-0015](../adr/accepted/ADR-0015-tenant-isolation-and-session-token-mechanism.md) for the full mechanism and rationale. `Tenant` itself is the isolation root and is not filtered. Cross-tenant isolation is covered by `tests/DaxaPos.Api.Tests/TenantIsolationTests.cs`. The JWT-claim-based tenant resolution mentioned above is the eventual `AuthMethod.CloudIdentityProvider` path (not yet wired — see ADR-0015 Follow-Up Work); the WebAPI-native `AuthContext`-based resolution is what's implemented today.
 
 ---
 

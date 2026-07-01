@@ -9,6 +9,8 @@ public class Device
 {
     public Guid Id { get; set; }
 
+    public Guid TenantId { get; set; }
+
     public Guid LocationId { get; set; }
 
     public DeviceType DeviceType { get; set; }

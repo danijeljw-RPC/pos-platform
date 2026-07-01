@@ -26,6 +26,16 @@ public class TerminalConfiguration : IEntityTypeConfiguration<Terminal>
             .HasForeignKey(t => t.LocationId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        // Denormalized for tenant-isolation query filters (ADR-0015).
+        builder.Property(t => t.TenantId).IsRequired();
+
+        builder.HasIndex(t => t.TenantId);
+
+        builder.HasOne<Tenant>()
+            .WithMany()
+            .HasForeignKey(t => t.TenantId)
+            .OnDelete(DeleteBehavior.Restrict);
+
         // A terminal may optionally be associated with a device; a device is not always a terminal.
         builder.HasOne<Device>()
             .WithMany()

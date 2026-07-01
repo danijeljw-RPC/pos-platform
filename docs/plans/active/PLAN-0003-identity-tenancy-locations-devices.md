@@ -2,10 +2,10 @@
 
 ## Status
 
-Approved 2026-07-01 — Milestone A in progress. Human sign-off received on the plan and on [ADR-0015](../../adr/accepted/ADR-0015-tenant-isolation-and-session-token-mechanism.md) (now **Accepted**, moved from `proposed/` to `accepted/`), plus explicit decisions on Region/Country descoping, PIN/session policy defaults, dev-only bootstrap seeding, and single-home-location `StaffMember` for MVP — see "Human Decisions Needed" for the recorded answers. Milestone B is now unblocked.
+Approved 2026-07-01 — Milestone B complete. Human sign-off received on the plan and on [ADR-0015](../../adr/accepted/ADR-0015-tenant-isolation-and-session-token-mechanism.md) (now **Accepted**, moved from `proposed/` to `accepted/`), plus explicit decisions on Region/Country descoping, PIN/session policy defaults, dev-only bootstrap seeding, and single-home-location `StaffMember` for MVP — see "Human Decisions Needed" for the recorded answers.
 
-- [x] Milestone A — Auth primitives (`AuthMethod`, `ICurrentTenantProvider`, `AuthContext`, hashers, token service, `DaxaPos.UnitTests` project) — complete, see PLAN-0003-worker-notes.md for the Milestone A report.
-- [ ] Milestone B — Tenant isolation (schema + fail-closed query filters)
+- [x] Milestone A — Auth primitives (`AuthMethod`, `ICurrentTenantProvider`, `AuthContext`, hashers, token service, `DaxaPos.UnitTests` project) — complete, committed as `23f89c8`. See PLAN-0003-worker-notes.md for the report.
+- [x] Milestone B — Tenant isolation (`TenantId` on `Location`/`Device`/`Terminal`, fail-closed global query filters on `Organisation`/`Location`/`Device`/`Terminal`, migration `AddTenantIsolationColumns`, cross-tenant isolation tests) — complete, see PLAN-0003-worker-notes.md for the Milestone B report.
 - [ ] Milestone C — RBAC schema, seed data, local username/password login, audit plumbing
 - [ ] Milestone D — Organisation / Location / Terminal endpoints
 - [ ] Milestone E — Device registration and credentials
@@ -170,12 +170,12 @@ Organised as milestones in dependency order. Each milestone ends in one or more 
 6. Register all of the above in `AddDaxaInfrastructure`.
 7. Add `tests/DaxaPos.UnitTests/DaxaPos.UnitTests.csproj` (referencing `Domain`, `Application`, `Infrastructure`); add to `DaxaPos.sln`. Write `Pbkdf2PinHasherTests` (hash/verify round-trip, wrong-PIN rejection, distinct salts for identical PINs) and `HmacDeviceCredentialHasherTests`.
 
-### Milestone B — Tenant isolation (unblocked — ADR-0015 accepted 2026-07-01)
+### Milestone B — Tenant isolation (complete 2026-07-01)
 
-8. Add `TenantId` (Guid, required) to `Location`, `Device`, `Terminal` entities and their EF configurations (indexed FK to `Tenant`).
-9. Update `DaxaDbContext` constructor to accept `ICurrentTenantProvider`; add fail-closed global query filters for `Location`, `Device`, `Terminal` in `OnModelCreating`.
-10. Create migration `AddTenantIsolationColumns`. No backfill logic needed (no production data exists yet in this skeleton). Apply and verify against a real Postgres container (`dotnet ef database update` + `psql \d` check), matching PLAN-0002's verification style.
-11. Add `TenantIsolationTests.cs` to `DaxaPos.Api.Tests`: seed two tenants' `Organisation`/`Location` rows directly via `DaxaDbContext` with a test double `ICurrentTenantProvider`, assert cross-tenant queries return zero rows and same-tenant queries return the expected rows; assert a `null` `ICurrentTenantProvider.TenantId` also returns zero rows (fail-closed).
+8. ✅ Add `TenantId` (Guid, required) to `Location`, `Device`, `Terminal` entities and their EF configurations (indexed FK to `Tenant`).
+9. ✅ Update `DaxaDbContext` constructor to accept `ICurrentTenantProvider`; add fail-closed global query filters for `Location`, `Device`, `Terminal` in `OnModelCreating` — **and also `Organisation`**, which already had `TenantId` from PLAN-0002 but no filter yet (an addition beyond this step's original wording, made to satisfy "ensure TenantId is applied consistently to tenant-owned entities"; `Tenant` itself remains unfiltered as the isolation root).
+10. ✅ Create migration `AddTenantIsolationColumns`. No backfill logic needed — verified the `db` container's tables were actually empty (in fact the InitialCreate migration had never been applied to that particular fresh Docker volume; both migrations were applied together via `dotnet ef database update`). Verified against a real Postgres container (`psql \d locations/devices/terminals` confirming columns, indexes, and FKs), matching PLAN-0002's verification style.
+11. ✅ Add `TenantIsolationTests.cs` to `DaxaPos.Api.Tests` (plus a `Support/FakeCurrentTenantProvider.cs` test double): 6 tests covering same-tenant visibility, cross-tenant invisibility (`Location` and `Organisation`), missing-tenant-context invisibility (`Location` and `Organisation`), and a list query that only returns the caller's tenant's rows when two tenants both have data. All written test-first (RED via compile failure, since `TenantId`/the new constructor didn't exist yet) then implemented to GREEN.
 
 ### Milestone C — RBAC schema, seed data, local username/password login, audit plumbing
 

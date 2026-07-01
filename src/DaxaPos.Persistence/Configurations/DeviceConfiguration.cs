@@ -30,5 +30,15 @@ public class DeviceConfiguration : IEntityTypeConfiguration<Device>
             .WithMany()
             .HasForeignKey(d => d.LocationId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        // Denormalized for tenant-isolation query filters (ADR-0015).
+        builder.Property(d => d.TenantId).IsRequired();
+
+        builder.HasIndex(d => d.TenantId);
+
+        builder.HasOne<Tenant>()
+            .WithMany()
+            .HasForeignKey(d => d.TenantId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }
