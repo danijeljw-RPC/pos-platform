@@ -1,0 +1,31 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-daxapos}
+      POSTGRES_USER: ${POSTGRES_USER:-daxapos}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-daxapos_dev_password}
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-daxapos} -d ${POSTGRES_DB:-daxapos}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Keycloak is scoped to cloud/admin/back-office/support/external identity only (ADR-0013).
+  # It is optional for this skeleton: nothing in DaxaPos.Api depends on it yet, and the API
+  # must start and report healthy (GET /health) whether or not this service is running.
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.0
+    command: start-dev
+    environment:
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin_dev_password}
+    ports:
+      - "127.0.0.1:8081:8080"
+
+volumes:
+  db_data:

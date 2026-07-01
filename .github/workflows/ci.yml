@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: daxapos
+          POSTGRES_USER: daxapos
+          POSTGRES_PASSWORD: daxapos_dev_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U daxapos -d daxapos"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "9.0.x"
+
+      - name: Restore
+        run: dotnet restore DaxaPos.sln
+
+      - name: Build
+        run: dotnet build DaxaPos.sln --no-restore --configuration Release
+
+      - name: Test
+        run: dotnet test DaxaPos.sln --no-build --configuration Release
+        env:
+          ConnectionStrings__DaxaDb: "Host=localhost;Port=5432;Database=daxapos;Username=daxapos;Password=daxapos_dev_password"

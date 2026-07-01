@@ -1,0 +1,11 @@
+<Project>
+
+  <PropertyGroup>
+    <!-- This build/CI environment may only have a later .NET runtime installed (e.g. .NET 10)
+         with no net9.0 runtime component present. RollForward lets net9.0 executables (API host,
+         test hosts) run here without changing the net9.0 TargetFramework any project declares.
+         Remove once a net9.0 runtime is guaranteed to be present, or once TFMs move to net10.0. -->
+    <RollForward>LatestMajor</RollForward>
+  </PropertyGroup>
+
+</Project>
