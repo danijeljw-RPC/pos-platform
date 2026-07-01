@@ -28,6 +28,10 @@ Keycloak is not included in the default Daxa Local stack. Local POS authenticati
 
 See [Deployment: Docker](docker.md) for Docker Compose configuration.
 
+### Bootstrap admin (dev/local only)
+
+Since there is no self-serve tenant/organisation provisioning yet, the first `SystemAdmin` user for a fresh local install is created by an idempotent startup routine (`BootstrapAdminSeeder`, PLAN-0003 Milestone C) that reads `DAXA_BOOTSTRAP_ADMIN_EMAIL`/`DAXA_BOOTSTRAP_ADMIN_PASSWORD` from `deploy/.env` (see `deploy/.env.example`). If either is unset, seeding is skipped and the app still starts normally — there is no fallback/guessable credential in source. If a user with that email already exists, seeding is skipped without resetting its password. Rotate or replace this credential before any real use; this mechanism is not a production tenant-onboarding flow.
+
 ---
 
 ## Hardware Requirements

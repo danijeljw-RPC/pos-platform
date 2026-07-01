@@ -67,6 +67,10 @@ Roles include: `SystemAdmin`, `OrganisationOwner`, `VenueManager`, `Staff`, `Sup
 
 Financial operations (refunds, voids, discounts) require elevated roles.
 
+### Implementation status (PLAN-0003 Milestone C, 2026-07-02)
+
+Local username/password login (`AuthMethod.LocalUsernamePassword`) is implemented: `POST /api/v1/auth/local/login`, `POST /api/v1/auth/logout`, `GET /api/v1/auth/me`. Sessions are opaque, server-hashed bearer tokens (`AuthSession`, not JWT — see [ADR-0015](../adr/accepted/ADR-0015-tenant-isolation-and-session-token-mechanism.md)), capped at 12 hours absolute lifetime with an 8-hour idle timeout. Failed-login lockout is 5 attempts / 15 minutes (`LoginLockoutPolicy`). The `AuthContext` field named `ClientId` above corresponds to `TenantId` in the implemented model (the domain's persisted entity is `Tenant`; the field naming reconciliation was recorded during PLAN-0003 planning). `AuthMethod.LocalStaffPin` (staff PIN login) and `AuthMethod.DeviceToken` are not implemented yet — see PLAN-0003 Milestones E/F. `AuthMethod.CloudIdentityProvider` (Keycloak) remains unwired — see ADR-0015 Follow-Up Work. The permission catalogue seeded so far (`organisations.manage`, `locations.manage`, `terminals.manage`, `devices.manage`, `devices.register`, `staff.manage`, `users.manage`, `sessions.manage`) is intentionally minimal, not the full eventual set.
+
 ---
 
 ## Tenant Isolation

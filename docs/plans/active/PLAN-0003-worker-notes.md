@@ -179,4 +179,89 @@ None. `dotnet build`/`dotnet test` are clean, Keycloak remains stopped and unuse
 
 ---
 
-*Milestone B completed: 2026-07-01.*
+## Milestone C Report (2026-07-02)
+
+Human approved Milestone C scope (RBAC schema foundation, permission catalogue seed data, local WebAPI-native admin/bootstrap login, staff/user model foundation, audit context plumbing foundation) with explicit rules: no order/tax/payment/Stripe/sync/UI/KDS, no `Modules.*`, no weakening tenant filters, no raw password/PIN/session-token storage, no database-primary-key-as-login-identifier, local auth kept separate from Keycloak/OIDC. All observed.
+
+**Scope clarification recorded before coding:** "staff/user model foundation required for later staff PIN login" was interpreted as the `User`/RBAC/`AuthSession`/`AuditEvent` mechanism Milestone F's staff-PIN login will reuse — **not** as pulling the `StaffMember` table forward into this milestone. `StaffMember`/`StaffMemberRole` remain Milestone F, per the already-approved plan's milestone ordering. Confirmed via `find` that no `StaffMember`-named file exists anywhere in `src/`.
+
+TDD used throughout: `LoginLockoutPolicyTests`/`SessionExpiryPolicyTests` (pure logic, unit-level) and `RequirePermissionFilterTests` (constructed directly via `EndpointFilterInvocationContext.Create`, no HTTP) were each written first and confirmed RED via compile failure before implementing. `LocalUserLoginTests.cs` (12 HTTP-level tests) was written as a full vertical-slice acceptance test after the supporting pieces existed — consistent with how `TenantIsolationTests` was handled in Milestone B, since a login flow spanning entities → migration → auth handler → endpoints → audit handlers can't meaningfully "fail for the right reason" one piece at a time.
+
+### Files changed
+
+New (selected — see git diff for the full list):
+- `src/DaxaPos.Domain/Entities/Role.cs`, `Permission.cs`, `RolePermission.cs`, `User.cs`, `UserRole.cs`, `AuthSession.cs`, `AuditEvent.cs`.
+- `src/DaxaPos.Domain/Events/LocalUserLoginSucceededDomainEvent.cs`, `LocalUserLoginFailedDomainEvent.cs`, `AuthSessionRevokedDomainEvent.cs`.
+- `src/DaxaPos.Application/Identity/LoginLockoutPolicy.cs`, `SessionExpiryPolicy.cs`.
+- `src/DaxaPos.Persistence/Seed/RbacSeedIds.cs`; `Configurations/RoleConfiguration.cs`, `PermissionConfiguration.cs`, `RolePermissionConfiguration.cs`, `UserConfiguration.cs`, `UserRoleConfiguration.cs`, `AuthSessionConfiguration.cs`, `AuditEventConfiguration.cs`.
+- `src/DaxaPos.Persistence/Migrations/20260701152344_AddIdentityAndRbacCore.cs` (+ `.Designer.cs`).
+- `src/DaxaPos.Api/BootstrapAdminSeeder.cs`; `Authentication/SessionAuthenticationHandler.cs`; `Authorization/RequirePermissionFilter.cs`; `Audit/DomainEventAuditHandlers.cs`; `Endpoints/Identity/AuthEndpoints.cs`.
+- `tests/DaxaPos.UnitTests/Identity/LoginLockoutPolicyTests.cs`, `SessionExpiryPolicyTests.cs`.
+- `tests/DaxaPos.Api.Tests/RequirePermissionFilterTests.cs`, `LocalUserLoginTests.cs`.
+
+Modified:
+- `src/DaxaPos.Persistence/DaxaDbContext.cs` — new `DbSet`s, fail-closed filters for `User`/`UserRole`/`AuthSession`/`AuditEvent`.
+- `src/DaxaPos.Api/Program.cs` — authentication/authorization wiring, audit handler registration, `MapAuthEndpoints()`, `BootstrapAdminSeeder.SeedAsync()` call before `app.Run()`.
+- `deploy/.env.example` — documented `DAXA_BOOTSTRAP_ADMIN_EMAIL`/`PASSWORD` as dev/local-only.
+- `docs/deployment/local.md`, `docs/architecture/security.md` — implementation-status notes.
+- Plan doc Status/Milestone C section.
+
+### Migration created
+
+`AddIdentityAndRbacCore` (`20260701152344_AddIdentityAndRbacCore`). Creates `roles`, `permissions`, `role_permissions`, `users`, `user_roles`, `auth_sessions`, `audit_events`, plus seed `InsertData` for the role/permission catalogue. Verified against a database dropped and recreated from scratch (`dotnet ef database drop --force` then `dotnet ef database update`, applying both `AddTenantIsolationColumns` and `AddIdentityAndRbacCore` in sequence), followed by a `psql` count check confirming exactly: SystemAdmin=8 permissions, OrganisationOwner=7, VenueManager=4, SupportAccess=2, Staff=0 (no row — matches "Staff gets none of these" by design).
+
+### Seed data
+
+`Role`: `SystemAdmin`, `OrganisationOwner`, `VenueManager`, `Staff`, `SupportAccess`. `Permission`: the 8-code catalogue from the plan. `RolePermission`: mapped exactly per the plan's table. No `Tenant`/`Organisation`/`User` seeded via migration — see the bootstrap-seeding deviation above; those are created by `BootstrapAdminSeeder` at app startup instead, gated on env vars.
+
+### Login/session/audit pieces
+
+`POST /api/v1/auth/local/login`, `POST /api/v1/auth/logout`, `GET /api/v1/auth/me` (permanent endpoint, not a test-only route). `SessionAuthenticationHandler` (scheme name `"Session"`, the only scheme registered — no `DeviceToken` scheme yet, that's Milestone E). `RequirePermissionFilter` implemented without the `rejectStaffPin` parameter (see deviation note above — nothing to reject yet). Audit: `LocalUserLoginSucceededAuditHandler`, `LocalUserLoginFailedAuditHandler`, `AuthSessionRevokedAuditHandler`, each a thin `IDomainEventHandler<T>` writing one `AuditEvent` row, hosted in `DaxaPos.Api` per ADR-0015 §4 (no reference-graph change).
+
+### Tests added
+
+`DaxaPos.UnitTests` (+13): `LoginLockoutPolicyTests` (6), `SessionExpiryPolicyTests` (7).
+`DaxaPos.Api.Tests` (+15): `RequirePermissionFilterTests` (3: no-context→401, wrong-permission→403, correct-permission→calls next), `LocalUserLoginTests` (12: correct login, wrong password, unknown email, inactive user, lockout-after-5-then-still-locked-with-correct-password, `/me` happy path, `/me` no token, `/me` garbage token, logout-then-old-token-rejected, audit row on success, audit row on failure, no audit row for unknown email).
+
+### Commands run
+
+```
+dotnet test tests/DaxaPos.UnitTests/DaxaPos.UnitTests.csproj      (RED then GREEN, policy classes)
+dotnet build tests/DaxaPos.Api.Tests/DaxaPos.Api.Tests.csproj      (RED then GREEN, RequirePermissionFilter)
+dotnet build src/DaxaPos.Persistence/DaxaPos.Persistence.csproj
+dotnet ef migrations add AddIdentityAndRbacCore \
+  --project src/DaxaPos.Persistence/DaxaPos.Persistence.csproj \
+  --startup-project src/DaxaPos.Api/DaxaPos.Api.csproj --output-dir Migrations
+dotnet ef database drop --force \
+  --project src/DaxaPos.Persistence/DaxaPos.Persistence.csproj \
+  --startup-project src/DaxaPos.Api/DaxaPos.Api.csproj
+dotnet ef database update \
+  --project src/DaxaPos.Persistence/DaxaPos.Persistence.csproj \
+  --startup-project src/DaxaPos.Api/DaxaPos.Api.csproj
+docker compose exec -T db psql -U daxapos -d daxapos -c "SELECT ... FROM roles/permissions/role_permissions ..."
+dotnet build DaxaPos.sln
+dotnet test tests/DaxaPos.Api.Tests/DaxaPos.Api.Tests.csproj --filter "FullyQualifiedName~LocalUserLoginTests"
+dotnet test DaxaPos.sln
+docker compose ps                                                  (confirmed Keycloak still not running)
+```
+
+### Build/test result
+
+`dotnet build DaxaPos.sln` — 0 warnings, 0 errors.
+`dotnet test DaxaPos.sln` (Postgres `db` running, fresh migrations applied, `keycloak` stopped) — **53/53 passed** (31 unit tests + 22 API tests: 1 health check + 6 tenant isolation + 3 permission filter + 12 login), 0 failed, 0 skipped.
+
+### Deviations from the written plan (flagged, not silently made)
+
+1. **Bootstrap seeding consolidated into one startup routine** rather than split between `HasData` and code — see step 13 above and the plan's own "ADRs Required"/Architecture Assumptions section, now corrected there too.
+2. **`LocalUserLoginFailedDomainEvent` only fires for a matched real `User`**, not for unknown emails — keeps `AuditEvent.TenantId` non-nullable; verified by a dedicated test.
+3. **`RequirePermissionFilter` does not yet implement `rejectStaffPin`** — deferred to Milestone F when there's an actual `LocalStaffPin` session to reject. Flagged in the plan so Milestone F doesn't forget to retrofit it onto Milestones C/D/E's endpoints, not just its own.
+4. **Two extra pure-logic classes** (`LoginLockoutPolicy`, `SessionExpiryPolicy`) not itemised in the original step list — extracted so the 5-attempt/15-minute and 12-hour/8-hour policy values live in one obvious, independently-unit-tested place rather than as inline literals in the login endpoint and session handler.
+5. **`GET /api/v1/auth/me` added** as a permanent endpoint (not originally itemised, though implied by step 21's "authenticated call to a protected endpoint") — a legitimate, ordinary identity-introspection endpoint, not a throwaway test fixture.
+
+### Blockers before Milestone D
+
+None. `dotnet build`/`dotnet test` are clean, Keycloak remains stopped and unused, no client-supplied route/body value is trusted as tenant authority anywhere (there are no resource-scoping route params yet — `/auth/*` endpoints take no tenant/org/location identifiers at all), and nothing added strays into Milestone D–H territory (no `Organisation`/`Location`/`Terminal` write endpoints yet, no `StaffMember`, no `DeviceCredential`, no `Modules.*`).
+
+---
+
+*Milestone C completed: 2026-07-02.*

@@ -17,6 +17,20 @@ public class DaxaDbContext(DbContextOptions<DaxaDbContext> options, ICurrentTena
 
     public DbSet<Terminal> Terminals => Set<Terminal>();
 
+    public DbSet<Role> Roles => Set<Role>();
+
+    public DbSet<Permission> Permissions => Set<Permission>();
+
+    public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
+
+    public DbSet<User> Users => Set<User>();
+
+    public DbSet<UserRole> UserRoles => Set<UserRole>();
+
+    public DbSet<AuthSession> AuthSessions => Set<AuthSession>();
+
+    public DbSet<AuditEvent> AuditEvents => Set<AuditEvent>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(DaxaDbContext).Assembly);
@@ -35,5 +49,23 @@ public class DaxaDbContext(DbContextOptions<DaxaDbContext> options, ICurrentTena
 
         modelBuilder.Entity<Terminal>()
             .HasQueryFilter(t => currentTenantProvider.TenantId != null && t.TenantId == currentTenantProvider.TenantId);
+
+        // `Role`/`Permission`/`RolePermission` are system-wide catalogues, not tenant-owned — no
+        // filter. `User`, `UserRole`, `AuthSession`, `AuditEvent` are tenant-owned and follow the
+        // same fail-closed pattern. Two callers must deliberately bypass this with
+        // IgnoreQueryFilters() before any tenant context can exist — looking up a User by email
+        // during login, and looking up an AuthSession by token hash during session validation —
+        // both documented at their call sites, per ADR-0015's narrow-bootstrap-exception rule.
+        modelBuilder.Entity<User>()
+            .HasQueryFilter(u => currentTenantProvider.TenantId != null && u.TenantId == currentTenantProvider.TenantId);
+
+        modelBuilder.Entity<UserRole>()
+            .HasQueryFilter(ur => currentTenantProvider.TenantId != null && ur.TenantId == currentTenantProvider.TenantId);
+
+        modelBuilder.Entity<AuthSession>()
+            .HasQueryFilter(s => currentTenantProvider.TenantId != null && s.TenantId == currentTenantProvider.TenantId);
+
+        modelBuilder.Entity<AuditEvent>()
+            .HasQueryFilter(a => currentTenantProvider.TenantId != null && a.TenantId == currentTenantProvider.TenantId);
     }
 }
