@@ -19,7 +19,7 @@ This folder contains all planning, architecture, decision, and module documentat
 
 - [ADR Index](adr/index.md)
 
-Proposed ADRs are under `adr/proposed/`. No ADRs have been accepted yet — all require human review.
+All 12 ADRs (ADR-0001 through ADR-0013, excluding superseded ADR-0009) are accepted. Accepted ADRs are under `adr/accepted/`. ADR-0009 is superseded by ADR-0013 and is under `adr/superseded/`.
 
 ---
 
@@ -34,6 +34,8 @@ Proposed ADRs are under `adr/proposed/`. No ADRs have been accepted yet — all 
 - [PLAN-0006 — Terminal, Display, PWA](plans/active/PLAN-0006-terminal-display-pwa-planning.md)
 - [PLAN-0007 — Sync, Local, Hybrid](plans/active/PLAN-0007-sync-local-hybrid-planning.md)
 - [PLAN-0008 — Testing, Security, Deployment](plans/active/PLAN-0008-testing-security-deployment-planning.md)
+- [PLAN-docs-consolidation — Documentation Consolidation](plans/active/PLAN-docs-consolidation.md)
+- [Implementation Readiness Report](plans/active/implementation-readiness-report.md)
 
 ---
 
@@ -41,7 +43,7 @@ Proposed ADRs are under `adr/proposed/`. No ADRs have been accepted yet — all 
 
 - [Issue Index](issues/index.md)
 
-Open issues are under `issues/open/`. Issues require human decision before closing.
+All 10 open issues are now closed. Closed issues are under `issues/closed/`.
 
 ---
 
