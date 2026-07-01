@@ -9,6 +9,13 @@
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="9.0.4" />
   </ItemGroup>
 
+  <!-- FrameworkReference (not a NuGet package) is the supported way for a non-Web-SDK class
+       library to consume IHttpContextAccessor/HttpContext, used by HttpContextAuthContextAccessor
+       to read the AuthContext stashed by Api's authentication handlers. -->
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>

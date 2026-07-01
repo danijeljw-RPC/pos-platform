@@ -21,6 +21,7 @@ Architecture Decision Records for Daxa POS.
 | [ADR-0012](accepted/ADR-0012-docker-local-deployment-strategy.md) | Docker and Docker Compose Local Deployment Strategy | Deployment / Infrastructure |
 | [ADR-0013](accepted/ADR-0013-cloud-identity-and-local-pos-authentication-strategy.md) | Cloud Identity and Local POS Authentication Strategy | Identity / Security |
 | [ADR-0014](accepted/ADR-0014-inter-module-communication.md) | Inter-Module Communication Pattern | Architecture |
+| [ADR-0015](accepted/ADR-0015-tenant-isolation-and-session-token-mechanism.md) | Tenant Isolation Mechanism and POS Session Token Format | Architecture / Identity / Security |
 
 ---
 
