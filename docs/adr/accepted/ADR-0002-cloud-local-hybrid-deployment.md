@@ -42,8 +42,8 @@ All three modes use the same codebase, same domain model, and same API concepts.
 
 ## Open Questions
 
-- See [OI-0003 — Local Server Reference Hardware](../../issues/open/OI-0003-local-server-reference-hardware.md)
-- See [OI-0008 — Cloud Data Region Strategy](../../issues/open/OI-0008-cloud-data-region-strategy.md)
+- See [OI-0003 — Local Server Reference Hardware](../../issues/closed/OI-0003-local-server-reference-hardware.md)
+- See [OI-0008 — Cloud Data Region Strategy](../../issues/closed/OI-0008-cloud-data-region-strategy.md)
 - How will deployment mode be detected and enforced at runtime?
 - Will Daxa Local require a Daxa-issued device certificate for trust?
 

@@ -52,9 +52,9 @@ Non-Windows devices (Linux kiosks, tablets, KDS screens) need: easy deployment, 
 
 ## Open Questions
 
-- See [OI-0009 — MAUI App Update Delivery](../../issues/open/OI-0009-maui-app-update-delivery.md)
+- See [OI-0009 — MAUI App Update Delivery](../../issues/closed/OI-0009-maui-app-update-delivery.md)
 - Which Windows POS hardware models will be targeted first?
-- See [OI-0003 — Local Server Reference Hardware](../../issues/open/OI-0003-local-server-reference-hardware.md)
+- See [OI-0003 — Local Server Reference Hardware](../../issues/closed/OI-0003-local-server-reference-hardware.md)
 
 ## Related Documents
 

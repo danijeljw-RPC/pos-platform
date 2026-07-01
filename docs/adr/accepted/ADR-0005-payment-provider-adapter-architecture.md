@@ -67,8 +67,8 @@ Staff do not manually enter payment amounts into integrated terminals. The POS s
 
 ## Open Questions
 
-- See [OI-0001 — First Payment Provider](../../issues/open/OI-0001-first-payment-provider.md)
-- See [OI-0005 — First Payment Terminal Reference Device](../../issues/open/OI-0005-first-payment-terminal-reference-device.md)
+- See [OI-0001 — First Payment Provider](../../issues/closed/OI-0001-first-payment-provider.md)
+- See [OI-0005 — First Payment Terminal Reference Device](../../issues/closed/OI-0005-first-payment-terminal-reference-device.md)
 
 ## Related Documents
 

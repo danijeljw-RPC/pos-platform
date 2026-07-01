@@ -397,4 +397,4 @@ Separate images may be created for deployment convenience, hosting optimisation,
 
 - [ADR-0002 — Cloud, Local, Hybrid Deployment Modes](ADR-0002-cloud-local-hybrid-deployment.md)
 - [PLAN-0002 — Platform Skeleton](../../plans/active/PLAN-0002-platform-skeleton.md)
-- [OI-0003 — Local Server Reference Hardware](../../issues/open/OI-0003-local-server-reference-hardware.md)
+- [OI-0003 — Local Server Reference Hardware](../../issues/closed/OI-0003-local-server-reference-hardware.md)

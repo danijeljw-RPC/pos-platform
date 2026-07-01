@@ -42,7 +42,7 @@ Local-to-cloud and cloud-to-local sync in Daxa POS follows these principles:
 
 ## Open Questions
 
-- See [OI-0006 — Hybrid Sync Conflict Rules](../../issues/open/OI-0006-hybrid-sync-conflict-rules.md)
+- See [OI-0006 — Hybrid Sync Conflict Rules](../../issues/closed/OI-0006-hybrid-sync-conflict-rules.md)
 
 ## Related Documents
 

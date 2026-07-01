@@ -69,7 +69,7 @@ F = GST-free
 
 ## Open Questions
 
-- See [OI-0007 — Tax Configuration Editing Permissions](../../issues/open/OI-0007-tax-configuration-editing-permissions.md)
+- See [OI-0007 — Tax Configuration Editing Permissions](../../issues/closed/OI-0007-tax-configuration-editing-permissions.md)
 - Should AU GST rounding use standard ATO rounding rules per line?
 - Should NZ GST calculation use the same engine with a 15% rate?
 
