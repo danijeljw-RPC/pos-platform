@@ -16,7 +16,9 @@ Milestone F implemented and complete 2026-07-02. `dotnet build`/`dotnet test` cl
 
 Milestone G approved 2026-07-03 as test-and-documentation-only (offline verification tests, consolidated RBAC matrix, `IgnoreQueryFilters()` guard test, smoke-test adoption, open issues OI-0011–OI-0015 for the Milestone C–F deferred risks; explicit decision that OI-0011 user-management endpoints is issue-only, not implemented) — see "Human Decisions Needed" entry dated 2026-07-03 (Milestone G). The preceding docs housekeeping/planning pass was committed first as `60dedbe`.
 
-Milestone G implemented and complete 2026-07-03. `dotnet build`/`dotnet test` clean (371/371 — 156 new tests), no migrations added (fresh-database verification re-run: all six existing migrations apply cleanly), no `src/` file changed, Keycloak stopped throughout. See the worker notes' Milestone G Report. **Not yet committed — awaiting explicit approval to commit.**
+Milestone G implemented and complete 2026-07-03. `dotnet build`/`dotnet test` clean (371/371 — 156 new tests), no migrations added (fresh-database verification re-run: all six existing migrations apply cleanly), no `src/` file changed, Keycloak stopped throughout. See the worker notes' Milestone G Report. Committed as `fb8a8b8` (`test(identity): add hybrid offline and RBAC verification`) and `cca09b5` (`docs: record PLAN-0003 deferred risks as open issues`).
+
+Milestone H (documentation-only closeout) approved and complete 2026-07-03. No source code, migrations, or tests changed. Consolidated `docs/architecture/security.md`/`tenancy.md`/`multi-location.md` and `docs/modules/devices.md`/`audit.md` with final implementation-status rollups; corrected stale Milestone G commit-status wording (above); created `docs/issues/open/OI-0016-define-completed-plan-archival-convention.md` (explicit human decision: PLAN-0003 stays in `docs/plans/active/`, not moved to `completed/`); added a `docs/CHANGELOG.md` entry for PLAN-0003; wrote the PLAN-0003 → PLAN-0004 handoff section in the worker notes. See the worker notes' Milestone H Report. **PLAN-0003 is complete, in place, under `docs/plans/active/`.**
 
 - [x] Milestone A — Auth primitives (`AuthMethod`, `ICurrentTenantProvider`, `AuthContext`, hashers, token service, `DaxaPos.UnitTests` project) — complete, committed as `23f89c8`. See PLAN-0003-worker-notes.md for the report.
 - [x] Milestone B — Tenant isolation (`TenantId` on `Location`/`Device`/`Terminal`, fail-closed global query filters on `Organisation`/`Location`/`Device`/`Terminal`, migration `AddTenantIsolationColumns`, cross-tenant isolation tests) — complete, committed as `ba7e237`. See PLAN-0003-worker-notes.md for the Milestone B report.
@@ -24,8 +26,10 @@ Milestone G implemented and complete 2026-07-03. `dotnet build`/`dotnet test` cl
 - [x] Milestone D — Organisation / Location / Terminal endpoints — complete, committed as `c592b49` (2026-07-02). See PLAN-0003-worker-notes.md for the Milestone D report.
 - [x] Milestone E — Device registration and credentials — complete, committed as `06bebfe` (2026-07-02). See PLAN-0003-worker-notes.md for the Milestone E report.
 - [x] Milestone F — StaffMember and staff PIN login — complete, committed as `585cd39` (2026-07-02). See PLAN-0003-worker-notes.md for the Milestone F report.
-- [x] Milestone G — Local/offline verification and RBAC consolidation — complete, not yet committed (2026-07-03). See PLAN-0003-worker-notes.md for the Milestone G report.
-- [ ] Milestone H — Documentation and plan closeout
+- [x] Milestone G — Local/offline verification and RBAC consolidation — complete, committed as `fb8a8b8`/`cca09b5` (2026-07-03). See PLAN-0003-worker-notes.md for the Milestone G report.
+- [x] Milestone H — Documentation and plan closeout — complete (2026-07-03), documentation-only. See PLAN-0003-worker-notes.md for the Milestone H report.
+
+**PLAN-0003 is complete as of Milestone H (2026-07-03), in place under `docs/plans/active/`** (not moved to `docs/plans/completed/` — see `docs/issues/open/OI-0016-define-completed-plan-archival-convention.md` for the deferred archival-convention question).
 
 ## Goal
 
@@ -288,9 +292,11 @@ Organised as milestones in dependency order. Each milestone ends in one or more 
 
 ### Milestone H — Documentation and plan closeout
 
-42. Update `docs/architecture/tenancy.md` (tenant isolation mechanism, denormalized `TenantId` note), `docs/architecture/security.md` (confirm it still matches the implemented `AuthContext`/session model — it already documents the ADR-0013 model correctly at the conceptual level), `docs/architecture/multi-location.md` (note `Region`/`Country` deferral), `docs/modules/devices.md` (registration PIN + credential lifecycle implemented).
-43. ~~Move `docs/adr/proposed/ADR-0015-...md` to `docs/adr/accepted/` once approved~~ — done 2026-07-01, per explicit human acceptance of ADR-0015 with the required additions; `docs/adr/index.md` updated accordingly.
-44. Update this plan's "Status" section with final ✅/⬜ per milestone; write `docs/plans/active/PLAN-0003-worker-notes.md` summarising what's implemented vs. deferred for the next worker (PLAN-0004).
+**Revised 2026-07-03** (approved as documentation-only, no source/migration/test changes; PLAN-0003 explicitly kept under `docs/plans/active/` rather than moved to `completed/` — see the new OI-0016 below): all three steps complete.
+
+42. ✅ Added a short, additive final "Implementation status" rollup to `docs/architecture/tenancy.md`, `docs/architecture/security.md`, `docs/architecture/multi-location.md`, `docs/modules/devices.md`, and `docs/modules/audit.md` — each doc's existing per-milestone status notes were left untouched (they remain a useful record of when each piece landed); the rollup only adds a closing summary that the plan is complete and states what's still explicitly out of scope.
+43. ~~Move `docs/adr/proposed/ADR-0015-...md` to `docs/adr/accepted/` once approved~~ — done 2026-07-01, per explicit human acceptance of ADR-0015 with the required additions; `docs/adr/index.md` updated accordingly. No ADR changes in Milestone H — ADR-0015 stays accepted, ADR-0016 stays proposed, neither reopened.
+44. ✅ Updated this plan's "Status" section with final state per milestone (including correcting Milestone G's stale "not yet committed" wording to record its actual commit hashes `fb8a8b8`/`cca09b5`); updated `docs/plans/active/PLAN-0003-worker-notes.md` with a Milestone H report and a fresh PLAN-0003 → PLAN-0004 handoff section. Also, beyond the original step wording: created `docs/issues/open/OI-0016-define-completed-plan-archival-convention.md` (+ `docs/issues/index.md` entry) recording the plan-relocation question raised during this closeout; corrected stale wording in `docs/README.md` (open-issue count) and added a `docs/CHANGELOG.md` entry for PLAN-0003.
 
 ## Initial Permission Catalogue
 
@@ -331,7 +337,8 @@ Organised as milestones in dependency order. Each milestone ends in one or more 
 
 ## Open Issues Required
 
-- None new. OI-0002, OI-0006, OI-0007, OI-0010 remain resolved/closed and are referenced, not reopened.
+- OI-0002, OI-0006, OI-0007, OI-0010 remain resolved/closed and are referenced, not reopened.
+- **Six new open issues were created by this plan, all still open at PLAN-0003 completion:** OI-0011 (user management endpoints), OI-0012 (inactive parent lifecycle vs device/staff authentication), OI-0013 (device registration PIN `MaxUses` concurrency race), OI-0014 (tenant-less security-event auditing), OI-0015 (permission metadata for staff-PIN eligibility) — all opened at Milestone G (2026-07-03) — and OI-0016 (define completed-plan archival convention), opened at Milestone H (2026-07-03). None of the six are closed by this plan; see `docs/issues/index.md` for the current status of each.
 
 ## Human Decisions Needed — Recorded Answers (2026-07-01)
 

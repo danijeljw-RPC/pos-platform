@@ -7,7 +7,7 @@ Issues that have been decided are moved to `issues/closed/` and listed under Clo
 
 ## Open Issues
 
-Grouped by area. All five were opened by PLAN-0003 Milestone G (2026-07-03), converting deferred risks recorded in the Milestone C–F worker notes into tracked issues.
+Grouped by area. Five were opened by PLAN-0003 Milestone G (2026-07-03), converting deferred risks recorded in the Milestone C–F worker notes into tracked issues. A sixth, OI-0016, was opened by PLAN-0003 Milestone H (2026-07-03) closeout, recording a process question raised while deciding whether to relocate the plan document itself.
 
 ### Identity / Security
 
@@ -28,6 +28,12 @@ Grouped by area. All five were opened by PLAN-0003 Milestone G (2026-07-03), con
 | Issue | Title | Deferred from |
 |-------|-------|---------------|
 | [OI-0014](open/OI-0014-tenantless-security-event-auditing.md) | Tenant-less Unauthenticated Security-Event Auditing | PLAN-0003 Milestones C/E |
+
+### Documentation / Process
+
+| Issue | Title | Deferred from |
+|-------|-------|---------------|
+| [OI-0016](open/OI-0016-define-completed-plan-archival-convention.md) | Define Completed-Plan Archival Convention | PLAN-0003 Milestone H |
 
 ---
 

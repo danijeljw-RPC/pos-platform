@@ -46,6 +46,10 @@ Two new tenant-owned tables, `device_credentials` and `device_registration_pins`
 
 Two new tenant-owned tables, `staff_members` and `staff_member_roles` (migration `AddStaffMembers`, which also added the deferred `auth_sessions.staff_member_id` FK), follow the standard pattern: denormalized `TenantId` column + fail-closed global query filter. Notably, staff PIN login needs **no** `IgnoreQueryFilters()` bootstrap call site: the login endpoint runs after `DeviceTokenAuthenticationHandler` has already established the device's tenant context, so the `StaffMember` lookup happens under the normal fail-closed filter — the documented bootstrap set remains the four Milestone C–E call sites. Staff-member endpoints apply the same organisation cross-check as Locations (`AuthContext.OrganisationId`, 404 on mismatch, including a different organisation within the same tenant).
 
+### PLAN-0003 closeout (Milestone H, 2026-07-03)
+
+PLAN-0003 is complete: fail-closed `TenantId`-based isolation now covers every tenant-owned table introduced by this plan (`Organisation`, `Location`, `Device`, `Terminal`, `User`, `UserRole`, `AuthSession`, `AuditEvent`, `DeviceCredential`, `DeviceRegistrationPin`, `StaffMember`, `StaffMemberRole`), with a source-scan guard test (`IgnoreQueryFiltersUsageTests.cs`) restricting the documented bootstrap bypass to exactly five files. `Region`/`Country` remain deliberately out of scope for this plan (see Non-goals and Human Decisions Needed #2) — `TenantId` is the only isolation key. Cross-tenant and cross-organisation access is consolidated and verified in `RbacTests.cs` (404/empty on every checked endpoint, never 500, never data).
+
 ---
 
 ## Organisation

@@ -705,7 +705,7 @@ All are already-recorded deferrals living only in this notes file; Milestone G p
 
 ### Is PLAN-0003 complete after Milestone G?
 
-**No — Milestone H is still required** (docs-only closeout: consolidate `docs/architecture/tenancy.md`/`security.md`/`multi-location.md` and `docs/modules/devices.md`/`audit.md` against what was actually built, finalise the plan Status, write handoff notes for PLAN-0004, move the plan to `docs/plans/completed/`). Milestone G is the last milestone that touches the test codebase; after G, the identity/tenancy/device foundation is code-complete pending H's documentation pass.
+**No — Milestone H is still required** (docs-only closeout: consolidate `docs/architecture/tenancy.md`/`security.md`/`multi-location.md` and `docs/modules/devices.md`/`audit.md` against what was actually built, finalise the plan Status, write handoff notes for PLAN-0004). Milestone G is the last milestone that touches the test codebase; after G, the identity/tenancy/device foundation is code-complete pending H's documentation pass. (Whether to also move the plan to `docs/plans/completed/` was an open question at the time this was written — resolved at Milestone H approval as **no**; see the Milestone H sections below.)
 
 ---
 
@@ -759,15 +759,15 @@ dotnet test DaxaPos.sln                                                 (371/371
 
 ### Working tree status
 
-**Not committed.** All changes are in the working tree only, per the explicit instruction not to commit the Milestone G implementation until the result is reviewed and approved.
+**Committed**, after human review and approval, as two commits: `fb8a8b8` (`test(identity): add hybrid offline and RBAC verification` — the three new test files) and `cca09b5` (`docs: record PLAN-0003 deferred risks as open issues` — the five open issues, `docs/issues/index.md`, and the testing/plan doc updates). *(This section originally read "Not committed"; corrected 2026-07-03 during Milestone H closeout, matching the same kind of stale-wording fix the Milestone G session itself applied to the Milestone D report.)*
 
 ### Blockers before Milestone H
 
-None. Milestone H is docs-only closeout (plan steps 42–44): consolidate `docs/architecture/tenancy.md`/`security.md`/`multi-location.md` and `docs/modules/devices.md`/`audit.md` against what was actually built, finalise the plan Status, write the PLAN-0004 handoff summary, and move the plan to `docs/plans/completed/`. After Milestone G, the identity/tenancy/device foundation is code-complete.
+None. Milestone H is docs-only closeout (plan steps 42–44): consolidate `docs/architecture/tenancy.md`/`security.md`/`multi-location.md` and `docs/modules/devices.md`/`audit.md` against what was actually built, finalise the plan Status, and write the PLAN-0004 handoff summary. (Whether to move the plan to `docs/plans/completed/` was decided at Milestone H approval — **no**, it stays in `active/`; see the Milestone H sections below and `docs/issues/open/OI-0016-define-completed-plan-archival-convention.md`.) After Milestone G, the identity/tenancy/device foundation is code-complete.
 
 ---
 
-*Milestone G completed: 2026-07-03 (uncommitted, pending review).*
+*Milestone G completed: 2026-07-03, committed as `fb8a8b8`/`cca09b5`.*
 
 ---
 
@@ -780,3 +780,147 @@ None. Milestone H is docs-only closeout (plan steps 42–44): consolidate `docs/
 - Index/cross-reference updates: `docs/adr/index.md`, `docs/README.md`, `docs/architecture/overview.md`, `docs/architecture/tax-engine.md`, `docs/modules/tax.md`, `docs/modules/receipts.md`, `docs/modules/catalog.md`, `docs/plans/active/PLAN-0006-terminal-display-pwa-planning.md`, `docs/03-phase-roadmap.md`.
 
 No PLAN-0003 implementation code was touched. No migrations were added. No localisation was implemented. This note exists only so a future reader of this file doesn't mistake the ADR-0016/localisation-plan commit for Milestone D or E work.
+
+---
+
+## Milestone H Planning Pass (2026-07-03)
+
+No code written this session — documentation-only closeout planning, per explicit instruction to stop after the plan and wait for approval. Context re-read: this plan doc, this notes file, `docs/architecture/security.md`/`tenancy.md`/`multi-location.md`, `docs/modules/devices.md`/`audit.md`, `docs/testing/security-tests.md`/`local-smoke-test.md`, `docs/issues/index.md` and all five open issues, `docs/README.md`, `docs/adr/index.md`, both `CHANGELOG.md` files, and `git log`/`git status`.
+
+### Correction discovered before planning
+
+Both this file's Milestone G report ("Working tree status: **Not committed**") and the plan's Status section ("Milestone G implemented and complete... **Not yet committed — awaiting explicit approval to commit.**") are now stale. `git log` confirms Milestone G was committed in two parts after that report was written: `fb8a8b8` (`test(identity): add hybrid offline and RBAC verification`) and `cca09b5` (`docs: record PLAN-0003 deferred risks as open issues`). Milestone H must correct both call sites to record the real commit hashes.
+
+### Docs to consolidate
+
+- `docs/architecture/security.md`, `tenancy.md`, `multi-location.md`, `docs/modules/devices.md`, `docs/modules/audit.md` — each already carries a per-milestone "Implementation status (PLAN-0003 Milestone X, date)" subsection, added incrementally as the right call during active development. Now that the plan is finished, propose adding one **final rollup "Implementation status" note per doc** (a short paragraph stating the doc is fully implemented as of PLAN-0003 completion, listing what remains explicitly out of scope — e.g. `Region`/`Country`, Keycloak wiring, inactive-parent cascade) rather than rewriting or deleting the existing per-milestone notes, which remain useful history of *when* each piece landed. This is additive, not destructive.
+- `docs/testing/security-tests.md` — already has a Milestone G implementation-status section; only needs its cross-links double-checked once PLAN-0003's own link target is decided (see "Move to completed?" below).
+
+### Stale wording to remove/fix
+
+1. This file's Milestone G report + the plan's Status section — commit hashes, per the correction above.
+2. `docs/README.md` line 48: **"All 10 open issues are now closed."** — false since Milestone G reopened five (OI-0011–OI-0015) on 2026-07-03; this line predates that and was never revisited. Needs updating to reflect 5 open / rest closed, matching `docs/issues/index.md`.
+3. Plan doc's own "Open Issues Required" section (near the bottom) still reads "None new. OI-0002, OI-0006, OI-0007, OI-0010 remain resolved/closed" — predates Milestone G's five new issues. Needs updating to list OI-0011–OI-0015 as the plan's actual output, explicitly still open by design.
+
+### PLAN-0003 status updates required
+
+- Status section: correct Milestone G commit hashes; add a Milestone H entry once this session's docs are approved and committed; add a final top-of-section summary line ("PLAN-0003 complete as of Milestone H, YYYY-MM-DD") once Milestone H itself is committed.
+- Milestone H steps 42–44 (currently unchecked) get checked off with an actual-vs-planned note, same convention as every prior milestone.
+
+### Worker notes final summary required
+
+Append (not rewrite) a closing "Milestone H Report" once the docs work is committed, plus a dedicated **"PLAN-0003 → PLAN-0004 Handoff"** section distinct from the existing 2026-07-01 "Handoff Notes" (which is now stale — written before Milestones B–G existed). Draft content for that handoff section:
+- Identity/tenancy/device foundation is complete: tenant isolation, RBAC, local username/password login, device registration/credentials, staff PIN login, offline verification, consolidated RBAC test matrix — all committed.
+- Reusable patterns for PLAN-0004 to extend rather than reinvent: `Permissions` catalogue + `RequirePermissionFilter(rejectStaffPin:)`, `RbacTestSeeder`/`DeviceTestHelper`/`StaffTestHelper`, the `IgnoreQueryFilters()` five-file allowlist + its guard test, the one-domain-event-per-entity-with-`Action` pattern for lifecycle audit events.
+- First permission PLAN-0004 adds (`tax.manage`, per already-closed OI-0007) is the natural trigger point for OI-0015 (permission metadata for staff-PIN eligibility) — flagged, not required.
+- Known gaps that don't block PLAN-0004: OI-0011 (no user-management endpoints — only matters for multi-organisation tenants, not single-org catalog work), OI-0012 (inactive-parent lifecycle), OI-0013 (registration-PIN race), OI-0014 (tenant-less audit).
+- ADR-0016/localisation remains proposed and unblocked by anything in PLAN-0003; unrelated unless PLAN-0004's catalog/menu naming needs early i18n consideration.
+
+### Open issues that remain after PLAN-0003
+
+OI-0011 through OI-0015 stay open by explicit instruction — Milestone H does not close or re-litigate any of them, only makes sure the index/README correctly describe them as open. A sixth, OI-0016 (completed-plan archival convention), is newly created by this Milestone H session per the move-to-completed decision above — six open issues total after Milestone H.
+
+### ADR/index/README updates required
+
+- `docs/adr/index.md` — no change needed; ADR-0015 (accepted) and ADR-0016 (proposed) are already listed correctly (unrelated to the new OI-0016 issue number, which is an Open Issue not an ADR).
+- `docs/README.md` — Issues section (stale count, above, now six open) and Active Plans list (no change — PLAN-0003 stays listed under Active, per the move decision).
+- `docs/issues/index.md` — add OI-0016 under a new or existing area group; no other content change expected.
+
+### Changelog update required
+
+Neither `CHANGELOG.md` (root) nor `docs/CHANGELOG.md` has a single entry for PLAN-0002 or any of PLAN-0003's Milestones A–G — both stop at the 2026-06-29/07-01 documentation-planning sessions. Backfilling PLAN-0002 is out of scope for this closeout. Propose one new dated entry in `docs/CHANGELOG.md` (its "Documentation Changelog" format fits a summary-of-a-completed-plan entry better than root's Keep-a-Changelog style) summarizing PLAN-0003 end-to-end at a high level and pointing to the worker notes for full detail, rather than re-deriving eight milestones' worth of file-by-file changes. Flagged as a proposal, not assumed.
+
+### Decision recorded (2026-07-03, Milestone H): PLAN-0003 stays in `active/`
+
+Human decision: do not move PLAN-0003 (or PLAN-0002) to `docs/plans/completed/` during Milestone H. Rationale recorded: PLAN-0002 is also complete but still lives under `active/`; moving only PLAN-0003 would create an inconsistent convention; moving both now would expand Milestone H into broader repository-organisation work beyond this plan's closeout; updating the 17 inbound links is unnecessary churn for this pass. PLAN-0003 is instead marked complete **in place**, via its own Status section and milestone checklist — a plan's location in `active/` no longer implies "not finished," only "not archived." A new open issue captures the unresolved convention question for whenever it's actually decided:
+
+- **OI-0016 — Define completed-plan archival convention.** To cover: whether completed plans move to `docs/plans/completed/`; whether worker-notes files move with the plan; whether inbound links get updated in place or a stable redirect/index layer is used instead; whether PLAN-0002 and PLAN-0003 should be migrated together, later, in one pass; whether `docs/README.md`'s "Active Plans" list should distinguish active / complete-but-retained / archived. No recommendation forced — genuinely open until a future pass wants to establish the convention.
+
+### Recommended next session
+
+1. Human reviews this planning pass and approves/amends the consolidation approach above (the move question is now resolved — see above).
+2. Implement in order: fix the two stale-commit call sites, then per-doc rollup status notes (architecture/modules), then `docs/README.md` issues count, then plan's "Open Issues Required" section (list OI-0011 through OI-0016), then create `docs/issues/open/OI-0016-...md` and update `docs/issues/index.md`, then the changelog entry, then the final worker-notes Milestone H report and PLAN-0004 handoff section, then the plan Status final update (marked complete in place, no relocation).
+3. Single docs-only commit (or two: architecture/module consolidation, then plan/status/handoff/issues/changelog closeout), matching Milestone G's `60dedbe`/`cca09b5` split style.
+
+---
+
+## Milestone H Report (2026-07-03)
+
+Human approved the Milestone H closeout plan with amendments (recorded above): documentation-only, no source/migration/test changes, PLAN-0003 kept in `docs/plans/active/` (not moved to `completed/`), OI-0016 created to hold the archival-convention question, six open issues (OI-0011–OI-0016) referenced but none closed. Scope guard fully observed: no user-management endpoints, no orders/tax/payments/Stripe/receipts/sync/UI/KDS/localisation/Keycloak JWT wiring, no ADRs reopened, no `src/`/migration/test file touched.
+
+### Files changed
+
+New:
+- `docs/issues/open/OI-0016-define-completed-plan-archival-convention.md`.
+
+Modified:
+- `docs/issues/index.md` — added OI-0016 under a new "Documentation / Process" area group; open-issue count note updated to six.
+- `docs/plans/active/PLAN-0003-identity-tenancy-locations-devices.md` — corrected Milestone G's stale "not yet committed" wording to record the real commit hashes (`fb8a8b8`/`cca09b5`); checked off Milestone H (steps 42–44) with actual-vs-planned notes; added a top-of-Status summary line marking PLAN-0003 complete in place under `active/`; updated "Open Issues Required" to list OI-0011–OI-0016 instead of "None new."
+- `docs/plans/active/PLAN-0003-worker-notes.md` (this file) — corrected the Milestone G report's "Not committed" wording (working-tree-status subsection and closing italic line) and the two Milestone G/H forward-references that still said "move the plan to `docs/plans/completed/`"; this Milestone H Report and the handoff section below.
+- `docs/README.md` — Issues section corrected from "All 10 open issues are now closed" to the current six-open/ten-closed count.
+- `docs/architecture/security.md`, `tenancy.md`, `multi-location.md`, `docs/modules/devices.md`, `docs/modules/audit.md` — one additive "PLAN-0003 closeout (Milestone H, 2026-07-03)" rollup subsection appended to each, after that doc's existing per-milestone implementation-status notes (which were left untouched). Each rollup states the doc's slice of PLAN-0003 is complete and links to whichever of OI-0011–OI-0015 documents what's still explicitly deferred.
+- `docs/CHANGELOG.md` — one new dated entry for PLAN-0003 (see below); no attempt to backfill PLAN-0002.
+
+No `docs/adr/*` file changed — ADR-0015 stays accepted, ADR-0016 stays proposed, neither reopened, per explicit instruction.
+
+### Migration created
+
+None — Milestone H has no schema dependency by design.
+
+### Tests added
+
+None — Milestone H is documentation-only; no test file was added or modified.
+
+### Commands run
+
+```
+git status                 (before and after edits)
+git diff --stat            (confirm only docs/ files changed)
+```
+
+No `dotnet build`/`dotnet test`/`dotnet ef` commands were run — nothing in `src/`, `tests/`, or `Migrations/` changed.
+
+### Verification result
+
+`git diff --stat` confirms only files under `docs/` changed (listed above); `git status` shows no untracked files outside the new `OI-0016` issue file; no `.cs`, `.csproj`, or migration file appears in either. No docs-lint tooling exists in this repository (no `.markdownlint*`, no docs-check script in `package.json`/CI) to run beyond the manual `git diff --stat` check — none was invented, per explicit instruction.
+
+### Working tree status
+
+Not committed. Per the explicit instruction, this Milestone H documentation closeout waits for human review of the actual diff before any commit is made.
+
+### Blockers before PLAN-0004
+
+None. PLAN-0003 is complete and all of its documentation is internally consistent (Status section, worker notes, architecture/module docs, issue index, README, changelog). See the handoff section immediately below for what PLAN-0004 needs to know.
+
+---
+
+## PLAN-0003 → PLAN-0004 Handoff (Milestone H, 2026-07-03)
+
+This supersedes the "Handoff Notes" section far above (written 2026-07-01, before Milestones B–H existed) as the current, authoritative pointer for whoever starts PLAN-0004 (Catalog, Menu, Tax, Pricing). That earlier section is left in place as a historical record of the plan's initial design questions, not as current guidance.
+
+### What's done
+
+Identity, tenancy, multi-location, and device-registration foundations are complete and committed: tenant isolation (fail-closed `TenantId` filters), RBAC (`Role`/`Permission`/`RolePermission`/`User`/`UserRole`), local username/password login, `Organisation`/`Location`/`Terminal` management, device registration/credentials, `StaffMember` + staff PIN login, and cross-cutting offline/RBAC verification. Every milestone's build/test run was clean (`dotnet build`/`dotnet test`, 371/371 at Milestone G) against a real Postgres container with Keycloak stopped.
+
+### Reusable patterns PLAN-0004 should extend, not reinvent
+
+- **`Permissions` catalogue + `RequirePermissionFilter(rejectStaffPin:)`** — add new permission codes here (the first is expected to be `tax.manage`, per already-closed OI-0007) rather than inventing a parallel authorization mechanism.
+- **`RbacTestSeeder`/`DeviceTestHelper`/`StaffTestHelper`** (`tests/DaxaPos.Api.Tests/Support/`) — reuse for seeding tenant/organisation/user/device/staff test fixtures instead of duplicating login/registration boilerplate.
+- **`RbacTests.PermissionGatedEndpoints`** — any new permission-gated endpoint PLAN-0004 adds should be appended to this inventory to inherit the full 401/403/404 authorization matrix for free.
+- **One domain event per entity carrying an `Action` field** (e.g. `OrganisationLifecycleDomainEvent`), not one event class per action — the established pattern for lifecycle audit events.
+- **`IgnoreQueryFilters()` stays a five-file allowlist**, enforced by `IgnoreQueryFiltersUsageTests.cs` — a new bootstrap/pre-auth code path needs its file added to both the test and the `DaxaDbContext` bootstrap-callers comment, not a silent sixth call site.
+
+### Known gaps that do not block PLAN-0004
+
+- **OI-0011 (user management endpoints)** — only matters once a tenant needs more than the bootstrap admin or a second organisation actually needs its own login; single-organisation catalog/menu/tax/pricing work is unaffected.
+- **OI-0012 (inactive-parent lifecycle)**, **OI-0013 (registration-PIN race)**, **OI-0014 (tenant-less audit)** — identity/device-layer concerns, orthogonal to catalog/tax/pricing.
+- **OI-0015 (permission metadata for staff-PIN eligibility)** — worth revisiting the moment PLAN-0004 adds its first new permission code (`tax.manage`), since that is exactly the "first unclassified addition" the issue warns about. Not a blocker — the current hard-coded `Permissions.AdminSensitive` list can simply be extended to include the new code, same as every other sensitive permission — but the issue should be looked at rather than reflexively extending the list forever.
+- **OI-0016 (completed-plan archival convention)** — pure documentation/process, irrelevant to PLAN-0004's implementation work.
+
+### ADR-0016 (localisation) status
+
+Proposed, planning-only, not part of PLAN-0003's implementation scope and not accepted or advanced by Milestone H. `docs/plans/active/PLAN-localisation-multi-language.md` remains a blocked placeholder pending ADR-0016 acceptance. Unrelated to PLAN-0004 unless catalog/menu/tax display naming needs early multi-language consideration — flagged here only so a future worker doesn't confuse it with PLAN-0003/PLAN-0004 work (see the "Unrelated Note" earlier in this file for how it originated).
+
+### What PLAN-0004 needs from this plan that already exists
+
+`AuthContext`, `RequirePermission`/`rejectStaffPin`, tenant/organisation resolution via `AuthContext.TenantId`/`OrganisationId` (never client-supplied), and the `AuditEvent`/domain-event-handler plumbing are all available to build on immediately — no additional identity/tenancy work is required before PLAN-0004 can start.
