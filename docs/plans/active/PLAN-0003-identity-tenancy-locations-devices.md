@@ -14,13 +14,17 @@ Milestone F approved 2026-07-02 with thirteen explicit amendments (flat routes +
 
 Milestone F implemented and complete 2026-07-02. `dotnet build`/`dotnet test` clean (215/215), migration `AddStaffMembers` verified incrementally and from a fresh dropped database (all six migrations apply cleanly in sequence), Keycloak stopped throughout. See the worker notes' Milestone F Report. Committed as `585cd39` (2026-07-02), after human review and approval.
 
+Milestone G approved 2026-07-03 as test-and-documentation-only (offline verification tests, consolidated RBAC matrix, `IgnoreQueryFilters()` guard test, smoke-test adoption, open issues OI-0011–OI-0015 for the Milestone C–F deferred risks; explicit decision that OI-0011 user-management endpoints is issue-only, not implemented) — see "Human Decisions Needed" entry dated 2026-07-03 (Milestone G). The preceding docs housekeeping/planning pass was committed first as `60dedbe`.
+
+Milestone G implemented and complete 2026-07-03. `dotnet build`/`dotnet test` clean (371/371 — 156 new tests), no migrations added (fresh-database verification re-run: all six existing migrations apply cleanly), no `src/` file changed, Keycloak stopped throughout. See the worker notes' Milestone G Report. **Not yet committed — awaiting explicit approval to commit.**
+
 - [x] Milestone A — Auth primitives (`AuthMethod`, `ICurrentTenantProvider`, `AuthContext`, hashers, token service, `DaxaPos.UnitTests` project) — complete, committed as `23f89c8`. See PLAN-0003-worker-notes.md for the report.
 - [x] Milestone B — Tenant isolation (`TenantId` on `Location`/`Device`/`Terminal`, fail-closed global query filters on `Organisation`/`Location`/`Device`/`Terminal`, migration `AddTenantIsolationColumns`, cross-tenant isolation tests) — complete, committed as `ba7e237`. See PLAN-0003-worker-notes.md for the Milestone B report.
 - [x] Milestone C — RBAC schema (`Role`/`Permission`/`RolePermission`/`User`/`UserRole`), local username/password login (`/auth/local/login`, `/auth/logout`, `/auth/me`), `AuthSession`, `AuditEvent` + audit plumbing, dev-only bootstrap admin seeding, migration `AddIdentityAndRbacCore` — complete, see PLAN-0003-worker-notes.md for the Milestone C report.
 - [x] Milestone D — Organisation / Location / Terminal endpoints — complete, committed as `c592b49` (2026-07-02). See PLAN-0003-worker-notes.md for the Milestone D report.
 - [x] Milestone E — Device registration and credentials — complete, committed as `06bebfe` (2026-07-02). See PLAN-0003-worker-notes.md for the Milestone E report.
 - [x] Milestone F — StaffMember and staff PIN login — complete, committed as `585cd39` (2026-07-02). See PLAN-0003-worker-notes.md for the Milestone F report.
-- [ ] Milestone G — Local/offline verification and RBAC consolidation
+- [x] Milestone G — Local/offline verification and RBAC consolidation — complete, not yet committed (2026-07-03). See PLAN-0003-worker-notes.md for the Milestone G report.
 - [ ] Milestone H — Documentation and plan closeout
 
 ## Goal
@@ -276,14 +280,17 @@ Organised as milestones in dependency order. Each milestone ends in one or more 
 
 ### Milestone G — Local/offline verification and RBAC consolidation
 
-39. Add `HybridOfflineLoginTests.cs`: with the `keycloak` container stopped (docker compose), run the full local-username/password login test and the full staff-PIN login test end-to-end — proving neither path has a hidden Keycloak/cloud dependency, matching PLAN-0002's own "API starts and reports healthy with Keycloak stopped" verification pattern but for the auth paths specifically.
-40. Add `RbacTests.cs` consolidating cross-cutting RBAC assertions across both auth methods: unauthenticated request → 401; authenticated-but-unauthorized (wrong permission) → 403; `Staff`-role PIN session on every `rejectStaffPin: true` endpoint → 403; cross-tenant access via a valid session for the wrong tenant → 404/empty, not 500.
+**Revised 2026-07-03** (planning pass, approved): confirmed as test-and-documentation-only — no entities, no migrations, no endpoints, no product-code behaviour changes. Two additions beyond the original steps 39–40: the `IgnoreQueryFilters()` source-scan guard test (implementing ADR-0015 §Risks' request that tests police the escape hatch) and the promotion of the Milestone C–F deferred risks to open issues OI-0011–OI-0015. `docs/testing/local-smoke-test.md` (human-authored manual walkthrough, committed with the planning pass as `60dedbe`) is adopted as the manual companion to these tests.
+
+39. ✅ Add `HybridOfflineLoginTests.cs`: with the `keycloak` container stopped (docker compose), run the full local-username/password login chain and the full staff-PIN login chain end-to-end (registration PIN → device registration → device-token context → staff PIN login → `rejectStaffPin` 403 → logout → dead token) — proving neither path has a hidden Keycloak/cloud dependency, matching PLAN-0002's own "API starts and reports healthy with Keycloak stopped" verification pattern but for the auth paths specifically. CI enforces the same property structurally: `.github/workflows/ci.yml` defines only a Postgres service, no Keycloak container at all.
+40. ✅ Add `RbacTests.cs` consolidating cross-cutting RBAC assertions across both auth methods, driven by one shared inventory of every protected endpoint (29 permission-gated + 3 auth-only): unauthenticated request → 401; garbage token → 401; revoked token → 401 immediately; authenticated-but-unauthorized (wrong permission) → 403; `DeviceToken` context → 403 on every permission-gated endpoint; a real `LocalStaffPin` session on every `rejectStaffPin: true` endpoint → 403; cross-tenant access via a valid `SystemAdmin` session for the wrong tenant → 404/empty, not 500 and never data.
+41. ✅ (Added at approval.) Add `IgnoreQueryFiltersUsageTests.cs` (unit): source-scan guard asserting `.IgnoreQueryFilters(` appears only in the five documented bootstrap/authentication files, with exact two-way equality so both an unapproved new bypass and a silently removed documented one fail the build. Create open issues OI-0011 (user-management endpoints — issue only, per explicit decision), OI-0012 (inactive parent lifecycle vs device/staff auth), OI-0013 (registration-PIN `MaxUses` race), OI-0014 (tenant-less security-event auditing), OI-0015 (permission metadata for staff-PIN eligibility); update `docs/issues/index.md`; add implementation-status notes to `docs/testing/testing-strategy.md`/`security-tests.md`. (Milestone H's original steps 41–43 are renumbered 42–44 by this insertion.)
 
 ### Milestone H — Documentation and plan closeout
 
-41. Update `docs/architecture/tenancy.md` (tenant isolation mechanism, denormalized `TenantId` note), `docs/architecture/security.md` (confirm it still matches the implemented `AuthContext`/session model — it already documents the ADR-0013 model correctly at the conceptual level), `docs/architecture/multi-location.md` (note `Region`/`Country` deferral), `docs/modules/devices.md` (registration PIN + credential lifecycle implemented).
-42. ~~Move `docs/adr/proposed/ADR-0015-...md` to `docs/adr/accepted/` once approved~~ — done 2026-07-01, per explicit human acceptance of ADR-0015 with the required additions; `docs/adr/index.md` updated accordingly.
-43. Update this plan's "Status" section with final ✅/⬜ per milestone; write `docs/plans/active/PLAN-0003-worker-notes.md` summarising what's implemented vs. deferred for the next worker (PLAN-0004).
+42. Update `docs/architecture/tenancy.md` (tenant isolation mechanism, denormalized `TenantId` note), `docs/architecture/security.md` (confirm it still matches the implemented `AuthContext`/session model — it already documents the ADR-0013 model correctly at the conceptual level), `docs/architecture/multi-location.md` (note `Region`/`Country` deferral), `docs/modules/devices.md` (registration PIN + credential lifecycle implemented).
+43. ~~Move `docs/adr/proposed/ADR-0015-...md` to `docs/adr/accepted/` once approved~~ — done 2026-07-01, per explicit human acceptance of ADR-0015 with the required additions; `docs/adr/index.md` updated accordingly.
+44. Update this plan's "Status" section with final ✅/⬜ per milestone; write `docs/plans/active/PLAN-0003-worker-notes.md` summarising what's implemented vs. deferred for the next worker (PLAN-0004).
 
 ## Initial Permission Catalogue
 
@@ -360,6 +367,10 @@ All five were decided by explicit human approval; recorded here so later milesto
    11. Disable: `IsActive = false`, revoke all active sessions, audit, prevent future login, immediately invalidate existing sessions.
    12. Six audited actions (`StaffMemberCreated`, `StaffMemberPinReset`, `StaffMemberRoleAssigned`, `StaffPinLoginSucceeded`, `StaffPinLoginFailed`, `StaffMemberDisabled`); unknown staff-code attempts audited (tenant/org/location/device known from the trusted device token); client responses stay generic — never disclose whether the code or the PIN was wrong.
    13. The full test list in the revised step 38.
+
+## Human Decisions Needed — Recorded Answers (2026-07-03, Milestone G)
+
+9. **Milestone G approved as test-and-documentation-only**, with the docs housekeeping/planning pass committed first (`60dedbe`, per explicit instruction). Allowed: offline/local verification tests, consolidated RBAC/auth/session tests, the `IgnoreQueryFilters()` source-scan guard test, adoption of `docs/testing/local-smoke-test.md`, testing/security doc updates, open issues for deferred risks, plan/worker-notes updates. Not allowed: new entities, migrations, new endpoints, product-code behaviour changes (unless required only to make an already-intended testable path work — none were needed), plus the standing scope guard (no orders/tax/payments/Stripe/receipts/sync/UI/KDS/`Modules.*`/Keycloak wiring/localisation). Approved test list: `HybridOfflineLoginTests.cs` (both auth chains end-to-end, Postgres only), `RbacTests.cs` (unauthenticated/garbage/revoked → 401; wrong-permission, `DeviceToken`, and `LocalStaffPin` → 403; cross-tenant → 404/empty, never 500), `IgnoreQueryFiltersUsageTests.cs` (documented-locations-only guard). Approved issues: OI-0011–OI-0015. **OI-0011 decision: create the issue only — user-management endpoints are a follow-up implementation plan, not Milestone G work.** Milestone G implementation is not to be committed until the result is reviewed and approved.
 
 ## Commit Sequence
 

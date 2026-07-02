@@ -491,3 +491,9 @@ Every implementation change must include relevant tests or clearly state why tes
 If tests are missing because test infrastructure does not exist yet, create or update an open issue and document the gap.
 
 Financial, tax, payment, refund, and audit changes must not be merged without tests.
+
+---
+
+# Implementation Status (PLAN-0003, as of Milestone G, 2026-07-03)
+
+Two test projects exist: `tests/DaxaPos.UnitTests/` (pure logic — hashers, policies, plus the `IgnoreQueryFilters()` source-scan guard) and `tests/DaxaPos.Api.Tests/` (HTTP-level tests against a real Postgres container; no mocks). Offline verification is structural: CI runs with a Postgres service only (no Keycloak container exists in the workflow), local runs keep the `keycloak` compose service stopped, and `HybridOfflineLoginTests.cs` exercises both auth chains end-to-end under those conditions. Cross-cutting authorization coverage is consolidated in `RbacTests.cs`, driven by a single protected-endpoint inventory — add new protected endpoints to that inventory as they are built. See [Security Tests](security-tests.md) for the detailed mapping and the [Local smoke test](local-smoke-test.md) for the manual walkthrough.

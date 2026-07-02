@@ -7,7 +7,27 @@ Issues that have been decided are moved to `issues/closed/` and listed under Clo
 
 ## Open Issues
 
-None. All current open issues have been resolved.
+Grouped by area. All five were opened by PLAN-0003 Milestone G (2026-07-03), converting deferred risks recorded in the Milestone C–F worker notes into tracked issues.
+
+### Identity / Security
+
+| Issue | Title | Deferred from |
+|-------|-------|---------------|
+| [OI-0011](open/OI-0011-user-management-endpoints.md) | User Management Endpoints | PLAN-0003 (permission seeded, endpoints never scoped into a milestone) |
+| [OI-0012](open/OI-0012-inactive-parent-lifecycle-vs-device-staff-authentication.md) | Inactive Parent Lifecycle vs Device/Staff Authentication | PLAN-0003 Milestones D/E |
+| [OI-0015](open/OI-0015-permission-metadata-for-staff-pin-eligibility.md) | Permission Metadata for Staff-PIN Eligibility | PLAN-0003 Milestone F (Decision 8) |
+
+### Devices
+
+| Issue | Title | Deferred from |
+|-------|-------|---------------|
+| [OI-0013](open/OI-0013-device-registration-pin-maxuses-concurrency.md) | DeviceRegistrationPin MaxUses Concurrency Race | PLAN-0003 Milestone E |
+
+### Audit
+
+| Issue | Title | Deferred from |
+|-------|-------|---------------|
+| [OI-0014](open/OI-0014-tenantless-security-event-auditing.md) | Tenant-less Unauthenticated Security-Event Auditing | PLAN-0003 Milestones C/E |
 
 ---
 

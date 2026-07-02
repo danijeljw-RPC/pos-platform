@@ -693,7 +693,7 @@ None.
 
 All are already-recorded deferrals living only in this notes file; Milestone G promotes them to `docs/issues/open/` + `docs/issues/index.md`:
 
-- **OI-0011 — User management endpoints.** `users.manage` is seeded but no endpoint consumes it; consequence (found by the manual smoke test): a `SystemAdmin` can create a second organisation but can never mint a login inside it — the bootstrap-organisation dead end. Recommended: defer to its own small follow-up plan, not built in G (it adds endpoints, which G's test-only scope excludes) — **human decision requested**.
+- **OI-0011 — User management endpoints.** `users.manage` is seeded but no endpoint consumes it; consequence (found by the manual smoke test): a `SystemAdmin` can create a second organisation but can never mint a login inside it — the bootstrap-organisation dead end. Recommended: defer to its own small follow-up plan, not built in G (it adds endpoints, which G's test-only scope excludes) — **human decision requested**. *(Decided at approval, 2026-07-03: create the issue only; user-management endpoints are a follow-up implementation plan.)*
 - **OI-0012 — Inactive-parent lifecycle semantics.** Device auth and staff login ignore parent `IsActive = false` (Milestone E deferred risk).
 - **OI-0013 — Registration-PIN `MaxUses` concurrency race** (Milestone E deferred risk).
 - **OI-0014 — Tenant-less security-event auditing** (unknown-email/unknown-PIN attempts unauditable while `AuditEvent.TenantId` is non-nullable; Milestones C/E).
@@ -706,6 +706,68 @@ All are already-recorded deferrals living only in this notes file; Milestone G p
 ### Is PLAN-0003 complete after Milestone G?
 
 **No — Milestone H is still required** (docs-only closeout: consolidate `docs/architecture/tenancy.md`/`security.md`/`multi-location.md` and `docs/modules/devices.md`/`audit.md` against what was actually built, finalise the plan Status, write handoff notes for PLAN-0004, move the plan to `docs/plans/completed/`). Milestone G is the last milestone that touches the test codebase; after G, the identity/tenancy/device foundation is code-complete pending H's documentation pass.
+
+---
+
+## Milestone G Report (2026-07-03)
+
+Human approved the Milestone G plan as test-and-documentation-only, with the docs housekeeping/planning pass committed first (`60dedbe`: Milestone F status → `585cd39`, Milestone D stale wording → `c592b49`, the Milestone G planning pass, and the adopted `docs/testing/local-smoke-test.md` with its self-referential "Proposal"/"Documentation observations" sections trimmed). OI-0011 decided as issue-only — no user-management endpoints built. Scope guard fully observed: **zero `src/` files changed**, no entities, no migrations, no endpoints, no orders/tax/payments/Stripe/receipts/sync/UI/KDS, no `Modules.*`, no Keycloak wiring, no localisation, tenant filters untouched, no client-supplied tenant ID trusted, no raw credential stored.
+
+These are verification tests of already-committed behaviour (the deliverable *is* the tests), so the Milestones B–F acceptance-test convention applies rather than red/green TDD: all 156 new tests passed on their first run, which is the expected outcome for consolidation tests over working code — a failure would have indicated a real defect to flag for separate approval (none appeared).
+
+### Files changed
+
+New:
+- `tests/DaxaPos.Api.Tests/HybridOfflineLoginTests.cs` (2 chain tests — plan step 39).
+- `tests/DaxaPos.Api.Tests/RbacTests.cs` (+ `RbacScenarioFixture`; 153 test cases — plan step 40).
+- `tests/DaxaPos.UnitTests/Architecture/IgnoreQueryFiltersUsageTests.cs` (1 guard test — plan step 41).
+- `docs/issues/open/OI-0011-user-management-endpoints.md`, `OI-0012-inactive-parent-lifecycle-vs-device-staff-authentication.md`, `OI-0013-device-registration-pin-maxuses-concurrency.md`, `OI-0014-tenantless-security-event-auditing.md`, `OI-0015-permission-metadata-for-staff-pin-eligibility.md`.
+
+Modified:
+- `docs/issues/index.md` — Open Issues section rebuilt (grouped by area: Identity/Security, Devices, Audit), five entries.
+- `docs/testing/security-tests.md`, `docs/testing/testing-strategy.md` — implementation-status sections mapping this document's requirements to the actual test files.
+- Plan doc (Status, Milestone G steps revised to approved shape with step 41 inserted and Milestone H renumbered 42–44, Human Decisions entry #9) and this notes file.
+
+### Tests added (156)
+
+- **`HybridOfflineLoginTests` (2):** the full admin username/password chain (seed → login → `/auth/me` → permission-gated create → logout → dead token) and the full staff chain (registration PIN → anonymous device registration → device-token `/auth/me` with empty roles/permissions → staff PIN login → staff `/auth/me` → 403 from a `rejectStaffPin` endpoint → logout → dead token), both against local Postgres only.
+- **`RbacTests` (153):** a 32-endpoint inventory (29 permission-gated — all `rejectStaffPin: true` — plus `/auth/me`, `/auth/logout`, `/auth/staff-pin/login`) swept by five theory scenarios — unauthenticated → 401 (32), garbage token → 401 (32), authenticated `Staff`-role session without the permission → 403 (29), `DeviceToken` → 403 (29), real `LocalStaffPin` session → 403 (29) — plus two facts: revoked session → 401 immediately everywhere, and a tenant-A `SystemAdmin` against a fully-seeded tenant B (13 single-row attempts all 404, five list endpoints all excluding B's rows; never 500, never 403, never data). Scenario state (staff/device/staff-session tokens) is seeded once in `RbacScenarioFixture`.
+- **`IgnoreQueryFiltersUsageTests` (1):** scans `src/**/*.cs` (excluding `obj`/`bin`) for `.IgnoreQueryFilters(` and asserts exact two-way equality with the five documented files (`DeviceTokenAuthenticationHandler`, `SessionAuthenticationHandler`, `BootstrapAdminSeeder`, `AuthEndpoints`, `DeviceRegistrationEndpoints`) — an unapproved new bypass *or* a silently removed documented one fails the build. Implements ADR-0015 §Risks directly.
+
+### Design notes worth flagging to a future reader
+
+- **The RBAC matrix sends `{}` as the JSON body on non-GET requests** — minimal-API body binding runs *before* endpoint filters, so a missing body would surface as 400 and mask the 401/403 under test. A future endpoint whose request DTO cannot bind from `{}` (e.g. a `required` property) would break the matrix with 400s — bind-tolerant DTOs or an inventory-level body override is the fix, noted here so it isn't a surprise.
+- **New protected endpoints must be added to `RbacTests.PermissionGatedEndpoints`** to inherit matrix coverage — one line per endpoint. Flagged in `docs/testing/security-tests.md` too.
+- **The guard test's approved-files list and the bootstrap-callers comment in `DaxaDbContext.cs` must move together** — the test's doc comment says so explicitly.
+
+### Commands run
+
+```
+docker compose ps                                                       (db only; keycloak not running throughout)
+dotnet build DaxaPos.sln                                                (0 warnings, 0 errors)
+dotnet test tests/DaxaPos.UnitTests/... --filter IgnoreQueryFiltersUsageTests        (1/1)
+dotnet test tests/DaxaPos.Api.Tests/... --filter "HybridOfflineLoginTests|RbacTests" (155/155, first run)
+dotnet test DaxaPos.sln                                                 (371/371)
+dotnet ef database drop --force ... && dotnet ef database update ...    (fresh-DB verification: six existing migrations, none added)
+dotnet test DaxaPos.sln                                                 (371/371 again, freshly-migrated DB)
+```
+
+### Build/test result
+
+`dotnet build DaxaPos.sln` — 0 warnings, 0 errors.
+`dotnet test DaxaPos.sln` (Postgres `db` running, all six migrations applied fresh, `keycloak` stopped) — **371/371 passed** (82 unit tests + 289 API tests: 215 pre-existing + 156 new Milestone G), 0 failed, 0 skipped.
+
+### Working tree status
+
+**Not committed.** All changes are in the working tree only, per the explicit instruction not to commit the Milestone G implementation until the result is reviewed and approved.
+
+### Blockers before Milestone H
+
+None. Milestone H is docs-only closeout (plan steps 42–44): consolidate `docs/architecture/tenancy.md`/`security.md`/`multi-location.md` and `docs/modules/devices.md`/`audit.md` against what was actually built, finalise the plan Status, write the PLAN-0004 handoff summary, and move the plan to `docs/plans/completed/`. After Milestone G, the identity/tenancy/device foundation is code-complete.
+
+---
+
+*Milestone G completed: 2026-07-03 (uncommitted, pending review).*
 
 ---
 

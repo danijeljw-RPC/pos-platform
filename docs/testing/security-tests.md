@@ -60,6 +60,19 @@ tests/DaxaPos.Api.Tests/          (API-level security tests)
 
 ---
 
+## Implementation Status (PLAN-0003 Milestone G, 2026-07-03)
+
+The identity/tenancy/device slice of this document is implemented and consolidated in `tests/DaxaPos.Api.Tests/` and `tests/DaxaPos.UnitTests/` (no `DaxaPos.IntegrationTests` project exists yet — API-level tests run against a real Postgres container, matching the no-mocks pattern):
+
+- **`RbacTests.cs`** — the consolidated authorization matrix, driven by one inventory of every protected endpoint: unauthenticated → 401, garbage/revoked token → 401, authenticated-without-the-permission → 403, device token → 403 on every permission-gated endpoint, a real staff-PIN session → 403 on every `rejectStaffPin` endpoint, and a valid session for tenant A against tenant B's rows → 404/empty (never 500, never data). New protected endpoints must be added to that inventory to inherit full matrix coverage.
+- **`HybridOfflineLoginTests.cs`** — both Daxa WebAPI-native auth chains (admin username/password; device registration → staff PIN) end-to-end against local Postgres only, per ADR-0013's offline guarantee. Enforced environmentally too: CI defines no Keycloak service at all, and local runs keep the `keycloak` compose service stopped.
+- **`IgnoreQueryFiltersUsageTests.cs`** (unit) — source-scan guard asserting the `IgnoreQueryFilters()` tenant-filter bypass appears only in the five documented bootstrap/authentication files (ADR-0015 §Risks).
+- Per-feature security behaviour (lockout, PIN hashing, token revocation, cross-tenant/cross-organisation 404s, audit rows) is covered milestone-by-milestone in `TenantIsolationTests`, `LocalUserLoginTests`, `DeviceRegistration*Tests`, `StaffMemberEndpointsTests`, and `StaffPinLoginTests`.
+
+Manual verification of the same surface: [Local smoke test](local-smoke-test.md).
+
+---
+
 ## Related Documents
 
 - [ADR-0009 — Keycloak or Identity Provider Strategy](../adr/superseded/ADR-0009-keycloak-or-identity-provider-strategy.md)
