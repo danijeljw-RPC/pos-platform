@@ -40,3 +40,4 @@ ProductTaxCategory
 ## Related Plans
 
 - [PLAN-0004 — Catalog, Menu, Tax, Pricing](../plans/active/PLAN-0004-catalog-menu-tax-pricing-planning.md)
+- [ADR-0016 — Multi-Language and Localisation Strategy](../adr/proposed/ADR-0016-multi-language-and-localisation-strategy.md) (proposed) — business data translations (e.g. `ProductTranslation`, `CategoryTranslation`, `ModifierTranslation`) are planned but deferred. PLAN-0004 should read this ADR before finalising the catalogue schema so the design doesn't block adding translations later.

@@ -97,6 +97,10 @@ F = GST-free
 
 ---
 
+## Planned: Localised Tax Labels (Deferred)
+
+Tax label text ("GST", "Includes GST", tax-free marker legends) is planned to become translatable, extending the existing configurable-marker mechanism (ADR-0011) rather than replacing it. See [ADR-0016 — Multi-Language and Localisation Strategy](../adr/proposed/ADR-0016-multi-language-and-localisation-strategy.md) (proposed, not yet implemented). AU/NZ wording remains the first concrete example; it is not hard-coded into the architecture.
+
 ## Related Documents
 
 - [ADR-0006 — Tax-Line Based Tax Engine](../adr/accepted/ADR-0006-tax-line-based-tax-engine.md)

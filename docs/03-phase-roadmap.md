@@ -74,3 +74,5 @@ Region-specific receipt rules
 Multi-currency
 Multi-language
 ```
+
+Multi-language strategy is planned (not yet implemented) — see [ADR-0016 — Multi-Language and Localisation Strategy](adr/proposed/ADR-0016-multi-language-and-localisation-strategy.md) (proposed) and the [Multi-Language and Localisation follow-up plan](plans/active/PLAN-localisation-multi-language.md) (planning-only placeholder, blocked on ADR-0016 acceptance).

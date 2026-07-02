@@ -126,3 +126,5 @@ All decisions below are accepted ADRs unless noted otherwise. See [ADR Index](..
 | Docker deployment | ADR-0012 |
 | Cloud identity and local POS authentication | ADR-0013 (supersedes ADR-0009) |
 | Inter-module communication pattern | ADR-0014 |
+| Tenant isolation mechanism and POS session token format | ADR-0015 |
+| Multi-language and localisation strategy | ADR-0016 (Proposed — planning-only, not yet implemented) |

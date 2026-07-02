@@ -431,3 +431,15 @@ None. `dotnet build`/`dotnet test` are clean against a freshly-migrated database
 ---
 
 *Milestone D completed: 2026-07-02 (uncommitted, pending review).*
+
+---
+
+## Unrelated Note: Multi-Language Planning Follow-Up (2026-07-02)
+
+**This is not part of PLAN-0003 Milestone D or E.** A separate, planning-only follow-up was done in the same session (after Milestone D was approved and committed) to record a deferred multi-language/localisation strategy, at the human's explicit request. It produced:
+
+- `docs/adr/proposed/ADR-0016-multi-language-and-localisation-strategy.md` — new proposed ADR.
+- `docs/plans/active/PLAN-localisation-multi-language.md` — planning-only placeholder plan, blocked on ADR-0016 acceptance, containing no actionable implementation steps.
+- Index/cross-reference updates: `docs/adr/index.md`, `docs/README.md`, `docs/architecture/overview.md`, `docs/architecture/tax-engine.md`, `docs/modules/tax.md`, `docs/modules/receipts.md`, `docs/modules/catalog.md`, `docs/plans/active/PLAN-0006-terminal-display-pwa-planning.md`, `docs/03-phase-roadmap.md`.
+
+No PLAN-0003 implementation code was touched. No migrations were added. No localisation was implemented. This note exists only so a future reader of this file doesn't mistake the ADR-0016/localisation-plan commit for Milestone D or E work.

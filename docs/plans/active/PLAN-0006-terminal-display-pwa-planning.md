@@ -114,3 +114,5 @@ docs: update device strategy, customer display, and KDS docs
 ## Handoff Notes
 
 Depends on PLAN-0005 (Payments/Receipts). MAUI development requires a Windows machine with Visual Studio 2022 or Visual Studio 2022 Preview. Customer display hardware (secondary monitor) is required for full testing of the two-window setup. Next: PLAN-0007 (Sync/Local/Hybrid).
+
+**Localisation note (added 2026-07-02, planning-only):** UI localisation for the POS/customer-display/KDS/admin surfaces this plan scaffolds is planned but deferred — see [ADR-0016 — Multi-Language and Localisation Strategy](../../adr/proposed/ADR-0016-multi-language-and-localisation-strategy.md) (proposed). This plan should avoid hard-coding UI strings in a way that would block adopting standard .NET/framework localisation later (`.resx`/`IStringLocalizer` for MAUI, an equivalent for whichever PWA framework is chosen), but does not need to implement localisation itself.

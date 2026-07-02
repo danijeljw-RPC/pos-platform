@@ -27,7 +27,9 @@ Architecture Decision Records for Daxa POS.
 
 ## Proposed
 
-None. All current ADRs have been accepted.
+| ADR | Title | Area |
+|-----|-------|------|
+| [ADR-0016](proposed/ADR-0016-multi-language-and-localisation-strategy.md) | Multi-Language and Localisation Strategy | Architecture / Internationalisation |
 
 ---
 

@@ -19,7 +19,7 @@ This folder contains all planning, architecture, decision, and module documentat
 
 - [ADR Index](adr/index.md)
 
-14 ADRs (ADR-0001 through ADR-0015, excluding superseded ADR-0009) are accepted and live under `adr/accepted/`. ADR-0009 is superseded by ADR-0013 and is under `adr/superseded/`. ADR-0015 (tenant isolation mechanism and POS session token format) was accepted 2026-07-01 as part of PLAN-0003.
+14 ADRs (ADR-0001 through ADR-0015, excluding superseded ADR-0009) are accepted and live under `adr/accepted/`. ADR-0009 is superseded by ADR-0013 and is under `adr/superseded/`. ADR-0015 (tenant isolation mechanism and POS session token format) was accepted 2026-07-01 as part of PLAN-0003. ADR-0016 (multi-language and localisation strategy) is proposed as of 2026-07-02 — a planning-only follow-up, not part of PLAN-0003's implementation scope.
 
 ---
 
@@ -36,6 +36,7 @@ This folder contains all planning, architecture, decision, and module documentat
 - [PLAN-0008 — Testing, Security, Deployment](plans/active/PLAN-0008-testing-security-deployment-planning.md)
 - [PLAN-0009 — First Payment Adapter: Stripe Terminal](plans/active/PLAN-0009-first-payment-adapter-stripe-terminal.md)
 - [PLAN-docs-consolidation — Documentation Consolidation](plans/active/PLAN-docs-consolidation.md)
+- [PLAN — Multi-Language and Localisation](plans/active/PLAN-localisation-multi-language.md) — planning-only placeholder, blocked on ADR-0016
 - [Implementation Readiness Report](plans/active/implementation-readiness-report.md)
 
 ---
