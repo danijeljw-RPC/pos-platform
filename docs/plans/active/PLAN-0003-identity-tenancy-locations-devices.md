@@ -12,14 +12,14 @@ Milestone E implemented and complete 2026-07-02. `dotnet build`/`dotnet test` cl
 
 Milestone F approved 2026-07-02 with thirteen explicit amendments (flat routes + list endpoint; alphanumeric `StaffCode` 2–20 uppercase-normalised; PIN digits 4–10; trusted-device-context rules; staff sessions on a shorter 8h/30min expiry in `StaffSessionExpiryPolicy`; server-generated PIN reset; sensitive-permission login guard with a recorded follow-up on permission metadata; unknown-staff-code attempts audited; full test list) — see "Human Decisions Needed" entry dated 2026-07-02 (Milestone F).
 
-Milestone F implemented and complete 2026-07-02. `dotnet build`/`dotnet test` clean (215/215), migration `AddStaffMembers` verified incrementally and from a fresh dropped database (all six migrations apply cleanly in sequence), Keycloak stopped throughout. See the worker notes' Milestone F Report. **Not yet committed — awaiting explicit approval to commit.**
+Milestone F implemented and complete 2026-07-02. `dotnet build`/`dotnet test` clean (215/215), migration `AddStaffMembers` verified incrementally and from a fresh dropped database (all six migrations apply cleanly in sequence), Keycloak stopped throughout. See the worker notes' Milestone F Report. Committed as `585cd39` (2026-07-02), after human review and approval.
 
 - [x] Milestone A — Auth primitives (`AuthMethod`, `ICurrentTenantProvider`, `AuthContext`, hashers, token service, `DaxaPos.UnitTests` project) — complete, committed as `23f89c8`. See PLAN-0003-worker-notes.md for the report.
 - [x] Milestone B — Tenant isolation (`TenantId` on `Location`/`Device`/`Terminal`, fail-closed global query filters on `Organisation`/`Location`/`Device`/`Terminal`, migration `AddTenantIsolationColumns`, cross-tenant isolation tests) — complete, committed as `ba7e237`. See PLAN-0003-worker-notes.md for the Milestone B report.
 - [x] Milestone C — RBAC schema (`Role`/`Permission`/`RolePermission`/`User`/`UserRole`), local username/password login (`/auth/local/login`, `/auth/logout`, `/auth/me`), `AuthSession`, `AuditEvent` + audit plumbing, dev-only bootstrap admin seeding, migration `AddIdentityAndRbacCore` — complete, see PLAN-0003-worker-notes.md for the Milestone C report.
 - [x] Milestone D — Organisation / Location / Terminal endpoints — complete, committed as `c592b49` (2026-07-02). See PLAN-0003-worker-notes.md for the Milestone D report.
 - [x] Milestone E — Device registration and credentials — complete, committed as `06bebfe` (2026-07-02). See PLAN-0003-worker-notes.md for the Milestone E report.
-- [x] Milestone F — StaffMember and staff PIN login — complete, not yet committed (2026-07-02). See PLAN-0003-worker-notes.md for the Milestone F report.
+- [x] Milestone F — StaffMember and staff PIN login — complete, committed as `585cd39` (2026-07-02). See PLAN-0003-worker-notes.md for the Milestone F report.
 - [ ] Milestone G — Local/offline verification and RBAC consolidation
 - [ ] Milestone H — Documentation and plan closeout
 

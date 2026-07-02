@@ -418,7 +418,7 @@ docker compose ps                                                               
 
 ### Working tree status
 
-**Not committed.** All changes above are in the working tree only, per the explicit instruction not to commit until Milestone D is reviewed and approved.
+**Committed as `c592b49`** (2026-07-02, `feat(identity): add organisation location terminal management endpoints`), after human review and approval. (This section originally read "Not committed"; corrected 2026-07-03 during Milestone G housekeeping, per the stale-wording flag left by the Milestone F planning pass.)
 
 ### Deferred / not built (explicitly out of scope, per the task's scope guard)
 
@@ -426,11 +426,11 @@ docker compose ps                                                               
 
 ### Blockers before Milestone E
 
-None. `dotnet build`/`dotnet test` are clean against a freshly-migrated database, Keycloak remains stopped and unused, and nothing added strays into Milestone E–H territory (no `DeviceCredential`, no `DeviceRegistrationPin`, no `StaffMember`, no `Modules.*`). Awaiting human review/commit approval before starting Milestone E.
+None. `dotnet build`/`dotnet test` are clean against a freshly-migrated database, Keycloak remains stopped and unused, and nothing added strays into Milestone E–H territory (no `DeviceCredential`, no `DeviceRegistrationPin`, no `StaffMember`, no `Modules.*`).
 
 ---
 
-*Milestone D completed: 2026-07-02 (uncommitted, pending review).*
+*Milestone D completed: 2026-07-02, committed as `c592b49`.*
 
 ---
 
@@ -572,7 +572,7 @@ Milestone F = plan steps 32–38: `StaffMember` + `StaffMemberRole` entities, on
 - `TerminalId` remains null on staff sessions — device→terminal mapping doesn't exist yet.
 - Staff "fast switching" is just per-staff login/logout; multiple concurrent staff sessions per device are allowed in MVP.
 - Shorter/configurable staff-session lifetime (ADR-0013 "short-lived") — Decision 3 applies the shared 12h/8h policy for MVP.
-- The Milestone D report in this file still carries stale "Not committed" wording (D was committed as `c592b49`); left untouched per the explicit E-only housekeeping instruction — flagged for the human.
+- ~~The Milestone D report in this file still carries stale "Not committed" wording (D was committed as `c592b49`); left untouched per the explicit E-only housekeeping instruction — flagged for the human.~~ Corrected 2026-07-03 during Milestone G housekeeping.
 
 ---
 
@@ -644,7 +644,7 @@ docker compose ps                                                              (
 
 ### Working tree status
 
-**Not committed.** All changes are in the working tree only, per the explicit instruction not to commit until the result is reviewed and approved.
+**Committed as `585cd39`** (2026-07-02, `feat(identity): add staff members and staff PIN login`), after human review and approval.
 
 ### Blockers before Milestone G
 
@@ -652,7 +652,60 @@ None. Milestone G (offline verification + consolidated RBAC tests) has everythin
 
 ---
 
-*Milestone F completed: 2026-07-02 (uncommitted, pending review).*
+*Milestone F completed: 2026-07-02, committed as `585cd39`.*
+
+---
+
+## Milestone G Planning Pass (2026-07-03)
+
+No code written this session — planning only, per explicit instruction to stop after the plan and wait for approval. Housekeeping done first: the plan Status and this file's Milestone F report corrected to record commit `585cd39`, and the Milestone D report's stale "Not committed" wording (flagged by the Milestone F planning pass) corrected to record `c592b49`. Context re-read: the plan doc, this notes file, ADR-0013, ADR-0015, and current source for the session/device-token authentication handlers, staff PIN login, `RequirePermissionFilter`, `DaxaDbContext` filters and bootstrap `IgnoreQueryFilters()` call sites, `Program.cs`, the full test tree, and `.github/workflows/ci.yml` (which defines **only** a Postgres service — no Keycloak container exists in CI at all).
+
+Also noted: an untracked `docs/testing/local-smoke-test.md` exists in the working tree (a human-authored manual smoke-test walkthrough of the full Milestone A–F surface, written against commit `585cd39`). It is effectively Milestone G's manual precursor and is folded into this plan below.
+
+### Goal and scope
+
+Milestone G = plan steps 39–40 plus closing hardening. It is **test-and-documentation-only**: prove both Daxa WebAPI-native auth paths work with zero Keycloak/cloud dependency (ADR-0013's offline guarantee), consolidate cross-cutting authorization assertions across all auth methods into one place, add the `IgnoreQueryFilters()` usage guard ADR-0015 §Risks calls for, and convert the deferred risks accumulated in Milestones C–F from worker-note prose into real open issues. No new entities, no schema changes, no migrations, no new endpoints, no behaviour changes to product code.
+
+### Entities/tables affected
+
+None. `src/` is expected to be untouched (if a consolidated test exposes a real defect, fixing it would be flagged and approved separately, not silently folded in).
+
+### Migrations required
+
+None.
+
+### Tests to add
+
+1. **`tests/DaxaPos.Api.Tests/HybridOfflineLoginTests.cs`** (plan step 39): two end-to-end chain tests run with only Postgres available —
+   - Admin chain: seed via `RbacTestSeeder` → `POST /auth/local/login` → `GET /auth/me` → a permission-gated endpoint succeeds → `POST /auth/logout` → old token rejected.
+   - Staff chain: registration PIN issued → device registered → device-token `GET /auth/me` (empty roles/permissions) → `POST /auth/staff-pin/login` → staff `GET /auth/me` → a `rejectStaffPin: true` endpoint returns 403 → logout.
+   These re-exercise flows individual test files already cover, deliberately in one place, as the named, self-documenting proof of ADR-0013's "local POS runtime authentication must not require live cloud access."
+2. **`tests/DaxaPos.Api.Tests/RbacTests.cs`** (plan step 40): a consolidated authorization matrix driven by a shared inventory of every protected endpoint (one list, so future endpoints are added in one place): unauthenticated → 401 everywhere; garbage/revoked token → 401; admin session lacking the permission → 403; a real `LocalStaffPin` session → 403 on **every** `rejectStaffPin: true` endpoint (sweep, extending Milestone F's spot checks); a `DeviceToken` context → 403 on every permission-gated endpoint; a valid tenant-A session against tenant-B rows → 404/empty list, never 500 and never data. Reuses `RbacTestSeeder`/`DeviceTestHelper`/`StaffTestHelper` unchanged.
+3. **`tests/DaxaPos.UnitTests/` — `IgnoreQueryFiltersUsageTests.cs`** (hardening): a source-scan guard test asserting `IgnoreQueryFilters()` occurs only in the documented bootstrap files (`BootstrapAdminSeeder`, `AuthEndpoints`, `SessionAuthenticationHandler`, `DeviceTokenAuthenticationHandler`, `DeviceRegistrationEndpoints`) — directly implementing ADR-0015 §Risks' "the plan's own tests should assert it is used in exactly the … documented location[s]," so a future contributor cannot quietly add an undocumented tenant-filter bypass.
+
+### Offline/local (Keycloak-stopped) verification approach
+
+- Local: `docker compose up -d db` only; `docker compose ps` recorded (keycloak absent/stopped); full `dotnet test DaxaPos.sln` (215 existing + new tests) against the real Postgres; API boot + `/health` Healthy — matching PLAN-0002's verification pattern.
+- CI: `.github/workflows/ci.yml` defines only a `postgres` service, so every CI run is a standing, machine-enforced Keycloak-absent verification — no workflow change needed, recorded as the mechanism.
+- Manual: adopt `docs/testing/local-smoke-test.md` (commit it, trimming its now-actioned self-referential "Proposal"/"Documentation observations" sections) and run its flow once against the finished milestone.
+
+### Follow-up issues to create (per CLAUDE.md rule: every unresolved question is an open issue)
+
+All are already-recorded deferrals living only in this notes file; Milestone G promotes them to `docs/issues/open/` + `docs/issues/index.md`:
+
+- **OI-0011 — User management endpoints.** `users.manage` is seeded but no endpoint consumes it; consequence (found by the manual smoke test): a `SystemAdmin` can create a second organisation but can never mint a login inside it — the bootstrap-organisation dead end. Recommended: defer to its own small follow-up plan, not built in G (it adds endpoints, which G's test-only scope excludes) — **human decision requested**.
+- **OI-0012 — Inactive-parent lifecycle semantics.** Device auth and staff login ignore parent `IsActive = false` (Milestone E deferred risk).
+- **OI-0013 — Registration-PIN `MaxUses` concurrency race** (Milestone E deferred risk).
+- **OI-0014 — Tenant-less security-event auditing** (unknown-email/unknown-PIN attempts unauditable while `AuditEvent.TenantId` is non-nullable; Milestones C/E).
+- **OI-0015 — Permission metadata for staff-PIN eligibility** (replace the hard-coded `Permissions.AdminSensitive` list; Milestone F Decision 8 follow-up).
+
+### Documentation updates
+
+`docs/testing/local-smoke-test.md` (adopt/commit), `docs/testing/testing-strategy.md` + `docs/testing/security-tests.md` (consolidated RBAC/offline coverage notes), the five new open issues + `docs/issues/index.md`, plan Status/Milestone G checkbox, and this file's Milestone G report.
+
+### Is PLAN-0003 complete after Milestone G?
+
+**No — Milestone H is still required** (docs-only closeout: consolidate `docs/architecture/tenancy.md`/`security.md`/`multi-location.md` and `docs/modules/devices.md`/`audit.md` against what was actually built, finalise the plan Status, write handoff notes for PLAN-0004, move the plan to `docs/plans/completed/`). Milestone G is the last milestone that touches the test codebase; after G, the identity/tenancy/device foundation is code-complete pending H's documentation pass.
 
 ---
 
