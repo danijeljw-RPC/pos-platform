@@ -31,6 +31,10 @@ public class DaxaDbContext(DbContextOptions<DaxaDbContext> options, ICurrentTena
 
     public DbSet<AuditEvent> AuditEvents => Set<AuditEvent>();
 
+    public DbSet<DeviceCredential> DeviceCredentials => Set<DeviceCredential>();
+
+    public DbSet<DeviceRegistrationPin> DeviceRegistrationPins => Set<DeviceRegistrationPin>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(DaxaDbContext).Assembly);
@@ -51,11 +55,14 @@ public class DaxaDbContext(DbContextOptions<DaxaDbContext> options, ICurrentTena
             .HasQueryFilter(t => currentTenantProvider.TenantId != null && t.TenantId == currentTenantProvider.TenantId);
 
         // `Role`/`Permission`/`RolePermission` are system-wide catalogues, not tenant-owned — no
-        // filter. `User`, `UserRole`, `AuthSession`, `AuditEvent` are tenant-owned and follow the
-        // same fail-closed pattern. Two callers must deliberately bypass this with
-        // IgnoreQueryFilters() before any tenant context can exist — looking up a User by email
-        // during login, and looking up an AuthSession by token hash during session validation —
-        // both documented at their call sites, per ADR-0015's narrow-bootstrap-exception rule.
+        // filter. `User`, `UserRole`, `AuthSession`, `AuditEvent`, `DeviceCredential`, and
+        // `DeviceRegistrationPin` are tenant-owned and follow the same fail-closed pattern. A small,
+        // fixed set of callers must deliberately bypass this with IgnoreQueryFilters() because they
+        // run before any tenant context can exist — looking up a User by email during login, an
+        // AuthSession by token hash during session validation, a DeviceCredential (and its
+        // Device/Location) during device-token validation, and the registration-PIN candidate scan
+        // during pre-auth device registration — each documented at its call site, per ADR-0015's
+        // narrow-bootstrap-exception rule.
         modelBuilder.Entity<User>()
             .HasQueryFilter(u => currentTenantProvider.TenantId != null && u.TenantId == currentTenantProvider.TenantId);
 
@@ -67,5 +74,11 @@ public class DaxaDbContext(DbContextOptions<DaxaDbContext> options, ICurrentTena
 
         modelBuilder.Entity<AuditEvent>()
             .HasQueryFilter(a => currentTenantProvider.TenantId != null && a.TenantId == currentTenantProvider.TenantId);
+
+        modelBuilder.Entity<DeviceCredential>()
+            .HasQueryFilter(c => currentTenantProvider.TenantId != null && c.TenantId == currentTenantProvider.TenantId);
+
+        modelBuilder.Entity<DeviceRegistrationPin>()
+            .HasQueryFilter(p => currentTenantProvider.TenantId != null && p.TenantId == currentTenantProvider.TenantId);
     }
 }

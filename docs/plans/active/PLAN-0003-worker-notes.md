@@ -434,6 +434,114 @@ None. `dotnet build`/`dotnet test` are clean against a freshly-migrated database
 
 ---
 
+## Milestone E Planning Pass (2026-07-02)
+
+No code written this session — planning only, per explicit instruction to stop after the plan and wait for approval. Full context re-read: the plan doc, this notes file, ADR-0008 (device identity, registration PIN model, rotation model, audit requirements), ADR-0013, ADR-0015, and current source for `SessionAuthenticationHandler`, `RequirePermissionFilter`, `AuthEndpoints`, `Organisation`/`Location`/`Terminal` endpoints, `DaxaDbContext` filters, `Device`/`DeviceType`/`Terminal`/`AuthSession`/`AuditEvent` entities, `HmacDeviceCredentialHasher`, `RandomSessionTokenService`, and `Program.cs`.
+
+### Scope confirmed
+
+Milestone E = plan steps 24–31: `DeviceCredential` + `DeviceRegistrationPin` entities, one migration, device-lifecycle domain events + audit handlers, registration-PIN issuance endpoint, pre-auth PIN-gated device registration, `DeviceTokenAuthenticationHandler` (zero-permission partial `AuthContext`), rotate/revoke/list endpoints, and `DeviceRegistrationTests`. Explicitly **not** in scope (per the task's scope guard and the plan's milestone ordering): `StaffMember`, staff PIN login, orders/tax/payments/receipts/sync/UI/KDS, `Modules.*`, Keycloak wiring.
+
+### Plan-level corrections proposed (need human approval before implementation)
+
+1. **Route shape conflict.** Steps 27/30 sketch nested routes (`POST /api/v1/locations/{locationId}/device-registration-pins`, `GET /api/v1/locations/{locationId}/devices`), written before the human's Milestone D flat-route decision existed. Recommendation: flat routes (`POST /api/v1/device-registration-pins` with `LocationId` in the body; `GET /api/v1/devices?locationId=`) for consistency with the now-established convention — the parent id is cross-checked against `AuthContext.OrganisationId` identically either way.
+2. **Device-token lookup mechanism correction.** Step 29 says the handler "hashes it, looks up `DeviceCredential`" — impossible as written, because `HmacDeviceCredentialHasher` uses a random per-record salt, so hashing the presented secret is non-deterministic and cannot be a DB lookup key (the same reason `AuthSession` lookup works is that `ISessionTokenService.Hash` is deterministic SHA-256). Recommendation: the device token issued at registration is `{deviceCredentialId}.{secret}`; the handler splits it, loads that credential row by primary key (`IgnoreQueryFilters()` — the third documented bootstrap call site), and `Verify()`s the secret against the salted hash in constant time. Matches ADR-0008's `DeviceCredentialReference` concept. The alternative (deterministic SHA-256 for device secrets, like session tokens) was considered and is defensible for high-entropy secrets, but the id-prefixed token keeps the already-built, already-tested salted hasher and gives an indexed lookup.
+3. **PIN validation is a verify-scan, not a hash lookup** — same salted-hash reasoning. The registration endpoint loads all live candidate PINs (unexpired, unrevoked, uses remaining) via the documented `IgnoreQueryFilters()` bootstrap path and `Verify()`s the presented PIN against each. The live-PIN set is tiny (15-minute expiry, low `MaxUses`). If **more than one** live PIN verifies (a 1-in-10⁶ cross-tenant collision), registration fails closed per ADR-0015's "ambiguous → zero rows" rule rather than picking one.
+4. **Drop `DeviceCredential.Salt` as a separate column** (step 24 lists it) — the salt is already embedded in the `{salt}.{hash}` string `HmacDeviceCredentialHasher` produces, exactly like `User.PasswordHash` and every other credential column to date.
+5. **Add a fifth domain event, `DeviceRegistrationPinCreatedDomainEvent`** — ADR-0008's audit requirements explicitly list "PIN generated," which step 26's four events don't cover.
+6. **Unknown-PIN failures write no `AuditEvent` row** — when no PIN row matches, there is no tenant to attach the row to (`AuditEvent.TenantId` is non-nullable by design), exactly the Milestone C unknown-email precedent. `DeviceRegistrationFailedDomainEvent` fires only when a real PIN row matched but was expired/exhausted/revoked. Rate limiting + server logs cover the unknown-PIN case.
+7. **No `Device` schema changes.** Revocation state lives on `DeviceCredential` (`Status`, `RevokedAtUtc`); "revoke device" revokes all of that device's non-revoked credentials, after which the device cannot authenticate (fail closed: no active credential → no `AuthContext`). A revoked device re-registers as a **new** `Device` row per ADR-0008 ("treated as a new registration"). No `IsActive` on `Device` this milestone.
+8. **No PIN-revoke endpoint this milestone.** `DeviceRegistrationPin.RevokedAtUtc` exists in the schema (step 24) and is respected by validation, but with a 15-minute expiry a dedicated revoke endpoint is deferred; flagged so a future milestone can add it without a schema change.
+
+### Design decisions proposed (implementation-level, recorded before coding)
+
+- **Policy values** in a new `DeviceRegistrationPinPolicy` (Application/Identity, same pattern as `LoginLockoutPolicy`): 6-digit numeric PIN (ADR-0008), 15-minute expiry, `MaxUses` default 1 (request may set 1–10, else 400).
+- **Rate limiting** via ASP.NET Core's built-in rate limiter: a fixed-window policy (10 attempts/minute, partitioned by remote IP) applied only to `POST /api/v1/device-registration`. Constants live beside the policy class. The rate-limit test uses its own `WebApplicationFactory` instance so tripping the limiter can't poison sibling tests.
+- **Scheme selection**: register `DeviceTokenAuthenticationHandler` under scheme `"DeviceToken"` with header form `Authorization: Device {credentialId}.{secret}`, and make the default authentication scheme a policy scheme that forwards to `Session` (header starts with `Bearer`) or `DeviceToken` (starts with `Device`) — so existing `.RequireAuthorization()` endpoints accept both without touching every call site. A device-token `AuthContext` carries empty `Roles`/`Permissions`, so every `RequirePermission`-gated endpoint returns 403 for it — proven by tests, per the plan's "a device token alone grants nothing" domain assumption.
+- **Registration response** returns, once: `DeviceId`, `TenantId`, `OrganisationId`, `LocationId`, `DeviceType`, `Name`, and the raw `DeviceToken` — the fields ADR-0008 says an installed/PWA device stores locally. Tenant/org/location come exclusively from the matched PIN row, never from the request body.
+- **`DeviceType`** arrives as a string in the request and must parse (case-insensitive) to the existing `DeviceType` enum, else 400.
+
+### Recommended next session
+
+Human reviews the Milestone E plan (chat summary + this section). On approval: implement in order — entities/configs/migration → policy class + unit tests → PIN-issuance endpoint → registration endpoint + rate limiter → `DeviceTokenAuthenticationHandler` + policy scheme → rotate/revoke/list → HTTP test files → docs → plan status update. Update the plan doc's Milestone E steps with the approved corrections before writing code.
+
+---
+
+## Milestone E Report (2026-07-02)
+
+Human approved the Milestone E plan with amendments (recorded verbatim-equivalent in the plan's "Human Decisions Needed" entry dated 2026-07-02 (Milestone E)): flat routes plus a new `POST /api/v1/device-registration-pins/{pinId}/revoke`; the `Device {credentialId}.{secret}` token format; verify-scan PIN validation with fail-closed ambiguity handling; unknown-PIN attempts unaudited (no tenant for the non-nullable `AuditEvent.TenantId`); six audit events; no `DeviceCredential.Salt` column; no `Device.IsActive`; 15-min expiry / MaxUses 1–10 / 10-per-minute-per-IP rate limit. Scope guard fully observed: no `StaffMember`, no staff PIN login, no orders/tax/payments/Stripe/receipts/sync/UI/KDS, no `Modules.*`, no Keycloak wiring, no localisation, tenant filters untouched (two filters *added*, none weakened), no raw secret/PIN/password/token stored anywhere.
+
+TDD used for the pure-logic piece (`DeviceRegistrationPinPolicy` — test written first, RED confirmed via compile failure, then GREEN, 13 unit tests). The vertical slice (entities → migration → auth handler → endpoints → audit handlers) was proven via acceptance-style HTTP tests, consistent with Milestones B–D. All 35 new HTTP tests passed on the first run after implementation.
+
+### Files changed
+
+New:
+- `src/DaxaPos.Domain/Entities/DeviceCredential.cs`, `DeviceCredentialStatus.cs`, `DeviceRegistrationPin.cs`.
+- `src/DaxaPos.Domain/Events/DeviceRegistrationPinCreatedDomainEvent.cs`, `DeviceRegistrationPinRevokedDomainEvent.cs`, `DeviceRegisteredDomainEvent.cs`, `DeviceRegistrationFailedDomainEvent.cs`, `DeviceCredentialRotatedDomainEvent.cs`, `DeviceRevokedDomainEvent.cs`.
+- `src/DaxaPos.Application/Identity/DeviceRegistrationPinPolicy.cs`.
+- `src/DaxaPos.Persistence/Configurations/DeviceCredentialConfiguration.cs`, `DeviceRegistrationPinConfiguration.cs`.
+- `src/DaxaPos.Persistence/Migrations/20260702033413_AddDeviceCredentialsAndRegistrationPins.cs` (+ `.Designer.cs`, updated snapshot).
+- `src/DaxaPos.Api/Authentication/DeviceTokenAuthenticationHandler.cs`.
+- `src/DaxaPos.Api/Endpoints/Identity/DeviceRegistrationPinEndpoints.cs`, `DeviceRegistrationEndpoints.cs`, `DeviceEndpoints.cs`.
+- `tests/DaxaPos.UnitTests/Identity/DeviceRegistrationPinPolicyTests.cs` (13 tests).
+- `tests/DaxaPos.Api.Tests/Support/DeviceTestHelper.cs`; `DeviceRegistrationPinEndpointsTests.cs` (13 tests), `DeviceRegistrationTests.cs` (10), `DeviceEndpointsTests.cs` (11), `DeviceRegistrationRateLimitTests.cs` (1).
+
+Modified:
+- `src/DaxaPos.Persistence/DaxaDbContext.cs` — two new `DbSet`s, two new fail-closed filters, bootstrap-callers comment updated.
+- `src/DaxaPos.Api/Audit/DomainEventAuditHandlers.cs` — six new handlers (JSON-serializing snapshots for the `jsonb` columns, per the Milestone D bug note).
+- `src/DaxaPos.Api/Program.cs` — default authentication is now a policy scheme forwarding by Authorization-header prefix (`Bearer` → `Session`, `Device` → `DeviceToken`); built-in rate limiter wired (`UseRateLimiter` + a fixed-window per-remote-IP policy on the registration endpoint only, permit limit configuration-overridable via `DeviceRegistration:RateLimitPermitLimit` for tests); six audit-handler registrations; three endpoint maps.
+- `docs/modules/devices.md`, `docs/modules/audit.md`, `docs/architecture/tenancy.md`, `docs/architecture/security.md` — Milestone E implementation-status sections.
+- Plan doc (Status, Milestone E steps revised to the approved shape, Human Decisions entry #7) and this notes file.
+
+### Migration created
+
+`AddDeviceCredentialsAndRegistrationPins` (`20260702033413`). Creates `device_credentials` (salted-HMAC `CredentialHash`, string-converted `Status`, FKs to `devices`/`tenants`) and `device_registration_pins` (hashed `PinHash`, FKs to `tenants`/`organisations`/`locations`/`users`, indexed `CreatedAtUtc` for the bounded candidate scan). Verified twice: applied incrementally with `psql \d` column/index/FK checks, and from a completely empty database (`dotnet ef database drop --force` + `update` — all five migrations apply cleanly in sequence).
+
+### Design/implementation notes worth flagging to a future reader
+
+- **Decisions 3 and 4 reconciliation:** validation only *accepts* live PINs, but the candidate scan covers rows created in the last 24 hours regardless of state — that bounded window is what lets a matched-but-expired/revoked/exhausted attempt be audited against its tenant (decision 4) without an unbounded all-rows scan. Ambiguity (fail-closed) is judged on **live** matches only; a dead digit-collision alongside one live match does not block registration.
+- **Ambiguity audit rule as implemented:** >1 live match → 401; audited (`Reason = "AmbiguousPinMatch"`, `EntityId = null`) only when all matched rows share one `TenantId`, with organisation/location included only when they also agree. Cross-tenant collisions write nothing.
+- **Recorded gap (per the human's explicit instruction):** unauthenticated/global security events — unknown registration-PIN attempts, and Milestone C's unknown-email login failures — cannot be audited in `audit_events` because `TenantId` is non-nullable by design. If these need auditing, a separate tenant-less security-event table is required; noted in `docs/modules/audit.md` as a future decision, not solved here.
+- **Rotation of a device with no active credential returns 409** — revocation is terminal (approved: revoked/lost devices re-register as a new `Device`), so rotate must not resurrect a revoked device. Covered by `Rotate_OnARevokedDevice_ReturnsConflict`.
+- **Deferred risk (accepted 2026-07-02): registration-PIN `MaxUses` is not concurrency-safe under simultaneous registration attempts.** Two registrations racing the last use of a PIN could both pass the in-memory `UsedCount < MaxUses` check (no row lock, no optimistic concurrency token, no atomic UPDATE). Correct for normal MVP usage — the window is milliseconds on a 15-minute single-venue enrolment secret — the race is known and deferred, not silently ignored. A future fix may use row locking, optimistic concurrency (a concurrency token on `UsedCount`), or an atomic conditional update.
+- **Deferred risk (accepted 2026-07-02): device authentication does not check inactive parent lifecycle state.** `DeviceTokenAuthenticationHandler` validates that the credential is `Active`; it does **not** block authentication because a parent `Organisation`/`Location`/`Terminal` has `IsActive = false` — deactivating a location today does not cut off its devices' tokens. Deferred because cascading lifecycle rules were explicitly out of scope for Milestones D and E ("no complex lifecycle rules yet"); the future milestone that decides what an inactive parent means for its children (already flagged in the Milestone D planning pass) should revisit device auth at the same time.
+- **Rate-limit testability:** the permit limit reads `DeviceRegistration:RateLimitPermitLimit` from configuration (default = the approved 10/minute). The three device test classes raise it to 1000 via `UseSetting` so their many registration calls never trip it; `DeviceRegistrationRateLimitTests` builds its own isolated factory at the default limit and asserts the 11th attempt gets 429. In production nothing sets the override, so the approved default applies.
+
+### Commands run
+
+```
+dotnet build tests/DaxaPos.UnitTests/DaxaPos.UnitTests.csproj          (RED — policy class didn't exist)
+dotnet test tests/DaxaPos.UnitTests/... --filter DeviceRegistrationPinPolicyTests   (GREEN, 13/13)
+dotnet build DaxaPos.sln                                                (0 warnings, 0 errors)
+dotnet ef migrations add AddDeviceCredentialsAndRegistrationPins --project src/DaxaPos.Persistence/... --startup-project src/DaxaPos.Api/...
+dotnet ef database update ...                                           (applied)
+docker compose exec -T db psql -U daxapos -d daxapos -c "\d device_credentials" -c "\d device_registration_pins"
+dotnet test tests/DaxaPos.Api.Tests/... --filter "Device..."            (35/35, first run)
+dotnet test DaxaPos.sln                                                 (140/140)
+dotnet ef database drop --force ... && dotnet ef database update ...    (fresh-DB verification, 5 migrations in sequence)
+dotnet test DaxaPos.sln                                                 (140/140 again, freshly-migrated DB)
+docker compose ps                                                       (Keycloak not running throughout)
+```
+
+### Build/test result
+
+`dotnet build DaxaPos.sln` — 0 warnings, 0 errors.
+`dotnet test DaxaPos.sln` (Postgres `db` running, all five migrations applied fresh, `keycloak` stopped) — **140/140 passed** (44 unit tests + 96 API tests: 1 health check + 6 tenant isolation + 6 permission filter + 12 login + 36 Milestone D + 35 Milestone E), 0 failed, 0 skipped.
+
+### Working tree status
+
+**Not committed.** All changes are in the working tree only, per the explicit instruction not to commit until the result is reviewed and approved.
+
+### Blockers before Milestone F
+
+None. Milestone F (StaffMember + staff PIN login) now has everything it needs: the `DeviceToken` scheme provides the trusted-device context its login endpoint requires, `rejectStaffPin` is already applied to every sensitive endpoint built so far, and `AuthSession`/`LoginLockoutPolicy`/`Pbkdf2PinHasher` are ready to reuse. Nothing added strays into Milestone F–H territory (no `StaffMember`, no staff-PIN login endpoint).
+
+---
+
+*Milestone E completed: 2026-07-02 (uncommitted, pending review).*
+
+---
+
 ## Unrelated Note: Multi-Language Planning Follow-Up (2026-07-02)
 
 **This is not part of PLAN-0003 Milestone D or E.** A separate, planning-only follow-up was done in the same session (after Milestone D was approved and committed) to record a deferred multi-language/localisation strategy, at the human's explicit request. It produced:

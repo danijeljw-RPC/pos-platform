@@ -1,3 +1,4 @@
+using System.Text.Json;
 using DaxaPos.Application.Events;
 using DaxaPos.Domain.Entities;
 using DaxaPos.Domain.Events;
@@ -152,6 +153,159 @@ public sealed class TerminalLifecycleAuditHandler(DaxaDbContext dbContext)
             EntityId = domainEvent.TerminalId,
             BeforeValue = domainEvent.BeforeValue,
             AfterValue = domainEvent.AfterValue,
+            OccurredAtUtc = domainEvent.OccurredAtUtc,
+        });
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+}
+
+/// <summary>
+/// PLAN-0003 Milestone E device-lifecycle audit handlers (ADR-0008's audit requirements). Note
+/// Before/AfterValue are jsonb columns — any snapshot must be serialized JSON, never a bare
+/// string (see the Milestone D worker-notes bug report).
+/// </summary>
+public sealed class DeviceRegistrationPinCreatedAuditHandler(DaxaDbContext dbContext)
+    : IDomainEventHandler<DeviceRegistrationPinCreatedDomainEvent>
+{
+    public async Task HandleAsync(DeviceRegistrationPinCreatedDomainEvent domainEvent, CancellationToken cancellationToken = default)
+    {
+        dbContext.AuditEvents.Add(new AuditEvent
+        {
+            Id = Guid.NewGuid(),
+            TenantId = domainEvent.TenantId,
+            OrganisationId = domainEvent.OrganisationId,
+            LocationId = domainEvent.LocationId,
+            UserId = domainEvent.UserId,
+            EventType = "DeviceRegistrationPinCreated",
+            EntityType = nameof(DeviceRegistrationPin),
+            EntityId = domainEvent.PinId,
+            AfterValue = JsonSerializer.Serialize(new { domainEvent.ExpiresAtUtc, domainEvent.MaxUses }),
+            OccurredAtUtc = domainEvent.OccurredAtUtc,
+        });
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+}
+
+public sealed class DeviceRegistrationPinRevokedAuditHandler(DaxaDbContext dbContext)
+    : IDomainEventHandler<DeviceRegistrationPinRevokedDomainEvent>
+{
+    public async Task HandleAsync(DeviceRegistrationPinRevokedDomainEvent domainEvent, CancellationToken cancellationToken = default)
+    {
+        dbContext.AuditEvents.Add(new AuditEvent
+        {
+            Id = Guid.NewGuid(),
+            TenantId = domainEvent.TenantId,
+            OrganisationId = domainEvent.OrganisationId,
+            LocationId = domainEvent.LocationId,
+            UserId = domainEvent.UserId,
+            EventType = "DeviceRegistrationPinRevoked",
+            EntityType = nameof(DeviceRegistrationPin),
+            EntityId = domainEvent.PinId,
+            OccurredAtUtc = domainEvent.OccurredAtUtc,
+        });
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+}
+
+public sealed class DeviceRegisteredAuditHandler(DaxaDbContext dbContext)
+    : IDomainEventHandler<DeviceRegisteredDomainEvent>
+{
+    public async Task HandleAsync(DeviceRegisteredDomainEvent domainEvent, CancellationToken cancellationToken = default)
+    {
+        dbContext.AuditEvents.Add(new AuditEvent
+        {
+            Id = Guid.NewGuid(),
+            TenantId = domainEvent.TenantId,
+            OrganisationId = domainEvent.OrganisationId,
+            LocationId = domainEvent.LocationId,
+            DeviceId = domainEvent.DeviceId,
+            EventType = "DeviceRegistered",
+            EntityType = nameof(Device),
+            EntityId = domainEvent.DeviceId,
+            AfterValue = JsonSerializer.Serialize(new
+            {
+                DeviceType = domainEvent.DeviceTypeName,
+                domainEvent.DeviceCredentialId,
+                domainEvent.PinId,
+            }),
+            OccurredAtUtc = domainEvent.OccurredAtUtc,
+        });
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+}
+
+/// <summary>
+/// Only raised when the presented PIN matched a real row resolving to a single tenant — an
+/// unknown PIN writes nothing (no tenant for the non-nullable TenantId); see
+/// <see cref="DeviceRegistrationFailedDomainEvent"/>.
+/// </summary>
+public sealed class DeviceRegistrationFailedAuditHandler(DaxaDbContext dbContext)
+    : IDomainEventHandler<DeviceRegistrationFailedDomainEvent>
+{
+    public async Task HandleAsync(DeviceRegistrationFailedDomainEvent domainEvent, CancellationToken cancellationToken = default)
+    {
+        dbContext.AuditEvents.Add(new AuditEvent
+        {
+            Id = Guid.NewGuid(),
+            TenantId = domainEvent.TenantId,
+            OrganisationId = domainEvent.OrganisationId,
+            LocationId = domainEvent.LocationId,
+            EventType = "DeviceRegistrationFailed",
+            EntityType = nameof(DeviceRegistrationPin),
+            EntityId = domainEvent.PinId,
+            Reason = domainEvent.FailureReason,
+            OccurredAtUtc = domainEvent.OccurredAtUtc,
+        });
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+}
+
+public sealed class DeviceCredentialRotatedAuditHandler(DaxaDbContext dbContext)
+    : IDomainEventHandler<DeviceCredentialRotatedDomainEvent>
+{
+    public async Task HandleAsync(DeviceCredentialRotatedDomainEvent domainEvent, CancellationToken cancellationToken = default)
+    {
+        dbContext.AuditEvents.Add(new AuditEvent
+        {
+            Id = Guid.NewGuid(),
+            TenantId = domainEvent.TenantId,
+            OrganisationId = domainEvent.OrganisationId,
+            LocationId = domainEvent.LocationId,
+            DeviceId = domainEvent.DeviceId,
+            UserId = domainEvent.UserId,
+            EventType = "DeviceCredentialRotated",
+            EntityType = nameof(DeviceCredential),
+            EntityId = domainEvent.NewCredentialId,
+            BeforeValue = JsonSerializer.Serialize(new { domainEvent.OldCredentialId }),
+            AfterValue = JsonSerializer.Serialize(new { domainEvent.NewCredentialId }),
+            OccurredAtUtc = domainEvent.OccurredAtUtc,
+        });
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+}
+
+public sealed class DeviceRevokedAuditHandler(DaxaDbContext dbContext)
+    : IDomainEventHandler<DeviceRevokedDomainEvent>
+{
+    public async Task HandleAsync(DeviceRevokedDomainEvent domainEvent, CancellationToken cancellationToken = default)
+    {
+        dbContext.AuditEvents.Add(new AuditEvent
+        {
+            Id = Guid.NewGuid(),
+            TenantId = domainEvent.TenantId,
+            OrganisationId = domainEvent.OrganisationId,
+            LocationId = domainEvent.LocationId,
+            DeviceId = domainEvent.DeviceId,
+            UserId = domainEvent.UserId,
+            EventType = "DeviceRevoked",
+            EntityType = nameof(Device),
+            EntityId = domainEvent.DeviceId,
             OccurredAtUtc = domainEvent.OccurredAtUtc,
         });
 
