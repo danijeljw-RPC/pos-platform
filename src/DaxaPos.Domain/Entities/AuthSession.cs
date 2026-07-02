@@ -27,9 +27,9 @@ public class AuthSession
     public Guid? UserId { get; set; }
 
     /// <summary>
-    /// Set once <c>StaffMember</c> exists (Milestone F). No FK constraint yet — added additively
-    /// once the referenced table exists, per ADR-0003's "migrations should add, not repair"
-    /// guidance.
+    /// Set for <see cref="AuthMethod.LocalStaffPin"/> sessions (Milestone F). The FK constraint
+    /// was added additively in the <c>AddStaffMembers</c> migration once the referenced table
+    /// existed, per ADR-0003's "migrations should add, not repair" guidance.
     /// </summary>
     public Guid? StaffMemberId { get; set; }
 

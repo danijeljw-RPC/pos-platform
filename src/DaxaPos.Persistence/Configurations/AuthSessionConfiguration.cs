@@ -54,6 +54,7 @@ public class AuthSessionConfiguration : IEntityTypeConfiguration<AuthSession>
         builder.HasOne<Device>().WithMany().HasForeignKey(s => s.DeviceId).OnDelete(DeleteBehavior.Restrict).IsRequired(false);
         builder.HasOne<User>().WithMany().HasForeignKey(s => s.UserId).OnDelete(DeleteBehavior.Restrict).IsRequired(false);
 
-        // StaffMemberId intentionally has no FK yet — StaffMember doesn't exist until Milestone F.
+        // FK added in Milestone F's AddStaffMembers migration, once the referenced table existed.
+        builder.HasOne<StaffMember>().WithMany().HasForeignKey(s => s.StaffMemberId).OnDelete(DeleteBehavior.Restrict).IsRequired(false);
     }
 }

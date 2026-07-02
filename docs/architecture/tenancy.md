@@ -42,6 +42,10 @@ These endpoints also introduced an `IsActive` lifecycle flag on all three entiti
 
 Two new tenant-owned tables, `device_credentials` and `device_registration_pins` (migration `AddDeviceCredentialsAndRegistrationPins`), follow the standard pattern: denormalized `TenantId` column + fail-closed global query filter in `DaxaDbContext`. The documented `IgnoreQueryFilters()` bootstrap call sites are now a small fixed set, each of which runs **before** any tenant context can exist and is what establishes it: user-by-email at login, session-by-token-hash at session validation, device-credential-by-id (plus its `Device`/`Location`, explicitly pinned to the credential's own `TenantId`) at device-token validation, and the registration-PIN candidate scan during pre-auth device registration. No other code bypasses the filters. **Checklist reminder for every new tenant-owned entity:** add the `TenantId` column + FK + index, add one filter line in `DaxaDbContext.OnModelCreating`, and add a cross-tenant invisibility test.
 
+### Implementation status (PLAN-0003 Milestone F, 2026-07-02)
+
+Two new tenant-owned tables, `staff_members` and `staff_member_roles` (migration `AddStaffMembers`, which also added the deferred `auth_sessions.staff_member_id` FK), follow the standard pattern: denormalized `TenantId` column + fail-closed global query filter. Notably, staff PIN login needs **no** `IgnoreQueryFilters()` bootstrap call site: the login endpoint runs after `DeviceTokenAuthenticationHandler` has already established the device's tenant context, so the `StaffMember` lookup happens under the normal fail-closed filter — the documented bootstrap set remains the four Milestone C–E call sites. Staff-member endpoints apply the same organisation cross-check as Locations (`AuthContext.OrganisationId`, 404 on mismatch, including a different organisation within the same tenant).
+
 ---
 
 ## Organisation

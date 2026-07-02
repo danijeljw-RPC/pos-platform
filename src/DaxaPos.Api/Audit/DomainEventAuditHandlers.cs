@@ -312,3 +312,108 @@ public sealed class DeviceRevokedAuditHandler(DaxaDbContext dbContext)
         await dbContext.SaveChangesAsync(cancellationToken);
     }
 }
+
+/// <summary>
+/// PLAN-0003 Milestone F staff-member audit handlers. <c>EventType</c> for the lifecycle event is
+/// <c>$"StaffMember{Action}"</c> (<c>"StaffMemberCreated"</c>, <c>"StaffMemberPinReset"</c>,
+/// <c>"StaffMemberRoleAssigned"</c>), matching the Milestone D lifecycle-handler convention.
+/// </summary>
+public sealed class StaffMemberLifecycleAuditHandler(DaxaDbContext dbContext)
+    : IDomainEventHandler<StaffMemberLifecycleDomainEvent>
+{
+    public async Task HandleAsync(StaffMemberLifecycleDomainEvent domainEvent, CancellationToken cancellationToken = default)
+    {
+        dbContext.AuditEvents.Add(new AuditEvent
+        {
+            Id = Guid.NewGuid(),
+            TenantId = domainEvent.TenantId,
+            OrganisationId = domainEvent.OrganisationId,
+            LocationId = domainEvent.LocationId,
+            StaffMemberId = domainEvent.StaffMemberId,
+            UserId = domainEvent.UserId,
+            EventType = $"{nameof(StaffMember)}{domainEvent.Action}",
+            EntityType = nameof(StaffMember),
+            EntityId = domainEvent.StaffMemberId,
+            BeforeValue = domainEvent.BeforeValue,
+            AfterValue = domainEvent.AfterValue,
+            OccurredAtUtc = domainEvent.OccurredAtUtc,
+        });
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+}
+
+public sealed class StaffPinLoginSucceededAuditHandler(DaxaDbContext dbContext)
+    : IDomainEventHandler<StaffPinLoginSucceededDomainEvent>
+{
+    public async Task HandleAsync(StaffPinLoginSucceededDomainEvent domainEvent, CancellationToken cancellationToken = default)
+    {
+        dbContext.AuditEvents.Add(new AuditEvent
+        {
+            Id = Guid.NewGuid(),
+            TenantId = domainEvent.TenantId,
+            OrganisationId = domainEvent.OrganisationId,
+            LocationId = domainEvent.LocationId,
+            DeviceId = domainEvent.DeviceId,
+            StaffMemberId = domainEvent.StaffMemberId,
+            EventType = "StaffPinLoginSucceeded",
+            EntityType = nameof(AuthSession),
+            EntityId = domainEvent.AuthSessionId,
+            OccurredAtUtc = domainEvent.OccurredAtUtc,
+        });
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+}
+
+/// <summary>
+/// Raised for every failed staff PIN login attempt — including unknown staff codes, unlike the
+/// unknown-email/unknown-PIN precedents, because the trusted device context supplies the tenant.
+/// </summary>
+public sealed class StaffPinLoginFailedAuditHandler(DaxaDbContext dbContext)
+    : IDomainEventHandler<StaffPinLoginFailedDomainEvent>
+{
+    public async Task HandleAsync(StaffPinLoginFailedDomainEvent domainEvent, CancellationToken cancellationToken = default)
+    {
+        dbContext.AuditEvents.Add(new AuditEvent
+        {
+            Id = Guid.NewGuid(),
+            TenantId = domainEvent.TenantId,
+            OrganisationId = domainEvent.OrganisationId,
+            LocationId = domainEvent.LocationId,
+            DeviceId = domainEvent.DeviceId,
+            StaffMemberId = domainEvent.StaffMemberId,
+            EventType = "StaffPinLoginFailed",
+            EntityType = nameof(StaffMember),
+            EntityId = domainEvent.StaffMemberId,
+            Reason = domainEvent.FailureReason,
+            OccurredAtUtc = domainEvent.OccurredAtUtc,
+        });
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+}
+
+public sealed class StaffMemberDisabledAuditHandler(DaxaDbContext dbContext)
+    : IDomainEventHandler<StaffMemberDisabledDomainEvent>
+{
+    public async Task HandleAsync(StaffMemberDisabledDomainEvent domainEvent, CancellationToken cancellationToken = default)
+    {
+        dbContext.AuditEvents.Add(new AuditEvent
+        {
+            Id = Guid.NewGuid(),
+            TenantId = domainEvent.TenantId,
+            OrganisationId = domainEvent.OrganisationId,
+            LocationId = domainEvent.LocationId,
+            StaffMemberId = domainEvent.StaffMemberId,
+            UserId = domainEvent.UserId,
+            EventType = "StaffMemberDisabled",
+            EntityType = nameof(StaffMember),
+            EntityId = domainEvent.StaffMemberId,
+            AfterValue = JsonSerializer.Serialize(new { IsActive = false, domainEvent.SessionsRevoked }),
+            OccurredAtUtc = domainEvent.OccurredAtUtc,
+        });
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+}

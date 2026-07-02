@@ -78,6 +78,13 @@ builder.Services.AddScoped<IDomainEventHandler<DeviceRegistrationFailedDomainEve
 builder.Services.AddScoped<IDomainEventHandler<DeviceCredentialRotatedDomainEvent>, DeviceCredentialRotatedAuditHandler>();
 builder.Services.AddScoped<IDomainEventHandler<DeviceRevokedDomainEvent>, DeviceRevokedAuditHandler>();
 
+// PLAN-0003 Milestone F: staff-member lifecycle and staff PIN login audit handlers (ADR-0013's
+// identity/permission-change and login audit requirements).
+builder.Services.AddScoped<IDomainEventHandler<StaffMemberLifecycleDomainEvent>, StaffMemberLifecycleAuditHandler>();
+builder.Services.AddScoped<IDomainEventHandler<StaffPinLoginSucceededDomainEvent>, StaffPinLoginSucceededAuditHandler>();
+builder.Services.AddScoped<IDomainEventHandler<StaffPinLoginFailedDomainEvent>, StaffPinLoginFailedAuditHandler>();
+builder.Services.AddScoped<IDomainEventHandler<StaffMemberDisabledDomainEvent>, StaffMemberDisabledAuditHandler>();
+
 // Health checks cover the API/database path only. Keycloak is scoped to cloud/admin/back-office
 // auth (ADR-0013) and is intentionally not part of this check — the API must start and report
 // healthy whether or not Keycloak is reachable.
@@ -98,6 +105,7 @@ app.MapTerminalEndpoints();
 app.MapDeviceRegistrationPinEndpoints();
 app.MapDeviceRegistrationEndpoints();
 app.MapDeviceEndpoints();
+app.MapStaffMemberEndpoints();
 
 // Dev/local-only bootstrap admin seeding (PLAN-0003 Milestone C) — see BootstrapAdminSeeder for
 // the production-safety rules (requires both env vars, idempotent, never overwrites an existing

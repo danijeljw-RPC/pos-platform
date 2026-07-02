@@ -35,6 +35,10 @@ public class DaxaDbContext(DbContextOptions<DaxaDbContext> options, ICurrentTena
 
     public DbSet<DeviceRegistrationPin> DeviceRegistrationPins => Set<DeviceRegistrationPin>();
 
+    public DbSet<StaffMember> StaffMembers => Set<StaffMember>();
+
+    public DbSet<StaffMemberRole> StaffMemberRoles => Set<StaffMemberRole>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(DaxaDbContext).Assembly);
@@ -80,5 +84,14 @@ public class DaxaDbContext(DbContextOptions<DaxaDbContext> options, ICurrentTena
 
         modelBuilder.Entity<DeviceRegistrationPin>()
             .HasQueryFilter(p => currentTenantProvider.TenantId != null && p.TenantId == currentTenantProvider.TenantId);
+
+        // StaffMember/StaffMemberRole (Milestone F) never need a bootstrap bypass: staff PIN login
+        // runs after DeviceTokenAuthenticationHandler has established the device's tenant context,
+        // so the staff lookup happens under this normal fail-closed filter.
+        modelBuilder.Entity<StaffMember>()
+            .HasQueryFilter(s => currentTenantProvider.TenantId != null && s.TenantId == currentTenantProvider.TenantId);
+
+        modelBuilder.Entity<StaffMemberRole>()
+            .HasQueryFilter(sr => currentTenantProvider.TenantId != null && sr.TenantId == currentTenantProvider.TenantId);
     }
 }

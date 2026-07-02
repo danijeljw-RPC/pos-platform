@@ -530,7 +530,7 @@ docker compose ps                                                       (Keycloa
 
 ### Working tree status
 
-**Not committed.** All changes are in the working tree only, per the explicit instruction not to commit until the result is reviewed and approved.
+**Committed as `06bebfe`** (2026-07-02, `feat(devices): add device registration and credentials`), after human review and approval.
 
 ### Blockers before Milestone F
 
@@ -538,7 +538,121 @@ None. Milestone F (StaffMember + staff PIN login) now has everything it needs: t
 
 ---
 
-*Milestone E completed: 2026-07-02 (uncommitted, pending review).*
+*Milestone E completed: 2026-07-02, committed as `06bebfe`.*
+
+---
+
+## Milestone F Planning Pass (2026-07-02)
+
+No code written this session — planning only, per explicit instruction to stop after the plan and wait for approval. Full context re-read: the plan doc, this notes file, ADR-0013, ADR-0015, and current source for `AuthEndpoints`, `SessionAuthenticationHandler`, `DeviceTokenAuthenticationHandler`, `RequirePermissionFilter`, `AuthSession`, `User`, `UserRole`, `AuditEvent`, `AuthContext`, `Permissions`, `LoginLockoutPolicy`, `SessionExpiryPolicy`, `Pbkdf2PinHasher` usage, `DaxaDbContext` filters, and `Program.cs`. Housekeeping done first: Milestone E's "not yet committed / awaiting approval" wording in the plan Status and this file corrected to record commit `06bebfe`.
+
+### Scope confirmed
+
+Milestone F = plan steps 32–38: `StaffMember` + `StaffMemberRole` entities, one migration, staff lifecycle/login domain events + audit handlers, staff-member management endpoints (`staff.manage`, `rejectStaffPin: true`), `POST /api/v1/auth/staff-pin/login` requiring a trusted `DeviceToken` context, emergency disable with immediate session revocation, and `StaffPinLoginTests`. Explicitly **not** in scope: orders/tax/payments/Stripe/receipts/sync/UI/KDS, `Modules.*`, Keycloak/OIDC wiring, ADR-0016 localisation, weakening tenant filters, trusting client-supplied tenant IDs.
+
+### Key structural properties (verified against current source, not assumed)
+
+- **No new `IgnoreQueryFilters()` bootstrap call sites are needed for staff PIN login.** Unlike the email-login and device-token handlers, the staff-PIN login endpoint runs *after* `DeviceTokenAuthenticationHandler` has stashed a partial `AuthContext`, so `CurrentTenantProvider` already returns the device's `TenantId` — the `StaffMember` lookup happens under the normal fail-closed tenant filter. The bootstrap-callers comment in `DaxaDbContext` stays accurate at four call sites.
+- **`AuthSession.StaffMemberId` already exists** (Milestone C), deliberately without an FK; the Milestone F migration adds the FK to the new `staff_members` table additively, per the comment left on the entity.
+- **`rejectStaffPin` is already implemented and applied** to every sensitive endpoint (pulled forward in Milestone D); Milestone F's job is the first *end-to-end* proof with a real `LocalStaffPin` HTTP session.
+- **`LoginLockoutPolicy`/`SessionExpiryPolicy`/`Pbkdf2PinHasher`/`ISessionTokenService` are reused as-is** — no second hashing scheme, no new policy values beyond a small `StaffPinPolicy` (format rules), matching Decision 3 (4-digit-minimum PIN, 5 attempts/15 min lockout, 12h/8h two-part expiry shared by both `AuthSession` flows for MVP).
+- **No verify-scan is needed** (unlike registration PINs): `StaffCode` is the lookup key (unique per organisation, resolved under the tenant filter + device's organisation), then exactly one `PinHash` is verified — PINs themselves need no uniqueness.
+
+### Plan-level corrections/additions proposed (need human approval before implementation)
+
+1. **Flat route for staff-member creation.** Step 35's `POST /api/v1/organisations/{organisationId}/staff-members` predates the Milestone D flat-route decision. Proposed: `POST /api/v1/staff-members` with `LocationId` in the body; organisation derives from the resolved location and is cross-checked against `AuthContext.OrganisationId` (404 on mismatch), exactly the Milestone D Location pattern.
+2. **A `GET /api/v1/staff-members?locationId=` list endpoint** (parity with `GET /api/v1/devices?locationId=`), not in step 35's original list.
+3. **A fourth domain event, `StaffMemberLifecycleDomainEvent`** (`Action`: `"Created"` / `"PinReset"` / `"RoleAssigned"`), Milestone D single-event-with-Action pattern — staff creation, PIN reset, and role assignment are identity/permission changes ADR-0013 says must be audited; step 34's three events don't cover them. `StaffMemberDisabledDomainEvent` stays its own event (it also carries session-revocation semantics).
+4. **Unknown staff-code login attempts ARE audited** — a deliberate, justified departure from the unknown-email (Milestone C) and unknown-PIN (Milestone E) precedents: here the tenant is already known from the trusted device context, so `AuditEvent.TenantId` is satisfiable (`Reason = "UnknownStaffCode"`, `StaffMemberId = null`).
+5. **PIN reset semantics:** admin supplies the new PIN in the request body (policy-validated); reset clears `FailedPinAttempts`/`LockedOutUntilUtc` and revokes the staff member's active sessions.
+6. **Sensitive-permission login guard (step 36):** the check set is defined as all eight current `Permissions` catalogue codes (every one is gated `rejectStaffPin: true` where mapped); login fails with a generic 401 and an audited `Reason = "RoleGrantsSensitivePermissions"` configuration error.
+
+### Deferred/flagged, not built
+
+- `TerminalId` remains null on staff sessions — device→terminal mapping doesn't exist yet.
+- Staff "fast switching" is just per-staff login/logout; multiple concurrent staff sessions per device are allowed in MVP.
+- Shorter/configurable staff-session lifetime (ADR-0013 "short-lived") — Decision 3 applies the shared 12h/8h policy for MVP.
+- The Milestone D report in this file still carries stale "Not committed" wording (D was committed as `c592b49`); left untouched per the explicit E-only housekeeping instruction — flagged for the human.
+
+---
+
+## Milestone F Report (2026-07-02)
+
+Human approved the Milestone F plan with thirteen explicit decisions (recorded verbatim-equivalent in the plan's "Human Decisions Needed" entry dated 2026-07-02 (Milestone F)). The notable amendments over the planning pass: `StaffCode` is **alphanumeric** (uppercase letters + digits, 2–20, uppercase-normalised), not numeric-only; staff PIN sessions get their own shorter expiry (**8h absolute / 30min idle**, `StaffSessionExpiryPolicy`) instead of reusing the admin 12h/8h policy; and PIN reset is **server-generated** (raw PIN returned once, cryptographic RNG) rather than admin-supplied. Scope guard fully observed: no orders/tax/payments/Stripe/receipts/sync/UI/KDS, no `Modules.*`, no Keycloak wiring, no localisation, tenant filters untouched (two filters *added*, none weakened), no client-supplied tenant ID trusted anywhere, no raw secret/PIN/password/token stored anywhere.
+
+TDD used for the pure-logic pieces (`StaffCodePolicy`/`StaffPinPolicy`/`StaffSessionExpiryPolicy` — tests written first, RED confirmed via compile failure, then GREEN, 37 unit tests). The vertical slice (entities → migration → login endpoint → management endpoints → audit handlers) was proven via acceptance-style HTTP tests, consistent with Milestones B–E. All 38 new HTTP tests passed on the first run after implementation.
+
+### Files changed
+
+New:
+- `src/DaxaPos.Application/Identity/StaffCodePolicy.cs`, `StaffPinPolicy.cs`, `StaffSessionExpiryPolicy.cs`.
+- `src/DaxaPos.Domain/Entities/StaffMember.cs`, `StaffMemberRole.cs`.
+- `src/DaxaPos.Domain/Events/StaffMemberLifecycleDomainEvent.cs`, `StaffPinLoginSucceededDomainEvent.cs`, `StaffPinLoginFailedDomainEvent.cs`, `StaffMemberDisabledDomainEvent.cs`.
+- `src/DaxaPos.Persistence/Configurations/StaffMemberConfiguration.cs` (unique `(OrganisationId, StaffCode)` index), `StaffMemberRoleConfiguration.cs`.
+- `src/DaxaPos.Persistence/Migrations/20260702050118_AddStaffMembers.cs` (+ `.Designer.cs`, updated snapshot).
+- `src/DaxaPos.Api/Endpoints/Identity/StaffMemberEndpoints.cs` (create/list/get/reset-pin/roles/disable, all `staff.manage` + `rejectStaffPin: true`).
+- `tests/DaxaPos.UnitTests/Identity/StaffCodePolicyTests.cs` (16), `StaffPinPolicyTests.cs` (14), `StaffSessionExpiryPolicyTests.cs` (7).
+- `tests/DaxaPos.Api.Tests/Support/StaffTestHelper.cs`; `StaffMemberEndpointsTests.cs` (21 test cases incl. theories), `StaffPinLoginTests.cs` (17).
+
+Modified:
+- `src/DaxaPos.Application/Identity/Permissions.cs` — added `Permissions.AdminSensitive` (all eight current codes) with the Decision 8 follow-up note in its doc comment.
+- `src/DaxaPos.Domain/Entities/AuthSession.cs` — `StaffMemberId` comment updated (FK now exists).
+- `src/DaxaPos.Persistence/Configurations/AuthSessionConfiguration.cs` — `StaffMember` FK added.
+- `src/DaxaPos.Persistence/DaxaDbContext.cs` — two new `DbSet`s + fail-closed filters, with a note that staff PIN login needs no bootstrap bypass.
+- `src/DaxaPos.Api/Authentication/SessionAuthenticationHandler.cs` — expiry branches by `AuthMethod`: `LocalStaffPin` → `StaffSessionExpiryPolicy` (8h/30min), everything else → `SessionExpiryPolicy` (12h/8h).
+- `src/DaxaPos.Api/Endpoints/Identity/AuthEndpoints.cs` — `POST /api/v1/auth/staff-pin/login` + `StaffPinLoginRequest`/`StaffPinLoginResponse`.
+- `src/DaxaPos.Api/Audit/DomainEventAuditHandlers.cs` — four new handlers (six audited event types: `StaffMemberCreated`/`StaffMemberPinReset`/`StaffMemberRoleAssigned` via the lifecycle event's `Action`, plus `StaffPinLoginSucceeded`/`StaffPinLoginFailed`/`StaffMemberDisabled`).
+- `src/DaxaPos.Api/Program.cs` — four audit-handler registrations, `MapStaffMemberEndpoints()`.
+- `docs/architecture/security.md`, `docs/architecture/tenancy.md`, `docs/modules/audit.md` — Milestone F implementation-status sections.
+- Plan doc (Status, Milestone F steps revised to approved shape, Human Decisions entry #8) and this notes file.
+
+### Migration created
+
+`AddStaffMembers` (`20260702050118`). Creates `staff_members` (unique `(OrganisationId, StaffCode)` index; FKs to `tenants`/`organisations`/`locations`/`users` (LinkedUserId), all `RESTRICT`) and `staff_member_roles` (PK `(StaffMemberId, RoleId)`, mirroring `user_roles`; `LocationId` nullable scope column for later multi-location staff assignment), **and adds the deferred `auth_sessions.staff_member_id` FK** flagged in Milestone C. Verified twice: applied incrementally with `psql \d` checks, and from a completely dropped database — all six migrations apply cleanly in sequence.
+
+### Design/implementation notes worth flagging to a future reader
+
+- **Staff PIN login runs entirely under the tenant filter** — no new `IgnoreQueryFilters()` call sites. The `DeviceToken` authentication handler establishes the tenant context before the endpoint executes, so the `StaffMember` lookup, role/permission joins, and session insert are all normally filtered. The documented bootstrap set remains the four Milestone C–E call sites.
+- **Failure-reason ordering in the login endpoint:** location-mismatch → unknown code → inactive → locked-out → home-location-mismatch → PIN verify. Lockout is checked *before* PIN verification, so a correct PIN during lockout is still rejected (audited `LockedOut`) and does not reset the counter. Failed attempts only increment on an actual PIN mismatch; wrong-location attempts don't count toward lockout.
+- **Unknown staff-code attempts are audited** (deliberate departure from the Milestone C unknown-email and Milestone E unknown-PIN precedents): the device context supplies the tenant, so `AuditEvent.TenantId` is satisfiable. Client responses stay generic across all failure reasons.
+- **The sensitive-permission login guard makes a misconfigured staff session impossible through the API**, so the end-to-end "staff session with a sensitive permission still gets 403" proof seeds the `AuthSession` row directly in the test (`StaffSession_MisconfiguredWithSensitivePermissions_...`) — demonstrating the endpoint-level `rejectStaffPin` net holds independently of the login-time guard.
+- **Recorded follow-up (Decision 8):** `Permissions.AdminSensitive` is a hard-coded list of the current eight catalogue codes. Permission metadata/category should eventually define staff-PIN eligibility per permission — do not extend the hard-coded list indefinitely as later plans add permission codes.
+- **Deferred (Decision 5):** `AuthSession.TerminalId` stays null on staff sessions — terminal-device mapping doesn't exist yet; staff sessions attach `TerminalId` once terminal assignment is implemented.
+- **PIN reset and disable both revoke the staff member's active sessions** (reasons `"StaffPinReset"`/`"StaffMemberDisabled"` on the session rows) but deliberately raise only their own single audit event (with the revoked-session count in the payload) rather than an additional `AuthSessionRevoked` per session — one action, one audit row.
+- Staff management endpoints follow the Milestone D conventions exactly: list hides inactive staff, single `GET` doesn't; disable is idempotent; cross-tenant and cross-organisation access is always 404, never 403.
+
+### Commands run
+
+```
+dotnet build tests/DaxaPos.UnitTests/DaxaPos.UnitTests.csproj                 (RED — policy classes didn't exist)
+dotnet test tests/DaxaPos.UnitTests/... --filter "Staff*PolicyTests"          (GREEN, 37/37)
+dotnet ef migrations add AddStaffMembers --project src/DaxaPos.Persistence/... --startup-project src/DaxaPos.Api/...
+dotnet ef database update ...                                                  (applied incrementally)
+docker compose exec -T db psql -U daxapos -d daxapos -c "\d staff_members" -c "\d staff_member_roles"
+dotnet build DaxaPos.sln                                                       (0 warnings, 0 errors)
+dotnet test tests/DaxaPos.Api.Tests/... --filter "StaffMemberEndpointsTests|StaffPinLoginTests"   (38/38, first run)
+dotnet test DaxaPos.sln                                                        (215/215)
+dotnet ef database drop --force ... && dotnet ef database update ...           (fresh-DB verification, 6 migrations in sequence)
+dotnet test DaxaPos.sln                                                        (215/215 again, freshly-migrated DB)
+docker compose ps                                                              (Keycloak not running throughout)
+```
+
+### Build/test result
+
+`dotnet build DaxaPos.sln` — 0 warnings, 0 errors.
+`dotnet test DaxaPos.sln` (Postgres `db` running, all six migrations applied fresh, `keycloak` stopped) — **215/215 passed** (81 unit tests + 134 API tests: 1 health check + 6 tenant isolation + 6 permission filter + 12 login + 36 Milestone D + 35 Milestone E + 38 new Milestone F), 0 failed, 0 skipped.
+
+### Working tree status
+
+**Not committed.** All changes are in the working tree only, per the explicit instruction not to commit until the result is reviewed and approved.
+
+### Blockers before Milestone G
+
+None. Milestone G (offline verification + consolidated RBAC tests) has everything it needs: both auth paths (`LocalUsernamePassword`, `LocalStaffPin`) exist end-to-end and already run with Keycloak stopped in every test session; `RbacTests.cs` can consolidate the cross-method assertions using `RbacTestSeeder`/`DeviceTestHelper`/`StaffTestHelper` as-is. Nothing added strays into Milestone G–H territory.
+
+---
+
+*Milestone F completed: 2026-07-02 (uncommitted, pending review).*
 
 ---
 

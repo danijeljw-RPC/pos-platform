@@ -11,8 +11,9 @@ namespace DaxaPos.Api.Authentication;
 
 /// <summary>
 /// Validates the opaque, server-hashed POS/local session bearer token (ADR-0015) — never a JWT.
-/// Enforces the two-part session-expiry policy (12h absolute cap, 8h idle timeout) and, on
-/// success, stashes the session's role/permission snapshot as an <see cref="AuthContext"/> for
+/// Enforces the two-part session-expiry policy per session type (admin/local sessions: 12h
+/// absolute cap, 8h idle; staff PIN sessions: 8h absolute cap, 30min idle) and, on success,
+/// stashes the session's role/permission snapshot as an <see cref="AuthContext"/> for
 /// <see cref="HttpContextAuthContextAccessor"/> to read.
 /// </summary>
 public sealed class SessionAuthenticationHandler(
@@ -54,8 +55,7 @@ public sealed class SessionAuthenticationHandler(
 
         var now = DateTimeOffset.UtcNow;
 
-        if (session is null || session.RevokedAtUtc is not null ||
-            SessionExpiryPolicy.IsExpired(session.IssuedAtUtc, session.LastActivityAtUtc, now))
+        if (session is null || session.RevokedAtUtc is not null || IsExpired(session, now))
         {
             return AuthenticateResult.Fail("Invalid, expired, or revoked session.");
         }
@@ -84,4 +84,14 @@ public sealed class SessionAuthenticationHandler(
 
         return AuthenticateResult.Success(ticket);
     }
+
+    /// <summary>
+    /// Staff PIN sessions are operational POS sessions with deliberately shorter lifetimes
+    /// (8h absolute / 30min idle — PLAN-0003 Decision 6) than back-office/admin sessions
+    /// (12h / 8h).
+    /// </summary>
+    private static bool IsExpired(Domain.Entities.AuthSession session, DateTimeOffset now) =>
+        session.AuthMethod == Domain.Enums.AuthMethod.LocalStaffPin
+            ? StaffSessionExpiryPolicy.IsExpired(session.IssuedAtUtc, session.LastActivityAtUtc, now)
+            : SessionExpiryPolicy.IsExpired(session.IssuedAtUtc, session.LastActivityAtUtc, now);
 }
