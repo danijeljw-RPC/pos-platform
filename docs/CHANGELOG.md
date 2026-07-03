@@ -4,6 +4,36 @@ Changes are listed in reverse chronological order.
 
 ---
 
+## 2026-07-03 — PLAN-0004 Milestone A (permission metadata, closes OI-0015)
+
+### Summary
+
+Implemented PLAN-0004 Milestone A only: permission metadata for staff-PIN eligibility. Added a required `Permission.Category` (`Operational`/`AdminSensitive`) column, refactored the staff-PIN login guard in `AuthEndpoints.StaffPinLoginAsync` to read it instead of the hard-coded `Permissions.AdminSensitive` list (deleted), and added 4 new permission codes: `catalog.manage`, `pricing.manage`, `menus.manage` (all `AdminSensitive`), and `catalog.sold-out-toggle` (`Operational` — the first permission code ever granted to the `Staff` role). Closes OI-0015. No catalog/menu/tax/pricing domain entities were added — those are Milestones B onward.
+
+### Key areas changed
+
+- `src/DaxaPos.Domain/Enums/PermissionCategory.cs` (new), `Entities/Permission.cs` (new `Category` property).
+- `src/DaxaPos.Persistence/Configurations/PermissionConfiguration.cs`, `RolePermissionConfiguration.cs`, `Seed/RbacSeedIds.cs` — seed data for the 4 new permissions and their role grants (`SystemAdmin`/`OrganisationOwner`/`VenueManager` get all 4; `Staff` gets only `catalog.sold-out-toggle`).
+- `src/DaxaPos.Persistence/Migrations/20260703120121_AddPermissionCategory.cs` — adds the column, backfills the 8 pre-existing permissions to `AdminSensitive`, inserts the 4 new permissions and their role grants.
+- `src/DaxaPos.Application/Identity/Permissions.cs` — added 4 new code constants, deleted the `AdminSensitive` hard-coded set.
+- `src/DaxaPos.Api/Endpoints/Identity/AuthEndpoints.cs` — staff-PIN login guard now checks `Permission.Category` instead of the deleted list.
+- `tests/DaxaPos.Api.Tests/StaffPinLoginTests.cs` — 2 new tests (`Login_WhenAssignedRoleGrantsOnlyOperationalPermissions_Succeeds`, `PermissionCatalogue_ClassifiesPLAN0004MilestoneAPermissions_ByCategory`); one existing test updated to list explicit permission codes instead of the deleted `Permissions.AdminSensitive`.
+- `docs/issues/closed/OI-0015-permission-metadata-for-staff-pin-eligibility.md` (moved from `open/`), `docs/issues/index.md`, `docs/plans/active/PLAN-0004-catalog-menu-tax-pricing-planning.md`, `docs/plans/active/PLAN-0004-worker-notes.md`.
+
+### Open issues resolved
+
+- OI-0015 — Permission Metadata for Staff-PIN Eligibility: resolved by `Permission.Category`, per the plan's Option 1 recommendation.
+
+### Tests / verification outcome
+
+`dotnet build DaxaPos.sln` — 0 warnings, 0 errors. `dotnet test DaxaPos.sln` — 373/373 passed (82 unit tests + 291 API tests), against real Postgres. All 7 migrations (6 from PLAN-0003 + this one) verified to apply cleanly in sequence from an empty database (checked against a disposable throwaway database, not the shared dev database).
+
+### Next
+
+PLAN-0004 Milestone B (tax foundation: entities, templates, and the pure tax calculation engine) — see `docs/plans/active/PLAN-0004-worker-notes.md` for the recommended next-session prompt.
+
+---
+
 ## 2026-07-03 — PLAN-0003 complete (Milestones A–H)
 
 ### Summary

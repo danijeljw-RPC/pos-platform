@@ -7,7 +7,7 @@ Issues that have been decided are moved to `issues/closed/` and listed under Clo
 
 ## Open Issues
 
-Grouped by area. Five were opened by PLAN-0003 Milestone G (2026-07-03), converting deferred risks recorded in the Milestone C–F worker notes into tracked issues. A sixth, OI-0016, was opened by PLAN-0003 Milestone H (2026-07-03) closeout, recording a process question raised while deciding whether to relocate the plan document itself.
+Grouped by area. Five were opened by PLAN-0003 Milestone G (2026-07-03), converting deferred risks recorded in the Milestone C–F worker notes into tracked issues. A sixth, OI-0016, was opened by PLAN-0003 Milestone H (2026-07-03) closeout, recording a process question raised while deciding whether to relocate the plan document itself. One of the original six, OI-0015, was closed by PLAN-0004 Milestone A (2026-07-03) — see Closed Issues below.
 
 ### Identity / Security
 
@@ -15,7 +15,6 @@ Grouped by area. Five were opened by PLAN-0003 Milestone G (2026-07-03), convert
 |-------|-------|---------------|
 | [OI-0011](open/OI-0011-user-management-endpoints.md) | User Management Endpoints | PLAN-0003 (permission seeded, endpoints never scoped into a milestone) |
 | [OI-0012](open/OI-0012-inactive-parent-lifecycle-vs-device-staff-authentication.md) | Inactive Parent Lifecycle vs Device/Staff Authentication | PLAN-0003 Milestones D/E |
-| [OI-0015](open/OI-0015-permission-metadata-for-staff-pin-eligibility.md) | Permission Metadata for Staff-PIN Eligibility | PLAN-0003 Milestone F (Decision 8) |
 
 ### Devices
 
@@ -51,3 +50,4 @@ Grouped by area. Five were opened by PLAN-0003 Milestone G (2026-07-03), convert
 | [OI-0008](closed/OI-0008-cloud-data-region-strategy.md) | Cloud Data Region Strategy | Architecture / Deployment | Configurable per-tenant region strategy |
 | [OI-0009](closed/OI-0009-maui-app-update-delivery.md) | MAUI App Update Delivery | Devices / Deployment | Operator-controlled via Daxa Local server |
 | [OI-0010](closed/OI-0010-local-keycloak-vs-cloud-keycloak.md) | Local Keycloak vs Cloud Keycloak | Identity / Deployment | ADR-0013 — no local Keycloak for MVP |
+| [OI-0015](closed/OI-0015-permission-metadata-for-staff-pin-eligibility.md) | Permission Metadata for Staff-PIN Eligibility | Identity / Security | `Permission.Category` enum, PLAN-0004 Milestone A |

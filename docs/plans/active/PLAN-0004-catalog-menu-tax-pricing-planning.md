@@ -2,7 +2,7 @@
 
 ## Status
 
-Draft — planning pass complete 2026-07-03, awaiting human approval. No code, no migrations, no `src/` changes. Blocked on committed PLAN-0003 state (commits through `a451482`, PLAN-0003 closed out).
+In progress — human approved the 7 planning-pass design calls 2026-07-03 (see Human Decisions Needed, all resolved as recommended). Milestone A (permission metadata, closes OI-0015) implemented and committed 2026-07-03; TDD, 373/373 tests passing, migrations verified clean from empty. Milestones B–H not started.
 
 ## Goal
 
@@ -158,6 +158,8 @@ Per CLAUDE.md's explicit instruction, ADR-0016 is not implemented. Its constrain
 ## Milestones
 
 ### Milestone A — Permission metadata (closes OI-0015) and new permission codes
+
+**Status: Done (2026-07-03).** Implemented exactly as planned below, including the `Staff`-role `catalog.sold-out-toggle` grant. Migration `20260703120121_AddPermissionCategory` (actual name; slightly different timestamp than the placeholder used in the description below). `Permissions.AdminSensitive`'s one other caller (a test seeding a deliberately-misconfigured session) was updated to list the 8 codes explicitly rather than left broken — this was a required corollary of deleting the set, not scope creep. See `PLAN-0004-worker-notes.md` for full detail and OI-0015's closed-issue file for the Decision/Outcome record.
 
 No product/tax/menu entities. Pure identity-layer follow-up, deliberately sequenced first so every permission code this plan adds is classified at birth.
 
@@ -359,6 +361,8 @@ docs: update catalog, tax, menus, pricing, and testing docs for PLAN-0004 closeo
 ```
 
 ## Human Decisions Needed
+
+**Approval record (2026-07-03):** all 7 items below were approved as recommended, to unblock implementation. None of them are Milestone A concerns (Milestone A adds no catalog/tax/pricing/menu entities or endpoints), so nothing below was actioned by Milestone A's implementation — they apply starting at the milestone that actually builds the affected entity/endpoint. One exception is item 6 (ADR-0016): the approval was conditional — "accept now if not already accepted, otherwise flag rather than move silently." `ADR-0016` was checked during Milestone A and is **still `docs/adr/proposed/`, not `docs/adr/accepted/`** — per the conditional instruction, it was **not moved** in this session (moving an ADR's status is a distinct, human-visible action independent of Milestone A's own scope, and Milestone A does not depend on ADR-0016's acceptance). This is flagged here and in `PLAN-0004-worker-notes.md` for the human to explicitly action (a one-line `git mv` + status edit) whenever convenient — most naturally alongside Milestone B or G, whichever first touches a column ADR-0016 constrains.
 
 Recorded here so implementation can start immediately on approval without re-litigating during a milestone. Presented as the specific, consequential calls this planning pass made that a different reasonable person could make differently:
 

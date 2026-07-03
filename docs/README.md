@@ -45,7 +45,7 @@ This folder contains all planning, architecture, decision, and module documentat
 
 - [Issue Index](issues/index.md)
 
-Six issues are open (OI-0011 through OI-0016), all created during PLAN-0003 (Milestones G and H, 2026-07-03). The other ten issues (OI-0001 through OI-0010) are closed and are under `issues/closed/`.
+Five issues are open (OI-0011, OI-0012, OI-0013, OI-0014, OI-0016), all created during PLAN-0003 (Milestones G and H, 2026-07-03). The other eleven issues (OI-0001 through OI-0010, OI-0015) are closed and are under `issues/closed/`. OI-0015 was closed by PLAN-0004 Milestone A (2026-07-03).
 
 ---
 
