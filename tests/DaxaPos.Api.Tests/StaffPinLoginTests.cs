@@ -318,6 +318,51 @@ public class StaffPinLoginTests : IClassFixture<WebApplicationFactory<Program>>
     }
 
     [Fact]
+    public async Task Login_WhenAssignedRoleGrantsOnlyOperationalPermissions_Succeeds()
+    {
+        var scenario = await SetupAsync("Operational Permission Venue");
+        var staff = await StaffTestHelper.CreateStaffMemberAsync(scenario.AdminClient, scenario.Location.Id, "DJ", "2468");
+
+        // Staff previously held zero permissions (RolePermissionConfiguration, PLAN-0003).
+        // catalog.sold-out-toggle (Operational) is the first permission ever granted to it
+        // (PLAN-0004 Milestone A) — proves Permission.Category, not a hard-coded list, now
+        // decides staff-PIN eligibility (OI-0015).
+        var staffRoleId = await GetRoleIdAsync("Staff");
+        Assert.Equal(HttpStatusCode.OK, (await scenario.AdminClient.PostAsJsonAsync(
+            $"/api/v1/staff-members/{staff.Id}/roles", new AssignStaffRoleRequest(staffRoleId))).StatusCode);
+
+        var response = await StaffTestHelper.StaffLoginRawAsync(scenario.DeviceClient, scenario.Location.Id, "DJ", "2468");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var login = await response.Content.ReadFromJsonAsync<StaffPinLoginResponse>();
+        Assert.Contains(Permissions.CatalogSoldOutToggle, login!.Permissions);
+    }
+
+    [Fact]
+    public async Task PermissionCatalogue_ClassifiesPLAN0004MilestoneAPermissions_ByCategory()
+    {
+        await using var dbContext = CreateDbContext();
+        var codes = new[]
+        {
+            Permissions.OrganisationsManage,
+            Permissions.CatalogManage,
+            Permissions.PricingManage,
+            Permissions.MenusManage,
+            Permissions.CatalogSoldOutToggle,
+        };
+
+        var categoriesByCode = await dbContext.Permissions
+            .Where(p => codes.Contains(p.Code))
+            .ToDictionaryAsync(p => p.Code, p => p.Category);
+
+        Assert.Equal(PermissionCategory.AdminSensitive, categoriesByCode[Permissions.OrganisationsManage]);
+        Assert.Equal(PermissionCategory.AdminSensitive, categoriesByCode[Permissions.CatalogManage]);
+        Assert.Equal(PermissionCategory.AdminSensitive, categoriesByCode[Permissions.PricingManage]);
+        Assert.Equal(PermissionCategory.AdminSensitive, categoriesByCode[Permissions.MenusManage]);
+        Assert.Equal(PermissionCategory.Operational, categoriesByCode[Permissions.CatalogSoldOutToggle]);
+    }
+
+    [Fact]
     public async Task StaffSession_Receives403_FromEveryRejectStaffPinEndpoint()
     {
         var scenario = await SetupAsync("Reject Staff Pin Venue");
@@ -358,7 +403,12 @@ public class StaffPinLoginTests : IClassFixture<WebApplicationFactory<Program>>
                 StaffMemberId = staff.Id,
                 AuthMethod = AuthMethod.LocalStaffPin,
                 RoleSnapshot = ["VenueManager"],
-                PermissionSnapshot = [.. Permissions.AdminSensitive],
+                PermissionSnapshot =
+                [
+                    Permissions.OrganisationsManage, Permissions.LocationsManage, Permissions.TerminalsManage,
+                    Permissions.DevicesManage, Permissions.DevicesRegister, Permissions.StaffManage,
+                    Permissions.UsersManage, Permissions.SessionsManage,
+                ],
                 SessionTokenHash = tokenService.Hash(rawToken),
                 IssuedAtUtc = now,
                 ExpiresAtUtc = now.Add(StaffSessionExpiryPolicy.AbsoluteLifetime),
