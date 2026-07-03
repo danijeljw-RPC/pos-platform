@@ -1,9 +1,13 @@
+using DaxaPos.Domain.Enums;
+
 namespace DaxaPos.Application.Identity;
 
 /// <summary>
-/// Permission code catalogue for PLAN-0003's own endpoints. Intentionally minimal — later plans
-/// add their own codes (e.g. <c>tax.manage</c> per OI-0007) as those modules are built; this is
-/// not the full eventual permission set.
+/// Permission code catalogue for PLAN-0003's and PLAN-0004's own endpoints. Intentionally
+/// minimal — later plans add their own codes as those modules are built; this is not the full
+/// eventual permission set. Staff-PIN eligibility is decided per-code by
+/// <see cref="DaxaPos.Domain.Entities.Permission.Category"/> (OI-0015), not by a list in this
+/// class — see the staff-PIN login guard in <c>AuthEndpoints</c>.
 /// </summary>
 public static class Permissions
 {
@@ -16,23 +20,19 @@ public static class Permissions
     public const string UsersManage = "users.manage";
     public const string SessionsManage = "sessions.manage";
 
+    /// <summary>PLAN-0004 Milestone A. AdminSensitive — see OI-0007.</summary>
+    public const string CatalogManage = "catalog.manage";
+
+    /// <summary>PLAN-0004 Milestone A. AdminSensitive.</summary>
+    public const string PricingManage = "pricing.manage";
+
+    /// <summary>PLAN-0004 Milestone A. AdminSensitive.</summary>
+    public const string MenusManage = "menus.manage";
+
     /// <summary>
-    /// Admin-sensitive permission codes a staff PIN session must never hold (ADR-0013's staff-PIN
-    /// restrictions; PLAN-0003 Milestone F, Decision 8). Staff PIN login is rejected outright if
-    /// the role snapshot would include any of these — defense-in-depth beneath the endpoint-level
-    /// <c>rejectStaffPin</c> check. TEMPORARY MECHANISM (recorded follow-up): this is the current
-    /// catalogue enumerated by hand; permission metadata/category should eventually define
-    /// staff-PIN eligibility per permission instead of a hard-coded list here.
+    /// PLAN-0004 Milestone A. Operational — the first permission code ever granted to the
+    /// <c>Staff</c> role, and the first deliberate proof that <see cref="PermissionCategory"/>
+    /// (not a hard-coded list) decides staff-PIN eligibility.
     /// </summary>
-    public static readonly IReadOnlySet<string> AdminSensitive = new HashSet<string>
-    {
-        OrganisationsManage,
-        LocationsManage,
-        TerminalsManage,
-        DevicesManage,
-        DevicesRegister,
-        StaffManage,
-        UsersManage,
-        SessionsManage,
-    };
+    public const string CatalogSoldOutToggle = "catalog.sold-out-toggle";
 }

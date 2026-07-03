@@ -23,8 +23,10 @@ public class RolePermissionConfiguration : IEntityTypeConfiguration<RolePermissi
             .HasForeignKey(rp => rp.PermissionId)
             .OnDelete(DeleteBehavior.Cascade);
 
-        // Seed mapping per the accepted PLAN-0003 permission catalogue. `Staff` is deliberately
-        // granted none of these — staff PIN login must never reach identity/tenancy management.
+        // Seed mapping per the accepted PLAN-0003 permission catalogue, extended by PLAN-0004
+        // Milestone A's four new codes. `Staff` was previously granted none of these — staff PIN
+        // login must never reach identity/tenancy management — but now receives
+        // catalog.sold-out-toggle, the first Operational-category permission (OI-0015).
         var allPermissionIds = new[]
         {
             RbacSeedIds.OrganisationsManagePermissionId,
@@ -35,6 +37,10 @@ public class RolePermissionConfiguration : IEntityTypeConfiguration<RolePermissi
             RbacSeedIds.StaffManagePermissionId,
             RbacSeedIds.UsersManagePermissionId,
             RbacSeedIds.SessionsManagePermissionId,
+            RbacSeedIds.CatalogManagePermissionId,
+            RbacSeedIds.PricingManagePermissionId,
+            RbacSeedIds.MenusManagePermissionId,
+            RbacSeedIds.CatalogSoldOutTogglePermissionId,
         };
 
         var organisationOwnerPermissionIds = new[]
@@ -46,6 +52,10 @@ public class RolePermissionConfiguration : IEntityTypeConfiguration<RolePermissi
             RbacSeedIds.StaffManagePermissionId,
             RbacSeedIds.UsersManagePermissionId,
             RbacSeedIds.SessionsManagePermissionId,
+            RbacSeedIds.CatalogManagePermissionId,
+            RbacSeedIds.PricingManagePermissionId,
+            RbacSeedIds.MenusManagePermissionId,
+            RbacSeedIds.CatalogSoldOutTogglePermissionId,
         };
 
         var venueManagerPermissionIds = new[]
@@ -54,6 +64,10 @@ public class RolePermissionConfiguration : IEntityTypeConfiguration<RolePermissi
             RbacSeedIds.DevicesManagePermissionId,
             RbacSeedIds.DevicesRegisterPermissionId,
             RbacSeedIds.StaffManagePermissionId,
+            RbacSeedIds.CatalogManagePermissionId,
+            RbacSeedIds.PricingManagePermissionId,
+            RbacSeedIds.MenusManagePermissionId,
+            RbacSeedIds.CatalogSoldOutTogglePermissionId,
         };
 
         var supportAccessPermissionIds = new[]
@@ -62,11 +76,18 @@ public class RolePermissionConfiguration : IEntityTypeConfiguration<RolePermissi
             RbacSeedIds.SessionsManagePermissionId,
         };
 
+        // First-ever `Staff` role grant (PLAN-0004 Milestone A): Operational only, per OI-0015.
+        var staffPermissionIds = new[]
+        {
+            RbacSeedIds.CatalogSoldOutTogglePermissionId,
+        };
+
         var seedRows = allPermissionIds
             .Select(permissionId => new RolePermission { RoleId = RbacSeedIds.SystemAdminRoleId, PermissionId = permissionId })
             .Concat(organisationOwnerPermissionIds.Select(permissionId => new RolePermission { RoleId = RbacSeedIds.OrganisationOwnerRoleId, PermissionId = permissionId }))
             .Concat(venueManagerPermissionIds.Select(permissionId => new RolePermission { RoleId = RbacSeedIds.VenueManagerRoleId, PermissionId = permissionId }))
             .Concat(supportAccessPermissionIds.Select(permissionId => new RolePermission { RoleId = RbacSeedIds.SupportAccessRoleId, PermissionId = permissionId }))
+            .Concat(staffPermissionIds.Select(permissionId => new RolePermission { RoleId = RbacSeedIds.StaffRoleId, PermissionId = permissionId }))
             .ToArray();
 
         builder.HasData(seedRows);

@@ -24,4 +24,10 @@ internal static class RbacSeedIds
     public static readonly Guid StaffManagePermissionId = new("00000000-0000-0000-0002-000000000006");
     public static readonly Guid UsersManagePermissionId = new("00000000-0000-0000-0002-000000000007");
     public static readonly Guid SessionsManagePermissionId = new("00000000-0000-0000-0002-000000000008");
+
+    // PLAN-0004 Milestone A (permission metadata / OI-0015 close-out).
+    public static readonly Guid CatalogManagePermissionId = new("00000000-0000-0000-0002-000000000009");
+    public static readonly Guid PricingManagePermissionId = new("00000000-0000-0000-0002-000000000010");
+    public static readonly Guid MenusManagePermissionId = new("00000000-0000-0000-0002-000000000011");
+    public static readonly Guid CatalogSoldOutTogglePermissionId = new("00000000-0000-0000-0002-000000000012");
 }

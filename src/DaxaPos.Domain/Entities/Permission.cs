@@ -1,3 +1,5 @@
+using DaxaPos.Domain.Enums;
+
 namespace DaxaPos.Domain.Entities;
 
 /// <summary>
@@ -11,4 +13,10 @@ public class Permission
     public string Code { get; set; } = string.Empty;
 
     public string? Description { get; set; }
+
+    /// <summary>
+    /// Whether a staff PIN session may hold this permission (OI-0015). Required at creation time
+    /// so every new permission code is consciously classified, rather than defaulting open.
+    /// </summary>
+    public PermissionCategory Category { get; set; }
 }

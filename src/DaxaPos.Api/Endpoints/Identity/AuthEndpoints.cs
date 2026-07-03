@@ -154,17 +154,22 @@ public static class AuthEndpoints
             .Join(dbContext.Roles, sr => sr.RoleId, r => r.Id, (_, r) => r.Name)
             .ToListAsync();
 
-        var permissionCodes = await dbContext.StaffMemberRoles
+        var assignedPermissions = await dbContext.StaffMemberRoles
             .Where(sr => sr.StaffMemberId == staffMember.Id)
             .Join(dbContext.RolePermissions, sr => sr.RoleId, rp => rp.RoleId, (_, rp) => rp.PermissionId)
-            .Join(dbContext.Permissions, permissionId => permissionId, p => p.Id, (_, p) => p.Code)
+            .Join(dbContext.Permissions, permissionId => permissionId, p => p.Id, (_, p) => new { p.Code, p.Category })
             .Distinct()
             .ToListAsync();
 
+        var permissionCodes = assignedPermissions.Select(p => p.Code).ToList();
+
         // Defense-in-depth beneath the endpoint-level rejectStaffPin net (Decision 8): a staff
-        // PIN session must never hold admin-sensitive permissions. This is a role-configuration
-        // error, logged as such, but the client still sees only the generic failure.
-        if (permissionCodes.Any(Application.Identity.Permissions.AdminSensitive.Contains))
+        // PIN session must never hold admin-sensitive permissions. Decided by each permission's
+        // own Category (OI-0015), not a hard-coded list, so a newly added permission is
+        // classified at creation time instead of silently defaulting open. This is a
+        // role-configuration error, logged as such, but the client still sees only the generic
+        // failure.
+        if (assignedPermissions.Any(p => p.Category == PermissionCategory.AdminSensitive))
         {
             loggerFactory.CreateLogger("DaxaPos.Api.StaffPinLogin").LogError(
                 "Staff PIN login rejected for staff member {StaffMemberId}: assigned role grants admin-sensitive permissions. Fix the role assignment.",
