@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using DaxaPos.Api.Endpoints.Identity;
+using DaxaPos.Api.Endpoints.Tax;
 using DaxaPos.Api.Tests.Support;
 using DaxaPos.Application.Identity;
 using DaxaPos.Domain.Entities;
@@ -376,7 +377,7 @@ public class StaffPinLoginTests : IClassFixture<WebApplicationFactory<Program>>
         Assert.Equal(HttpStatusCode.OK, (await staffClient.GetAsync("/api/v1/auth/me")).StatusCode);
 
         // …but every sensitive endpoint built in Milestones C–F refuses it.
-        await AssertAllSensitiveEndpointsForbiddenAsync(staffClient, scenario.Location.Id);
+        await AssertAllSensitiveEndpointsForbiddenAsync(staffClient, scenario.Caller.OrganisationId, scenario.Location.Id);
     }
 
     [Fact]
@@ -420,10 +421,10 @@ public class StaffPinLoginTests : IClassFixture<WebApplicationFactory<Program>>
         var staffClient = _factory.CreateClient();
         staffClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", rawToken);
 
-        await AssertAllSensitiveEndpointsForbiddenAsync(staffClient, scenario.Location.Id);
+        await AssertAllSensitiveEndpointsForbiddenAsync(staffClient, scenario.Caller.OrganisationId, scenario.Location.Id);
     }
 
-    private static async Task AssertAllSensitiveEndpointsForbiddenAsync(HttpClient staffClient, Guid locationId)
+    private static async Task AssertAllSensitiveEndpointsForbiddenAsync(HttpClient staffClient, Guid organisationId, Guid locationId)
     {
         var attempts = new[]
         {
@@ -435,6 +436,26 @@ public class StaffPinLoginTests : IClassFixture<WebApplicationFactory<Program>>
             await staffClient.PostAsJsonAsync("/api/v1/device-registration-pins", new CreateDeviceRegistrationPinRequest(locationId, null)),
             await staffClient.GetAsync("/api/v1/staff-members"),
             await staffClient.PostAsJsonAsync("/api/v1/staff-members", new CreateStaffMemberRequest("Nope", "XX99", "4321", locationId)),
+            // PLAN-0004 Milestone C: tax configuration is squarely OI-0007's "manager-level or
+            // higher" surface — every endpoint here is catalog.manage + rejectStaffPin: true.
+            await staffClient.GetAsync("/api/v1/tax-definition-templates"),
+            await staffClient.GetAsync("/api/v1/tax-definitions"),
+            await staffClient.PostAsJsonAsync(
+                "/api/v1/tax-definitions",
+                new CreateTaxDefinitionRequest(
+                    "NOPE", "Nope", organisationId, "AU", null, 10m, "Australia", TaxJurisdictionType.Country,
+                    true, TaxRoundingMode.NearestCent, 2, TaxCalculationScope.PerLine, null, null, null)),
+            await staffClient.PostAsJsonAsync(
+                "/api/v1/tax-definitions/from-template",
+                new CreateTaxDefinitionFromTemplateRequest(organisationId, "AU_GST_10")),
+            await staffClient.GetAsync("/api/v1/tax-categories"),
+            await staffClient.PostAsJsonAsync(
+                "/api/v1/tax-categories",
+                new CreateTaxCategoryRequest("NOPE", "Nope", organisationId, TaxTreatment.Taxable)),
+            await staffClient.GetAsync("/api/v1/tax-category-definitions"),
+            await staffClient.PostAsJsonAsync(
+                "/api/v1/tax-category-definitions",
+                new CreateTaxCategoryDefinitionRequest(Guid.NewGuid(), Guid.NewGuid(), null, 0)),
         };
 
         Assert.All(attempts, response => Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode));
