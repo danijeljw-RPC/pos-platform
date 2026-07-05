@@ -364,3 +364,96 @@ Re-checked: still `docs/adr/proposed/`, not `accepted/`. `Product.Name`/`Descrip
 None. Product catalogue foundation is fully CRUD-manageable via the API, including archive-and-replace; `dotnet build`/`dotnet test` are clean (445/445); migrations verified clean from empty. Milestone E (product variants and modifiers: `ProductVariant`, `ModifierGroup`, `Modifier`, `ProductModifierGroup`) can start on request.
 
 One heads-up for whoever starts Milestone E: `ProductVariant`/`Modifier` price fields are deltas (`+`/`-` on the resolved base price), not absolute prices, per the plan's Domain Assumptions — don't reuse `Product.BasePrice`'s absolute-amount validation style (`>= 0`) for delta fields, which may legitimately be negative (a discount modifier). A valid `ProductId` for variant tests and a valid `ModifierGroupId`-assignment target now come from this milestone's `ProductEndpoints`/`ProductCategoryEndpoints`.
+
+---
+
+## Milestone E Report (2026-07-05)
+
+Implemented per the plan's endpoint list exactly (20 endpoints total, matching the plan doc's count: 6 variant + 6 modifier group + 6 modifier + 2 join = 20). CRUD-endpoint acceptance-test convention used (not TDD-first), same as Milestones C/D.
+
+### Files changed
+
+New:
+- `src/DaxaPos.Domain/Entities/ProductVariant.cs`, `ModifierGroup.cs`, `Modifier.cs`, `ProductModifierGroup.cs`
+- `src/DaxaPos.Domain/Events/ProductVariantLifecycleDomainEvent.cs`, `ModifierGroupLifecycleDomainEvent.cs`, `ModifierLifecycleDomainEvent.cs`, `ProductModifierGroupChangedDomainEvent.cs`
+- `src/DaxaPos.Api/Endpoints/Catalog/ProductVariantEndpoints.cs`, `ModifierGroupEndpoints.cs`, `ModifierEndpoints.cs`, `ProductModifierGroupEndpoints.cs`
+- `src/DaxaPos.Persistence/Configurations/ProductVariantConfiguration.cs`, `ModifierGroupConfiguration.cs`, `ModifierConfiguration.cs`, `ProductModifierGroupConfiguration.cs`
+- `src/DaxaPos.Persistence/Migrations/20260705041146_AddVariantsAndModifiers.cs`
+- `tests/DaxaPos.Api.Tests/ProductVariantEndpointsTests.cs`, `ModifierGroupEndpointsTests.cs`, `ModifierEndpointsTests.cs`, `ProductModifierGroupEndpointsTests.cs`
+
+Modified:
+- `src/DaxaPos.Persistence/DaxaDbContext.cs` — 4 new `DbSet`s, 4 new fail-closed query filters.
+- `src/DaxaPos.Api/Audit/DomainEventAuditHandlers.cs` — 4 new handler classes, same `$"{EntityType}{Action}"` convention.
+- `src/DaxaPos.Api/Program.cs` — 4 new `AddScoped<IDomainEventHandler<...>>` registrations, 4 new `app.Map...Endpoints()` calls.
+- `tests/DaxaPos.Api.Tests/StaffPinLoginTests.cs` — extended `AssertAllSensitiveEndpointsForbiddenAsync` with 5 catalogue-endpoint attempts, same shared-inventory convention.
+- `docs/modules/catalog.md`, `docs/modules/pricing.md` (implementation-status sections), `docs/plans/active/PLAN-0004-catalog-menu-tax-pricing-planning.md`, `docs/CHANGELOG.md`.
+
+No pricing resolver, menus, order integration, inventory, sold-out toggle, or UI were added — Milestone E is variants and modifiers only, exactly as scoped.
+
+### Migration created
+
+`20260705041146_AddVariantsAndModifiers` — creates `modifier_groups` (`TenantId`/`OrganisationId` indexed + FK-restricted, organisation-owned directly), `product_variants` (`TenantId`/`ProductId` indexed + FK-restricted, no `OrganisationId` column), `modifiers` (`TenantId`/`ModifierGroupId` indexed + FK-restricted, no `OrganisationId` column), `product_modifier_groups` (`TenantId`/`ProductId`/`ModifierGroupId` indexed + FK-restricted). No `HasData` seed rows. Verified to apply cleanly in sequence from an empty database (all 10 migrations, disposable throwaway Postgres database, then dropped).
+
+### Endpoints implemented
+
+- `POST/GET /api/v1/product-variants`, `GET/PATCH/{id}`, `.../deactivate`, `.../reactivate` (6, body carries `ProductId`).
+- `POST/GET /api/v1/modifier-groups`, `GET/PATCH/{id}`, `.../deactivate`, `.../reactivate` (6, direct `OrganisationId` comparison).
+- `POST/GET /api/v1/modifiers`, `GET/PATCH/{id}`, `.../deactivate`, `.../reactivate` (6, body carries `ModifierGroupId`).
+- `POST /api/v1/product-modifier-groups` (assign), `DELETE /{id}` (unassign) (2).
+
+All gated `catalog.manage` + `rejectStaffPin: true`, no exceptions — no sold-out-toggle-style staff-accessible endpoint appears until Milestone F.
+
+### Variant/modifier price-delta behaviour
+
+`ProductVariant.PriceDelta` and `Modifier.PriceDelta` accept any decimal value — positive, zero, or negative — with no `>= 0` guard, unlike `Product.BasePrice`/`TaxDefinition.RatePercent`. Proven by `[Theory]`-driven tests (`Create_AcceptsNegativeZeroAndPositivePriceDeltas`) in both `ProductVariantEndpointsTests.cs` and `ModifierEndpointsTests.cs`, each covering `-x`, `0`, and `+x`.
+
+### Product/modifier-group linking behaviour
+
+`ProductModifierGroupEndpoints.AssignAsync` validates both `ProductId` and `ModifierGroupId` independently belong to the caller's organisation (two separate lookups, each 404 on mismatch — mirroring `TaxCategoryDefinitionEndpoints`' multi-reference pattern from Milestone C). `UnassignAsync` hard-deletes the link after the same organisation check (walked through `Product`, since the link itself has no organisation column). No duplicate-assignment prevention was added (not required by the plan) and no update endpoint exists — `DisplayOrder` changes are unassign-then-reassign by design.
+
+### Tests added
+
+44 new integration tests across 4 files:
+- `ProductVariantEndpointsTests.cs`, `ModifierEndpointsTests.cs` — standard CRUD matrix plus the `[Theory]` price-delta-sign tests and a cross-organisation-parent rejection test (`Product`/`ModifierGroup` respectively).
+- `ModifierGroupEndpointsTests.cs` — standard CRUD matrix plus `Create_Rejects_SelectionMaxLessThanSelectionMin`.
+- `ProductModifierGroupEndpointsTests.cs` — assign/unassign happy path (asserting `DisplayOrder` persisted directly via `DbContext`, since no list endpoint exists), `TenantId` rejection, missing-permission 403, both cross-organisation reference checks independently, cross-organisation unassign 404, and an audit-row test for both `"Assigned"`/`"Unassigned"`.
+- `StaffPinLoginTests`'s extended inventory — proves staff-PIN rejection for all 4 endpoint groups without per-entity duplication.
+
+### Commands run
+
+```
+dotnet build DaxaPos.sln
+dotnet ef migrations add AddVariantsAndModifiers --project src/DaxaPos.Persistence --startup-project src/DaxaPos.Api
+dotnet ef database update --project src/DaxaPos.Persistence --startup-project src/DaxaPos.Api
+dotnet test tests/DaxaPos.Api.Tests/DaxaPos.Api.Tests.csproj --filter "FullyQualifiedName~ProductVariantEndpointsTests|FullyQualifiedName~ModifierGroupEndpointsTests|FullyQualifiedName~ModifierEndpointsTests|FullyQualifiedName~ProductModifierGroupEndpointsTests"
+dotnet test tests/DaxaPos.Api.Tests/DaxaPos.Api.Tests.csproj --filter "FullyQualifiedName~StaffPinLoginTests"
+dotnet test DaxaPos.sln
+docker exec deploy-db-1 psql -U daxapos -d daxapos -c "CREATE DATABASE daxapos_migration_check;"
+dotnet ef database update ... --connection "...daxapos_migration_check..."   (clean-database migration re-verification, all 10)
+docker exec deploy-db-1 psql -U daxapos -d daxapos -c "DROP DATABASE daxapos_migration_check;"
+```
+
+### Build/test result
+
+`dotnet build DaxaPos.sln` — 0 warnings, 0 errors.
+`dotnet test DaxaPos.sln` — **489/489 passed** (92 unit tests + 397 API tests, up from 445 at Milestone D close — 44 new tests, zero regressions), against real Postgres, 0 failed, 0 skipped.
+All 10 migrations verified to apply cleanly in sequence from an empty database.
+
+### Deviations from the written plan (flagged, not silently made)
+
+1. **`TenantId` added directly to `ProductVariant`, `Modifier`, and `ProductModifierGroup`**, despite the plan's terse field lists omitting it for all three (only `ModifierGroup`'s bullet lists `TenantId` explicitly). This is a structural requirement, not an added feature: every tenant-owned entity in the codebase carries a direct `TenantId` for the fail-closed EF Core query filter (ADR-0015 §1) — without it, these tables would have no tenant isolation at all, which no interpretation of the plan could have intended. Matches the `Terminal` precedent exactly (`Terminal` has no `OrganisationId` column but does have `TenantId`).
+2. **`ProductModifierGroup.CreatedAtUtc` added**, despite the plan's bullet listing only `ProductId`, `ModifierGroupId`, `DisplayOrder`. Every other entity in the codebase carries this column; omitting it here would have been the anomaly, and the audit event's own `OccurredAtUtc` doesn't substitute for a queryable creation timestamp on the row itself. `IsActive`/archive fields were *not* added, matching the plan's clear intent that this join has no lifecycle beyond assign/unassign.
+3. **No list/read/update endpoint for `ProductModifierGroup`**, matching the plan's explicit "2 (assign/unassign...)" endpoint count. Tests assert attachment state and `DisplayOrder` directly against the database rather than via an API call, since none exists for this purpose.
+4. **`ModifierGroupEndpoints` validates `SelectionMax >= SelectionMin`** — not specified by the plan's field list, but a minimal sanity check preventing a nonsensical configuration (e.g. `SelectionMin: 3, SelectionMax: 1`), consistent in spirit with `TaxDefinition.RatePercent >= 0`-style guards elsewhere. No cross-validation against `IsRequired` was added (not requested).
+
+None of these required backing out or redoing anything.
+
+### ADR-0016 status re-check (per this session's explicit instruction not to move it silently)
+
+Re-checked: still `docs/adr/proposed/`, not `accepted/`. `ProductVariant.Name`, `ModifierGroup.Name`, and `Modifier.Name` are the newest translatable-in-future columns — mapped as plain invariant/fallback bounded `varchar` per the plan's pre-recorded ADR-0016 constraint, matching every prior milestone. Nothing in Milestone E depends on ADR-0016's acceptance status. Still not moved.
+
+### Blockers before Milestone F
+
+None. Variants and modifiers are fully CRUD-manageable via the API; `dotnet build`/`dotnet test` are clean (489/489); migrations verified clean from empty. Milestone F (location-level catalog overrides and the pricing resolver: `ProductLocationOverride`, `VenueTaxConfiguration`, `PriceResolver`, plus the sold-out toggle) can start on request.
+
+One heads-up for whoever starts Milestone F: it introduces the plan's first genuinely staff-accessible write endpoint (the sold-out toggle, gated `catalog.sold-out-toggle` + `rejectStaffPin: false`, granted to `Staff` since Milestone A) — this is the plan's single highest-risk design call (see Risks section), so double-check the permission/rejectStaffPin combination against the plan's exact wording before writing the endpoint, not just copying the `catalog.manage`/`rejectStaffPin: true` pattern used by every endpoint so far. `VenueTaxConfiguration` absence-handling (404 vs. silent default) was already decided (Human Decision #5, approved: 404/explicit-error) — don't re-litigate it.

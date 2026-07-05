@@ -41,6 +41,16 @@ ProductTaxCategory
 - Permission: `catalog.manage` on every endpoint, `rejectStaffPin: true` throughout — no schema change to the permission catalogue was needed.
 - See `docs/plans/active/PLAN-0004-worker-notes.md`'s "Milestone D Report" for full detail and deviations.
 
+## Implementation Status (PLAN-0004 Milestone E, 2026-07-05)
+
+`ProductVariant`, `ModifierGroup`, `Modifier`, and `ProductModifierGroup` (attach/detach only) are implemented with endpoints under `src/DaxaPos.Api/Endpoints/Catalog/`. No pricing calculation — resolving a variant/modifier delta into a final price is Milestone F's `PriceResolver`.
+
+- `ProductVariant`/`Modifier` carry no `OrganisationId` column of their own — scoped entirely through `ProductId`/`ModifierGroupId` respectively (a single-hop parent walk), matching the `Terminal`-derives-through-`Location` precedent from PLAN-0003 Milestone D. `ModifierGroup` is organisation-owned directly, like `ProductCategory`/`TaxCategory`.
+- **`PriceDelta` (on both `ProductVariant` and `Modifier`) is a delta on the resolved base price, not an absolute amount — it may be positive, zero, or negative** (e.g. a discount variant, or an "Extra shot" modifier upcharge). Deliberately not validated with `Product.BasePrice`'s `>= 0` rule; proven by dedicated tests accepting all three signs.
+- `ProductModifierGroup` has only two operations — assign (`POST`) and unassign (`DELETE`) — no list/read/update, since changing `DisplayOrder` means unassign then reassign. It has no `IsActive`/archive lifecycle either; "unassigned" (hard delete) already fully expresses removal, unlike every other catalogue entity in this plan. No list endpoint exists for this join, so attachment state and `DisplayOrder` are asserted directly against the database in tests.
+- Permission: `catalog.manage` on every endpoint, `rejectStaffPin: true` throughout — no schema change to the permission catalogue was needed.
+- See `docs/plans/active/PLAN-0004-worker-notes.md`'s "Milestone E Report" for full detail and deviations.
+
 ## Related Modules
 
 - Tax (TaxCategory assignment)

@@ -4,6 +4,40 @@ Changes are listed in reverse chronological order.
 
 ---
 
+## 2026-07-05 — PLAN-0004 Milestone E (product variants and modifiers)
+
+### Summary
+
+Implemented PLAN-0004 Milestone E only: `ProductVariant`, `ModifierGroup`, `Modifier`, and `ProductModifierGroup` (attach/detach only) with CRUD endpoints (or, for the join, assign/unassign endpoints). `ProductVariant`/`Modifier` carry no `OrganisationId` column of their own — scoped through `ProductId`/`ModifierGroupId` respectively, matching the `Terminal`-through-`Location` precedent. `PriceDelta` on both entities may be positive, zero, or negative (a delta on the resolved base price, not an absolute amount) — deliberately not validated with `Product.BasePrice`'s `>= 0` rule. `ProductModifierGroup` has only assign/unassign, no list/read/update/archive lifecycle. One migration (`AddVariantsAndModifiers`). No pricing resolver, menus, order integration, or UI.
+
+### Key areas changed
+
+- `src/DaxaPos.Domain/Entities/ProductVariant.cs`, `ModifierGroup.cs`, `Modifier.cs`, `ProductModifierGroup.cs` (new); `src/DaxaPos.Domain/Events/ProductVariantLifecycleDomainEvent.cs`, `ModifierGroupLifecycleDomainEvent.cs`, `ModifierLifecycleDomainEvent.cs`, `ProductModifierGroupChangedDomainEvent.cs` (new).
+- `src/DaxaPos.Api/Endpoints/Catalog/ProductVariantEndpoints.cs`, `ModifierGroupEndpoints.cs`, `ModifierEndpoints.cs`, `ProductModifierGroupEndpoints.cs` (new).
+- `src/DaxaPos.Persistence/Configurations/ProductVariantConfiguration.cs`, `ModifierGroupConfiguration.cs`, `ModifierConfiguration.cs`, `ProductModifierGroupConfiguration.cs` (new); `DaxaDbContext.cs` (modified — 4 new `DbSet`s, 4 new fail-closed query filters).
+- `src/DaxaPos.Persistence/Migrations/20260705041146_AddVariantsAndModifiers.cs` (new).
+- `src/DaxaPos.Api/Audit/DomainEventAuditHandlers.cs` (modified — 4 new handlers); `Program.cs` (modified — DI registrations + endpoint mapping).
+- `tests/DaxaPos.Api.Tests/ProductVariantEndpointsTests.cs`, `ModifierGroupEndpointsTests.cs`, `ModifierEndpointsTests.cs`, `ProductModifierGroupEndpointsTests.cs` (new, 44 tests); `StaffPinLoginTests.cs` (modified — extended the shared staff-PIN-rejection endpoint inventory with the 5 new catalogue endpoints).
+- `docs/modules/catalog.md`, `docs/modules/pricing.md` (implementation-status sections), `docs/plans/active/PLAN-0004-catalog-menu-tax-pricing-planning.md`, `docs/plans/active/PLAN-0004-worker-notes.md`.
+
+### Open issues resolved
+
+None.
+
+### Tests / verification outcome
+
+`dotnet build DaxaPos.sln` — 0 warnings, 0 errors. `dotnet test DaxaPos.sln` — 489/489 passed (92 unit tests + 397 API tests, up from 445 at Milestone D close — 44 new tests, zero regressions), against real Postgres. All 10 migrations verified to apply cleanly in sequence from an empty database (disposable throwaway database, then dropped).
+
+### ADR-0016
+
+Re-checked per this session's explicit instruction: still `docs/adr/proposed/`, not moved. `ProductVariant.Name`, `ModifierGroup.Name`, and `Modifier.Name` are new translatable-in-future columns this milestone adds; mapped as plain invariant/fallback `varchar` columns per the plan's pre-recorded ADR-0016 constraint, so nothing here depended on its acceptance status.
+
+### Next
+
+PLAN-0004 Milestone F (location-level catalog overrides and the pricing resolver: `ProductLocationOverride`, `VenueTaxConfiguration`, `PriceResolver`, plus the sold-out toggle — the plan's first genuinely staff-accessible write endpoint) — see `docs/plans/active/PLAN-0004-worker-notes.md` for the recommended next-session prompt.
+
+---
+
 ## 2026-07-05 — PLAN-0004 Milestone D (product catalogue foundation)
 
 ### Summary

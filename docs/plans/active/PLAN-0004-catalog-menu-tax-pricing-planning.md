@@ -2,7 +2,7 @@
 
 ## Status
 
-In progress — human approved the 7 planning-pass design calls 2026-07-03 (see Human Decisions Needed, all resolved as recommended). Milestone A (permission metadata, closes OI-0015) implemented and committed 2026-07-03. Milestone B (tax foundation entities + pure calculation engine) implemented and committed 2026-07-04; TDD throughout, 383/383 tests passing, all 8 migrations verified clean from empty. Milestone C (tax configuration endpoints) implemented and committed 2026-07-05; no schema changes, 418/418 tests passing (35 new). Milestone D (product catalogue foundation) implemented and committed 2026-07-05; 1 migration, 445/445 tests passing (27 new), all 9 migrations verified clean from empty. Milestones E–H not started.
+In progress — human approved the 7 planning-pass design calls 2026-07-03 (see Human Decisions Needed, all resolved as recommended). Milestone A (permission metadata, closes OI-0015) implemented and committed 2026-07-03. Milestone B (tax foundation entities + pure calculation engine) implemented and committed 2026-07-04; TDD throughout, 383/383 tests passing, all 8 migrations verified clean from empty. Milestone C (tax configuration endpoints) implemented and committed 2026-07-05; no schema changes, 418/418 tests passing (35 new). Milestone D (product catalogue foundation) implemented and committed 2026-07-05; 1 migration, 445/445 tests passing (27 new), all 9 migrations verified clean from empty. Milestone E (product variants and modifiers) implemented and committed 2026-07-05; 1 migration, 489/489 tests passing (44 new), all 10 migrations verified clean from empty. Milestones F–H not started.
 
 ## Goal
 
@@ -243,6 +243,8 @@ CRUD-lifecycle pattern identical to PLAN-0003 Milestone D (create/read/list/upda
 
 ### Milestone E — Product variants and modifiers
 
+**Status: Done (2026-07-05).** Implemented as planned, with `TenantId` added directly to `ProductVariant`/`ModifierGroup`/`Modifier`/`ProductModifierGroup` — a structural requirement of the fail-closed tenant query filter (ADR-0015 §1) that the plan's terse field lists don't spell out (only `ModifierGroup`'s bullet lists `TenantId` explicitly, being organisation-owned directly). `ProductModifierGroup` also gained a `CreatedAtUtc` column for consistency with every other entity in the codebase, despite the plan's bullet omitting it. See `PLAN-0004-worker-notes.md`'s Milestone E Report for full detail and deviations.
+
 - `ProductVariant` (`ProductId`, `Name`, `PriceDelta` decimal, `Sku?`, `IsActive`, `CreatedAtUtc`).
 - `ModifierGroup` (`TenantId`, `OrganisationId`, `Name`, `SelectionMin`, `SelectionMax`, `IsRequired`, `IsActive`, `CreatedAtUtc`).
 - `Modifier` (`ModifierGroupId`, `Name`, `PriceDelta` decimal, `IsActive`, `CreatedAtUtc`).
@@ -375,6 +377,8 @@ docs: update catalog, tax, menus, pricing, and testing docs for PLAN-0004 closeo
 **Milestone C ADR-0016 check (2026-07-05):** re-checked per the same instruction. Still `docs/adr/proposed/`. Milestone C added no schema changes at all (endpoints only, over Milestone B's existing columns), so nothing here could depend on ADR-0016's acceptance status. Still not moved.
 
 **Milestone D ADR-0016 check (2026-07-05):** re-checked per the same instruction. Still `docs/adr/proposed/`. `Product.Name`/`Description` and `ProductCategory.Name` are new translatable-in-future columns this milestone adds, mapped as plain invariant/fallback `varchar` per the plan's pre-recorded constraint — no rework anticipated when/if accepted. Still not moved.
+
+**Milestone E ADR-0016 check (2026-07-05):** re-checked per the same instruction. Still `docs/adr/proposed/`. `ProductVariant.Name`, `ModifierGroup.Name`, and `Modifier.Name` are new translatable-in-future columns this milestone adds, mapped the same way. Still not moved.
 
 Recorded here so implementation can start immediately on approval without re-litigating during a milestone. Presented as the specific, consequential calls this planning pass made that a different reasonable person could make differently:
 
