@@ -24,10 +24,10 @@ public class RolePermissionConfiguration : IEntityTypeConfiguration<RolePermissi
             .OnDelete(DeleteBehavior.Cascade);
 
         // Seed mapping per the accepted PLAN-0003 permission catalogue, extended by PLAN-0004
-        // Milestone A's four new codes and PLAN-0005 Milestone A's `orders.manage`. `Staff` was
-        // previously granted none of these — staff PIN login must never reach identity/tenancy
-        // management — but now receives catalog.sold-out-toggle and orders.manage, both
-        // Operational-category permissions (OI-0015).
+        // Milestone A's four new codes and PLAN-0005 Milestones A/B's `orders.manage`/
+        // `payments.record`. `Staff` was previously granted none of these — staff PIN login must
+        // never reach identity/tenancy management — but now receives catalog.sold-out-toggle,
+        // orders.manage, and payments.record, all Operational-category permissions (OI-0015).
         var allPermissionIds = new[]
         {
             RbacSeedIds.OrganisationsManagePermissionId,
@@ -43,6 +43,7 @@ public class RolePermissionConfiguration : IEntityTypeConfiguration<RolePermissi
             RbacSeedIds.MenusManagePermissionId,
             RbacSeedIds.CatalogSoldOutTogglePermissionId,
             RbacSeedIds.OrdersManagePermissionId,
+            RbacSeedIds.PaymentsRecordPermissionId,
         };
 
         var organisationOwnerPermissionIds = new[]
@@ -59,6 +60,7 @@ public class RolePermissionConfiguration : IEntityTypeConfiguration<RolePermissi
             RbacSeedIds.MenusManagePermissionId,
             RbacSeedIds.CatalogSoldOutTogglePermissionId,
             RbacSeedIds.OrdersManagePermissionId,
+            RbacSeedIds.PaymentsRecordPermissionId,
         };
 
         var venueManagerPermissionIds = new[]
@@ -72,6 +74,7 @@ public class RolePermissionConfiguration : IEntityTypeConfiguration<RolePermissi
             RbacSeedIds.MenusManagePermissionId,
             RbacSeedIds.CatalogSoldOutTogglePermissionId,
             RbacSeedIds.OrdersManagePermissionId,
+            RbacSeedIds.PaymentsRecordPermissionId,
         };
 
         var supportAccessPermissionIds = new[]
@@ -80,12 +83,13 @@ public class RolePermissionConfiguration : IEntityTypeConfiguration<RolePermissi
             RbacSeedIds.SessionsManagePermissionId,
         };
 
-        // `Staff` role grants (PLAN-0004 Milestone A, PLAN-0005 Milestone A): Operational only,
+        // `Staff` role grants (PLAN-0004 Milestone A, PLAN-0005 Milestones A/B): Operational only,
         // per OI-0015.
         var staffPermissionIds = new[]
         {
             RbacSeedIds.CatalogSoldOutTogglePermissionId,
             RbacSeedIds.OrdersManagePermissionId,
+            RbacSeedIds.PaymentsRecordPermissionId,
         };
 
         var seedRows = allPermissionIds

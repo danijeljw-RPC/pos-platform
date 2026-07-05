@@ -843,3 +843,34 @@ public sealed class OrderLineChangedAuditHandler(DaxaDbContext dbContext)
         await dbContext.SaveChangesAsync(cancellationToken);
     }
 }
+
+/// <summary>
+/// PLAN-0005 Milestone B payment audit handler — same dual <c>UserId</c>/<c>StaffMemberId</c>
+/// pattern as <see cref="OrderLifecycleAuditHandler"/>/<see cref="OrderLineChangedAuditHandler"/>,
+/// since payment recording is staff-PIN-accessible from day one. The order-completion side effect
+/// of a fully-settling payment reuses <see cref="OrderLifecycleAuditHandler"/> directly (a
+/// <c>"Completed"</c>-action <see cref="OrderLifecycleDomainEvent"/>), not a second handler here.
+/// </summary>
+public sealed class PaymentLifecycleAuditHandler(DaxaDbContext dbContext)
+    : IDomainEventHandler<PaymentLifecycleDomainEvent>
+{
+    public async Task HandleAsync(PaymentLifecycleDomainEvent domainEvent, CancellationToken cancellationToken = default)
+    {
+        dbContext.AuditEvents.Add(new AuditEvent
+        {
+            Id = Guid.NewGuid(),
+            TenantId = domainEvent.TenantId,
+            OrganisationId = domainEvent.OrganisationId,
+            UserId = domainEvent.UserId,
+            StaffMemberId = domainEvent.StaffMemberId,
+            EventType = $"{nameof(Payment)}{domainEvent.Action}",
+            EntityType = nameof(Payment),
+            EntityId = domainEvent.PaymentId,
+            BeforeValue = domainEvent.BeforeValue,
+            AfterValue = domainEvent.AfterValue,
+            OccurredAtUtc = domainEvent.OccurredAtUtc,
+        });
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+}

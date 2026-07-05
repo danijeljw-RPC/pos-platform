@@ -6,6 +6,7 @@ using DaxaPos.Api.Endpoints.Catalog;
 using DaxaPos.Api.Endpoints.Identity;
 using DaxaPos.Api.Endpoints.Menus;
 using DaxaPos.Api.Endpoints.Orders;
+using DaxaPos.Api.Endpoints.Payments;
 using DaxaPos.Api.Endpoints.Tax;
 using DaxaPos.Application.Events;
 using DaxaPos.Application.Identity;
@@ -119,6 +120,10 @@ builder.Services.AddScoped<IDomainEventHandler<MenuAvailabilityRuleChangedDomain
 builder.Services.AddScoped<IDomainEventHandler<OrderLifecycleDomainEvent>, OrderLifecycleAuditHandler>();
 builder.Services.AddScoped<IDomainEventHandler<OrderLineChangedDomainEvent>, OrderLineChangedAuditHandler>();
 
+// PLAN-0005 Milestone B: payment audit handler. A fully-settling payment's order-completion side
+// effect reuses OrderLifecycleAuditHandler (already registered above), not a second handler here.
+builder.Services.AddScoped<IDomainEventHandler<PaymentLifecycleDomainEvent>, PaymentLifecycleAuditHandler>();
+
 // Health checks cover the API/database path only. Keycloak is scoped to cloud/admin/back-office
 // auth (ADR-0013) and is intentionally not part of this check — the API must start and report
 // healthy whether or not Keycloak is reachable.
@@ -159,6 +164,7 @@ app.MapMenuSectionItemEndpoints();
 app.MapMenuAvailabilityRuleEndpoints();
 app.MapResolvedMenuEndpoints();
 app.MapOrderEndpoints();
+app.MapPaymentEndpoints();
 
 // Dev/local-only bootstrap admin seeding (PLAN-0003 Milestone C) — see BootstrapAdminSeeder for
 // the production-safety rules (requires both env vars, idempotent, never overwrites an existing

@@ -81,6 +81,10 @@ public class DaxaDbContext(DbContextOptions<DaxaDbContext> options, ICurrentTena
 
     public DbSet<OrderNumberCounter> OrderNumberCounters => Set<OrderNumberCounter>();
 
+    public DbSet<Payment> Payments => Set<Payment>();
+
+    public DbSet<PaymentLedgerEntry> PaymentLedgerEntries => Set<PaymentLedgerEntry>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(DaxaDbContext).Assembly);
@@ -220,5 +224,15 @@ public class DaxaDbContext(DbContextOptions<DaxaDbContext> options, ICurrentTena
 
         modelBuilder.Entity<OrderNumberCounter>()
             .HasQueryFilter(c => currentTenantProvider.TenantId != null && c.TenantId == currentTenantProvider.TenantId);
+
+        // Payment foundation (PLAN-0005 Milestone B). Payment carries no OrganisationId of its
+        // own — scoped entirely through OrderId, matching OrderLine's precedent. PaymentLedgerEntry
+        // follows the same denormalized-TenantId pattern the plan's Milestone A deviation already
+        // established for OrderLine/OrderLineModifier/OrderLineTax.
+        modelBuilder.Entity<Payment>()
+            .HasQueryFilter(p => currentTenantProvider.TenantId != null && p.TenantId == currentTenantProvider.TenantId);
+
+        modelBuilder.Entity<PaymentLedgerEntry>()
+            .HasQueryFilter(e => currentTenantProvider.TenantId != null && e.TenantId == currentTenantProvider.TenantId);
     }
 }

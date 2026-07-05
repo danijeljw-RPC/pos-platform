@@ -33,4 +33,7 @@ internal static class RbacSeedIds
 
     // PLAN-0005 Milestone A.
     public static readonly Guid OrdersManagePermissionId = new("00000000-0000-0000-0002-000000000013");
+
+    // PLAN-0005 Milestone B.
+    public static readonly Guid PaymentsRecordPermissionId = new("00000000-0000-0000-0002-000000000014");
 }

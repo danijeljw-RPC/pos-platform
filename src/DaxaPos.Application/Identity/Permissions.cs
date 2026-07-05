@@ -41,4 +41,10 @@ public static class Permissions
     /// reasoning PLAN-0004 used for <see cref="CatalogSoldOutToggle"/>.
     /// </summary>
     public const string OrdersManage = "orders.manage";
+
+    /// <summary>
+    /// PLAN-0005 Milestone B. Operational — taking a cash/manual EFTPOS payment is routine counter
+    /// work, the same reasoning as <see cref="OrdersManage"/>.
+    /// </summary>
+    public const string PaymentsRecord = "payments.record";
 }
