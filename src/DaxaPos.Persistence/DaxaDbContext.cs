@@ -63,6 +63,14 @@ public class DaxaDbContext(DbContextOptions<DaxaDbContext> options, ICurrentTena
 
     public DbSet<VenueTaxConfiguration> VenueTaxConfigurations => Set<VenueTaxConfiguration>();
 
+    public DbSet<Menu> Menus => Set<Menu>();
+
+    public DbSet<MenuSection> MenuSections => Set<MenuSection>();
+
+    public DbSet<MenuSectionItem> MenuSectionItems => Set<MenuSectionItem>();
+
+    public DbSet<MenuAvailabilityRule> MenuAvailabilityRules => Set<MenuAvailabilityRule>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(DaxaDbContext).Assembly);
@@ -167,5 +175,20 @@ public class DaxaDbContext(DbContextOptions<DaxaDbContext> options, ICurrentTena
 
         modelBuilder.Entity<VenueTaxConfiguration>()
             .HasQueryFilter(v => currentTenantProvider.TenantId != null && v.TenantId == currentTenantProvider.TenantId);
+
+        // Menu construction (PLAN-0004 Milestone G). MenuSection/MenuSectionItem/MenuAvailabilityRule
+        // carry no OrganisationId of their own — scoped through TenantId (fail-closed here) plus a
+        // Menu parent walk at the endpoint layer, matching the Terminal/ProductVariant precedent.
+        modelBuilder.Entity<Menu>()
+            .HasQueryFilter(m => currentTenantProvider.TenantId != null && m.TenantId == currentTenantProvider.TenantId);
+
+        modelBuilder.Entity<MenuSection>()
+            .HasQueryFilter(s => currentTenantProvider.TenantId != null && s.TenantId == currentTenantProvider.TenantId);
+
+        modelBuilder.Entity<MenuSectionItem>()
+            .HasQueryFilter(i => currentTenantProvider.TenantId != null && i.TenantId == currentTenantProvider.TenantId);
+
+        modelBuilder.Entity<MenuAvailabilityRule>()
+            .HasQueryFilter(r => currentTenantProvider.TenantId != null && r.TenantId == currentTenantProvider.TenantId);
     }
 }

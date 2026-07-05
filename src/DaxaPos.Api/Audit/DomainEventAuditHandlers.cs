@@ -696,3 +696,96 @@ public sealed class VenueTaxConfigurationLifecycleAuditHandler(DaxaDbContext dbC
         await dbContext.SaveChangesAsync(cancellationToken);
     }
 }
+
+/// <summary>PLAN-0004 Milestone G menu construction audit handlers.</summary>
+public sealed class MenuLifecycleAuditHandler(DaxaDbContext dbContext)
+    : IDomainEventHandler<MenuLifecycleDomainEvent>
+{
+    public async Task HandleAsync(MenuLifecycleDomainEvent domainEvent, CancellationToken cancellationToken = default)
+    {
+        dbContext.AuditEvents.Add(new AuditEvent
+        {
+            Id = Guid.NewGuid(),
+            TenantId = domainEvent.TenantId,
+            OrganisationId = domainEvent.OrganisationId,
+            UserId = domainEvent.UserId,
+            EventType = $"{nameof(Menu)}{domainEvent.Action}",
+            EntityType = nameof(Menu),
+            EntityId = domainEvent.MenuId,
+            BeforeValue = domainEvent.BeforeValue,
+            AfterValue = domainEvent.AfterValue,
+            OccurredAtUtc = domainEvent.OccurredAtUtc,
+        });
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+}
+
+public sealed class MenuSectionLifecycleAuditHandler(DaxaDbContext dbContext)
+    : IDomainEventHandler<MenuSectionLifecycleDomainEvent>
+{
+    public async Task HandleAsync(MenuSectionLifecycleDomainEvent domainEvent, CancellationToken cancellationToken = default)
+    {
+        dbContext.AuditEvents.Add(new AuditEvent
+        {
+            Id = Guid.NewGuid(),
+            TenantId = domainEvent.TenantId,
+            OrganisationId = domainEvent.OrganisationId,
+            UserId = domainEvent.UserId,
+            EventType = $"{nameof(MenuSection)}{domainEvent.Action}",
+            EntityType = nameof(MenuSection),
+            EntityId = domainEvent.MenuSectionId,
+            BeforeValue = domainEvent.BeforeValue,
+            AfterValue = domainEvent.AfterValue,
+            OccurredAtUtc = domainEvent.OccurredAtUtc,
+        });
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+}
+
+public sealed class MenuSectionItemChangedAuditHandler(DaxaDbContext dbContext)
+    : IDomainEventHandler<MenuSectionItemChangedDomainEvent>
+{
+    public async Task HandleAsync(MenuSectionItemChangedDomainEvent domainEvent, CancellationToken cancellationToken = default)
+    {
+        dbContext.AuditEvents.Add(new AuditEvent
+        {
+            Id = Guid.NewGuid(),
+            TenantId = domainEvent.TenantId,
+            OrganisationId = domainEvent.OrganisationId,
+            UserId = domainEvent.UserId,
+            EventType = $"{nameof(MenuSectionItem)}{domainEvent.Action}",
+            EntityType = nameof(MenuSectionItem),
+            EntityId = domainEvent.MenuSectionItemId,
+            BeforeValue = domainEvent.BeforeValue,
+            AfterValue = domainEvent.AfterValue,
+            OccurredAtUtc = domainEvent.OccurredAtUtc,
+        });
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+}
+
+public sealed class MenuAvailabilityRuleChangedAuditHandler(DaxaDbContext dbContext)
+    : IDomainEventHandler<MenuAvailabilityRuleChangedDomainEvent>
+{
+    public async Task HandleAsync(MenuAvailabilityRuleChangedDomainEvent domainEvent, CancellationToken cancellationToken = default)
+    {
+        dbContext.AuditEvents.Add(new AuditEvent
+        {
+            Id = Guid.NewGuid(),
+            TenantId = domainEvent.TenantId,
+            OrganisationId = domainEvent.OrganisationId,
+            UserId = domainEvent.UserId,
+            EventType = $"{nameof(MenuAvailabilityRule)}{domainEvent.Action}",
+            EntityType = nameof(MenuAvailabilityRule),
+            EntityId = domainEvent.MenuAvailabilityRuleId,
+            BeforeValue = domainEvent.BeforeValue,
+            AfterValue = domainEvent.AfterValue,
+            OccurredAtUtc = domainEvent.OccurredAtUtc,
+        });
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+}

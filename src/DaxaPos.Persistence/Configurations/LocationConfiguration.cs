@@ -25,6 +25,13 @@ public class LocationConfiguration : IEntityTypeConfiguration<Location>
         builder.Property(l => l.CreatedAtUtc)
             .IsRequired();
 
+        // PLAN-0004 Milestone G — added to the existing PLAN-0003 entity because
+        // MenuAvailabilityRule evaluation requires the location's own local time.
+        builder.Property(l => l.TimeZoneId)
+            .IsRequired()
+            .HasMaxLength(100)
+            .HasDefaultValue("UTC");
+
         builder.HasIndex(l => l.OrganisationId);
 
         builder.HasOne<Organisation>()
