@@ -492,3 +492,56 @@ public sealed class TaxCategoryDefinitionChangedAuditHandler(DaxaDbContext dbCon
         await dbContext.SaveChangesAsync(cancellationToken);
     }
 }
+
+/// <summary>
+/// PLAN-0004 Milestone D product-catalogue audit handlers (OI-0007's audit requirement: who, when,
+/// old config, new config, whether a product was archived and replaced). The archive-and-replace
+/// flow raises two <see cref="ProductLifecycleDomainEvent"/>s (one per affected row, <c>"Archived"</c>
+/// and <c>"CreatedFromReplace"</c>) rather than a single combined event — each row gets its own
+/// audit trail entry, matching this file's one-event-per-affected-entity convention throughout.
+/// </summary>
+public sealed class ProductCategoryLifecycleAuditHandler(DaxaDbContext dbContext)
+    : IDomainEventHandler<ProductCategoryLifecycleDomainEvent>
+{
+    public async Task HandleAsync(ProductCategoryLifecycleDomainEvent domainEvent, CancellationToken cancellationToken = default)
+    {
+        dbContext.AuditEvents.Add(new AuditEvent
+        {
+            Id = Guid.NewGuid(),
+            TenantId = domainEvent.TenantId,
+            OrganisationId = domainEvent.OrganisationId,
+            UserId = domainEvent.UserId,
+            EventType = $"{nameof(ProductCategory)}{domainEvent.Action}",
+            EntityType = nameof(ProductCategory),
+            EntityId = domainEvent.ProductCategoryId,
+            BeforeValue = domainEvent.BeforeValue,
+            AfterValue = domainEvent.AfterValue,
+            OccurredAtUtc = domainEvent.OccurredAtUtc,
+        });
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+}
+
+public sealed class ProductLifecycleAuditHandler(DaxaDbContext dbContext)
+    : IDomainEventHandler<ProductLifecycleDomainEvent>
+{
+    public async Task HandleAsync(ProductLifecycleDomainEvent domainEvent, CancellationToken cancellationToken = default)
+    {
+        dbContext.AuditEvents.Add(new AuditEvent
+        {
+            Id = Guid.NewGuid(),
+            TenantId = domainEvent.TenantId,
+            OrganisationId = domainEvent.OrganisationId,
+            UserId = domainEvent.UserId,
+            EventType = $"{nameof(Product)}{domainEvent.Action}",
+            EntityType = nameof(Product),
+            EntityId = domainEvent.ProductId,
+            BeforeValue = domainEvent.BeforeValue,
+            AfterValue = domainEvent.AfterValue,
+            OccurredAtUtc = domainEvent.OccurredAtUtc,
+        });
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+}

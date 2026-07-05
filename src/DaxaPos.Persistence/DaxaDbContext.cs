@@ -47,6 +47,10 @@ public class DaxaDbContext(DbContextOptions<DaxaDbContext> options, ICurrentTena
 
     public DbSet<TaxCategoryDefinition> TaxCategoryDefinitions => Set<TaxCategoryDefinition>();
 
+    public DbSet<ProductCategory> ProductCategories => Set<ProductCategory>();
+
+    public DbSet<Product> Products => Set<Product>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(DaxaDbContext).Assembly);
@@ -116,5 +120,15 @@ public class DaxaDbContext(DbContextOptions<DaxaDbContext> options, ICurrentTena
 
         modelBuilder.Entity<TaxCategoryDefinition>()
             .HasQueryFilter(t => currentTenantProvider.TenantId != null && t.TenantId == currentTenantProvider.TenantId);
+
+        // Product catalogue foundation (PLAN-0004 Milestone D). Both entities are tenant-owned and
+        // follow the same fail-closed pattern as every other tenant-owned entity above; no
+        // bootstrap IgnoreQueryFilters() caller is needed (every Milestone D endpoint runs under an
+        // already-authenticated tenant/org context).
+        modelBuilder.Entity<ProductCategory>()
+            .HasQueryFilter(c => currentTenantProvider.TenantId != null && c.TenantId == currentTenantProvider.TenantId);
+
+        modelBuilder.Entity<Product>()
+            .HasQueryFilter(p => currentTenantProvider.TenantId != null && p.TenantId == currentTenantProvider.TenantId);
     }
 }
