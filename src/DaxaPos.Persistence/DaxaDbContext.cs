@@ -59,6 +59,10 @@ public class DaxaDbContext(DbContextOptions<DaxaDbContext> options, ICurrentTena
 
     public DbSet<ProductModifierGroup> ProductModifierGroups => Set<ProductModifierGroup>();
 
+    public DbSet<ProductLocationOverride> ProductLocationOverrides => Set<ProductLocationOverride>();
+
+    public DbSet<VenueTaxConfiguration> VenueTaxConfigurations => Set<VenueTaxConfiguration>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(DaxaDbContext).Assembly);
@@ -154,5 +158,14 @@ public class DaxaDbContext(DbContextOptions<DaxaDbContext> options, ICurrentTena
 
         modelBuilder.Entity<ProductModifierGroup>()
             .HasQueryFilter(pmg => currentTenantProvider.TenantId != null && pmg.TenantId == currentTenantProvider.TenantId);
+
+        // Location-level catalog overrides and venue tax configuration (PLAN-0004 Milestone F).
+        // Neither carries an OrganisationId of its own — scoped through LocationId, matching the
+        // Terminal precedent from PLAN-0003 Milestone D.
+        modelBuilder.Entity<ProductLocationOverride>()
+            .HasQueryFilter(o => currentTenantProvider.TenantId != null && o.TenantId == currentTenantProvider.TenantId);
+
+        modelBuilder.Entity<VenueTaxConfiguration>()
+            .HasQueryFilter(v => currentTenantProvider.TenantId != null && v.TenantId == currentTenantProvider.TenantId);
     }
 }

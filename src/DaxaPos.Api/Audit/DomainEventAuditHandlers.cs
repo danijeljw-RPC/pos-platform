@@ -641,3 +641,58 @@ public sealed class ProductModifierGroupChangedAuditHandler(DaxaDbContext dbCont
         await dbContext.SaveChangesAsync(cancellationToken);
     }
 }
+
+/// <summary>
+/// PLAN-0004 Milestone F location-override/venue-tax-config audit handlers. Note
+/// <see cref="ProductLocationOverrideChangedDomainEvent"/> carries both <c>UserId</c> and
+/// <c>StaffMemberId</c> — the sold-out toggle is the plan's first staff-PIN-accessible catalogue
+/// write, so only one of the two is ever populated for a given event.
+/// </summary>
+public sealed class ProductLocationOverrideChangedAuditHandler(DaxaDbContext dbContext)
+    : IDomainEventHandler<ProductLocationOverrideChangedDomainEvent>
+{
+    public async Task HandleAsync(ProductLocationOverrideChangedDomainEvent domainEvent, CancellationToken cancellationToken = default)
+    {
+        dbContext.AuditEvents.Add(new AuditEvent
+        {
+            Id = Guid.NewGuid(),
+            TenantId = domainEvent.TenantId,
+            OrganisationId = domainEvent.OrganisationId,
+            LocationId = domainEvent.LocationId,
+            UserId = domainEvent.UserId,
+            StaffMemberId = domainEvent.StaffMemberId,
+            EventType = $"{nameof(ProductLocationOverride)}{domainEvent.Action}",
+            EntityType = nameof(ProductLocationOverride),
+            EntityId = domainEvent.ProductLocationOverrideId,
+            BeforeValue = domainEvent.BeforeValue,
+            AfterValue = domainEvent.AfterValue,
+            OccurredAtUtc = domainEvent.OccurredAtUtc,
+        });
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+}
+
+public sealed class VenueTaxConfigurationLifecycleAuditHandler(DaxaDbContext dbContext)
+    : IDomainEventHandler<VenueTaxConfigurationLifecycleDomainEvent>
+{
+    public async Task HandleAsync(VenueTaxConfigurationLifecycleDomainEvent domainEvent, CancellationToken cancellationToken = default)
+    {
+        dbContext.AuditEvents.Add(new AuditEvent
+        {
+            Id = Guid.NewGuid(),
+            TenantId = domainEvent.TenantId,
+            OrganisationId = domainEvent.OrganisationId,
+            LocationId = domainEvent.LocationId,
+            UserId = domainEvent.UserId,
+            EventType = $"{nameof(VenueTaxConfiguration)}{domainEvent.Action}",
+            EntityType = nameof(VenueTaxConfiguration),
+            EntityId = domainEvent.VenueTaxConfigurationId,
+            BeforeValue = domainEvent.BeforeValue,
+            AfterValue = domainEvent.AfterValue,
+            OccurredAtUtc = domainEvent.OccurredAtUtc,
+        });
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+}
