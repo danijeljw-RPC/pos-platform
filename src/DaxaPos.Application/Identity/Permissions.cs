@@ -56,4 +56,13 @@ public static class Permissions
     /// <see cref="MenusManage"/>'s precedent.
     /// </summary>
     public const string PaymentsRefund = "payments.refund";
+
+    /// <summary>
+    /// PLAN-0005 Milestone D. Operational — resolves the plan's approved Human Decision #5 addition:
+    /// a standalone after-the-fact reprint action gets its own code, separate from
+    /// <see cref="OrdersManage"/>'s live-sale-viewing surface, but staff-PIN-eligible like
+    /// <see cref="OrdersManage"/>/<see cref="PaymentsRecord"/> — reprinting a receipt is routine
+    /// counter work, not a manager-only override the way <see cref="PaymentsRefund"/> is.
+    /// </summary>
+    public const string ReceiptsReprint = "receipts.reprint";
 }

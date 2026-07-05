@@ -905,3 +905,31 @@ public sealed class RefundLifecycleAuditHandler(DaxaDbContext dbContext)
         await dbContext.SaveChangesAsync(cancellationToken);
     }
 }
+
+/// <summary>
+/// PLAN-0005 Milestone D reprint audit handler — CLAUDE.md's "Receipt reprints must be audited"
+/// requirement. No dedicated <c>Receipt</c> entity exists, so <c>EntityType</c> is <c>"Receipt"</c>
+/// (matching the domain event's own name, not an actual table) and <c>EntityId</c> is the
+/// <see cref="Entities.Order"/> the reprinted receipt was rendered from.
+/// </summary>
+public sealed class ReceiptReprintedAuditHandler(DaxaDbContext dbContext)
+    : IDomainEventHandler<ReceiptReprintedDomainEvent>
+{
+    public async Task HandleAsync(ReceiptReprintedDomainEvent domainEvent, CancellationToken cancellationToken = default)
+    {
+        dbContext.AuditEvents.Add(new AuditEvent
+        {
+            Id = Guid.NewGuid(),
+            TenantId = domainEvent.TenantId,
+            OrganisationId = domainEvent.OrganisationId,
+            UserId = domainEvent.UserId,
+            StaffMemberId = domainEvent.StaffMemberId,
+            EventType = "ReceiptReprinted",
+            EntityType = "Receipt",
+            EntityId = domainEvent.OrderId,
+            OccurredAtUtc = domainEvent.OccurredAtUtc,
+        });
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+}

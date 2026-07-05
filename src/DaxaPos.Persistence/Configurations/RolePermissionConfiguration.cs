@@ -24,12 +24,13 @@ public class RolePermissionConfiguration : IEntityTypeConfiguration<RolePermissi
             .OnDelete(DeleteBehavior.Cascade);
 
         // Seed mapping per the accepted PLAN-0003 permission catalogue, extended by PLAN-0004
-        // Milestone A's four new codes and PLAN-0005 Milestones A/B/C's `orders.manage`/
-        // `payments.record`/`payments.refund`. `Staff` was previously granted none of these — staff
-        // PIN login must never reach identity/tenancy management — but now receives
-        // catalog.sold-out-toggle, orders.manage, and payments.record, all Operational-category
-        // permissions (OI-0015). `payments.refund` is AdminSensitive (approved Human Decision #4,
-        // manager/admin-only by default) and is deliberately absent from `staffPermissionIds` below.
+        // Milestone A's four new codes and PLAN-0005 Milestones A/B/C/D's `orders.manage`/
+        // `payments.record`/`payments.refund`/`receipts.reprint`. `Staff` was previously granted none
+        // of these — staff PIN login must never reach identity/tenancy management — but now receives
+        // catalog.sold-out-toggle, orders.manage, payments.record, and receipts.reprint, all
+        // Operational-category permissions (OI-0015). `payments.refund` is AdminSensitive (approved
+        // Human Decision #4, manager/admin-only by default) and is deliberately absent from
+        // `staffPermissionIds` below.
         var allPermissionIds = new[]
         {
             RbacSeedIds.OrganisationsManagePermissionId,
@@ -47,6 +48,7 @@ public class RolePermissionConfiguration : IEntityTypeConfiguration<RolePermissi
             RbacSeedIds.OrdersManagePermissionId,
             RbacSeedIds.PaymentsRecordPermissionId,
             RbacSeedIds.PaymentsRefundPermissionId,
+            RbacSeedIds.ReceiptsReprintPermissionId,
         };
 
         var organisationOwnerPermissionIds = new[]
@@ -65,6 +67,7 @@ public class RolePermissionConfiguration : IEntityTypeConfiguration<RolePermissi
             RbacSeedIds.OrdersManagePermissionId,
             RbacSeedIds.PaymentsRecordPermissionId,
             RbacSeedIds.PaymentsRefundPermissionId,
+            RbacSeedIds.ReceiptsReprintPermissionId,
         };
 
         var venueManagerPermissionIds = new[]
@@ -80,6 +83,7 @@ public class RolePermissionConfiguration : IEntityTypeConfiguration<RolePermissi
             RbacSeedIds.OrdersManagePermissionId,
             RbacSeedIds.PaymentsRecordPermissionId,
             RbacSeedIds.PaymentsRefundPermissionId,
+            RbacSeedIds.ReceiptsReprintPermissionId,
         };
 
         var supportAccessPermissionIds = new[]
@@ -88,13 +92,15 @@ public class RolePermissionConfiguration : IEntityTypeConfiguration<RolePermissi
             RbacSeedIds.SessionsManagePermissionId,
         };
 
-        // `Staff` role grants (PLAN-0004 Milestone A, PLAN-0005 Milestones A/B): Operational only,
-        // per OI-0015.
+        // `Staff` role grants (PLAN-0004 Milestone A, PLAN-0005 Milestones A/B/D): Operational only,
+        // per OI-0015. `receipts.reprint` joins this list per approved Human Decision #5 — reprinting
+        // a receipt is routine counter work, not a manager-only override like `payments.refund`.
         var staffPermissionIds = new[]
         {
             RbacSeedIds.CatalogSoldOutTogglePermissionId,
             RbacSeedIds.OrdersManagePermissionId,
             RbacSeedIds.PaymentsRecordPermissionId,
+            RbacSeedIds.ReceiptsReprintPermissionId,
         };
 
         var seedRows = allPermissionIds
