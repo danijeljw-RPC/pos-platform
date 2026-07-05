@@ -33,6 +33,10 @@ See also: `docs/modules/10-pricing-surcharges-discounts.md`.
 - Entities: `ProductLocationOverride`, `VenueTaxConfiguration` (see `docs/modules/catalog.md`/`docs/modules/tax.md`).
 - Tests: `tests/DaxaPos.UnitTests/Pricing/PriceResolverTests.cs` — base price only, variant delta, modifier deltas (combined and individually), negative/zero/positive deltas for both, location override replaces (not adds), no-override falls back to the computed total, tax-inclusive/exclusive mode from `VenueTaxConfiguration`, missing-configuration fail-closed, and determinism.
 
+## Implementation Status (PLAN-0004 Milestone G, 2026-07-05)
+
+The resolved-menu read endpoint (`docs/modules/menus.md`) is the first real caller of `PriceResolver.Resolve`. It always passes `variant: null` and `modifiers: []` — `MenuSectionItem` (Milestone G) carries only a `ProductId`, no variant/modifier selection, since that happens at order time (PLAN-0005), not on the menu display. `VenueTaxConfiguration` absence for the requested location fails the whole endpoint closed (404), matching this doc's already-recorded fail-closed behaviour rather than introducing a second one.
+
 ## Related Plans
 
 - [PLAN-0004 — Catalog, Menu, Tax, Pricing](../plans/active/PLAN-0004-catalog-menu-tax-pricing-planning.md)

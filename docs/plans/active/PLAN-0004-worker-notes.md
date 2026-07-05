@@ -562,3 +562,107 @@ Re-checked: still `docs/adr/proposed/`, not `accepted/`. Neither `ProductLocatio
 None. Location-level overrides, venue tax configuration, and the pricing resolver are fully functional; `dotnet build`/`dotnet test` are clean (533/533); migrations verified clean from empty. Milestone G (menu construction and the resolved-menu read endpoint: `Menu`, `MenuSection`, `MenuSectionItem`, `MenuAvailabilityRule`) can start on request.
 
 One heads-up for whoever starts Milestone G: the resolved-menu read endpoint (`GET /api/v1/menus/resolved?locationId={id}`) is the plan's *other* deliberately staff-accessible endpoint, but with a different mechanism than the sold-out toggle — **no permission code at all**, only `.RequireAuthorization()` (Human Decision #1, approved). Don't reach for `RequirePermission(..., rejectStaffPin: false)` here; the plan is explicit that this read needs no permission gate whatsoever, matching `/auth/me`'s existing precedent. The resolved-menu endpoint must exclude products where `ProductLocationOverride.IsAvailable == false || IsSoldOut == true` (now buildable, from this milestone) and resolve prices via this milestone's `PriceResolver` — both dependencies are ready. The menu org-wide/location-specific merge precedence (location wins) and the day/time `MenuAvailabilityRule` shape are both already fixed by the plan (Human Decision #7, approved) — don't re-litigate either.
+
+---
+
+## Milestone G Report (2026-07-05)
+
+**Recovery context:** implementation of this milestone was interrupted mid-session (API connection loss) after the 4 entities, 4 domain events, 4 EF configurations, 4 configuration-endpoint files, and 3 tracked-file edits (`Location.TimeZoneId` + its EF mapping + `DaxaDbContext` `DbSet`s/query filters) had already been written, but before `ResolvedMenuEndpoints.cs`, the migration, `Program.cs` wiring, audit handlers, or any test existed. The recovery session's crash-tail notes claimed `MenuAvailabilityRuleEndpoints.cs` was corrupted (a `sing` truncation in place of `using` at the top of the file) — this was checked byte-for-byte (hex dump of the first 50 bytes) and found **not corrupted**; the file on disk started cleanly with `using System.Text.Json;`, and `dotnet build DaxaPos.sln` succeeded with 0 warnings/errors before any further changes were made. All 8 partial files and the 3 tracked edits were confirmed complete, well-formed, and consistent with the plan's design (permission tables, tenant/organisation isolation walks, JSON-serialized audit snapshots) — nothing was rewritten from scratch; the session continued directly from that state.
+
+Implemented per the plan's endpoint list and exact permission table (re-read before writing `ResolvedMenuEndpoints.cs`, per the standing instruction to check the plan's own table rather than a paraphrase): `menus.manage` + `rejectStaffPin: true` on `MenuEndpoints`/`MenuSectionEndpoints`/`MenuSectionItemEndpoints`/`MenuAvailabilityRuleEndpoints`; **no permission code, `.RequireAuthorization()` only**, on `ResolvedMenuEndpoints`. CRUD-endpoint acceptance-test convention used for the 4 configuration endpoint groups (not TDD-first, matching every prior milestone's CRUD files); the resolved-menu endpoint was also acceptance-tested rather than TDD'd — it composes already-TDD'd `PriceResolver` rather than introducing new financial-calculation logic itself, so CLAUDE.md's mandatory-TDD rule (which named `TaxCalculationEngine`/`PriceResolver` specifically) does not extend to it.
+
+### Files changed
+
+New (written before the crash, confirmed intact, no changes needed):
+- `src/DaxaPos.Domain/Entities/Menu.cs`, `MenuSection.cs`, `MenuSectionItem.cs`, `MenuAvailabilityRule.cs`
+- `src/DaxaPos.Domain/Enums/DaysOfWeekMask.cs`
+- `src/DaxaPos.Domain/Events/MenuLifecycleDomainEvent.cs`, `MenuSectionLifecycleDomainEvent.cs`, `MenuSectionItemChangedDomainEvent.cs`, `MenuAvailabilityRuleChangedDomainEvent.cs`
+- `src/DaxaPos.Persistence/Configurations/MenuConfiguration.cs`, `MenuSectionConfiguration.cs`, `MenuSectionItemConfiguration.cs`, `MenuAvailabilityRuleConfiguration.cs`
+- `src/DaxaPos.Api/Endpoints/Menus/MenuEndpoints.cs`, `MenuSectionEndpoints.cs`, `MenuSectionItemEndpoints.cs`, `MenuAvailabilityRuleEndpoints.cs`
+
+New (written this session, continuing from the recovered state):
+- `src/DaxaPos.Api/Endpoints/Menus/ResolvedMenuEndpoints.cs`
+- `src/DaxaPos.Persistence/Migrations/20260705102237_AddMenus.cs` (+ `.Designer.cs`)
+- `tests/DaxaPos.Api.Tests/MenuEndpointsTests.cs`, `MenuSectionEndpointsTests.cs`, `MenuSectionItemEndpointsTests.cs`, `MenuAvailabilityRuleEndpointsTests.cs`, `ResolvedMenuEndpointsTests.cs`
+
+Modified (tracked edits present before the crash, confirmed intact):
+- `src/DaxaPos.Domain/Entities/Location.cs` — added `TimeZoneId` (`string`, default `"UTC"`), needed for `MenuAvailabilityRule` evaluation in the location's own local time.
+- `src/DaxaPos.Persistence/Configurations/LocationConfiguration.cs` — `TimeZoneId` column mapping (required, max length 100, default `"UTC"`).
+- `src/DaxaPos.Persistence/DaxaDbContext.cs` — 4 new `DbSet`s, 4 new fail-closed query filters (`Menu`/`MenuSection`/`MenuSectionItem`/`MenuAvailabilityRule`).
+
+Modified (this session):
+- `src/DaxaPos.Api/Audit/DomainEventAuditHandlers.cs` — 4 new handler classes (`MenuLifecycleAuditHandler`, `MenuSectionLifecycleAuditHandler`, `MenuSectionItemChangedAuditHandler`, `MenuAvailabilityRuleChangedAuditHandler`).
+- `src/DaxaPos.Api/Program.cs` — 4 new `AddScoped<IDomainEventHandler<...>>` registrations, 5 new `app.Map...Endpoints()` calls (the 4 configuration groups plus `ResolvedMenuEndpoints`, none of which had been wired in before the crash).
+- `tests/DaxaPos.Api.Tests/StaffPinLoginTests.cs` — extended `AssertAllSensitiveEndpointsForbiddenAsync` with the 4 `menus.manage` configuration endpoints (never the resolved-menu endpoint, which has its own dedicated staff-**succeeds** test instead, matching the `ProductSoldOutEndpointsTests` precedent for the plan's other staff-accessible surface).
+- `docs/modules/menus.md`, `docs/modules/catalog.md`, `docs/modules/pricing.md` (implementation-status sections), `docs/plans/active/PLAN-0004-catalog-menu-tax-pricing-planning.md`, `docs/CHANGELOG.md`.
+
+No order integration, payments, receipts, UI, sync, inventory, KDS, or advanced pricing/discount rules were added — Milestone G is menu construction and the resolved-menu read endpoint only, exactly as scoped.
+
+### Migration created
+
+`20260705102237_AddMenus` — adds `locations.TimeZoneId` (`character varying(100)`, not null, default `'UTC'`), and creates `menus`, `menu_sections`, `menu_section_items`, `menu_availability_rules` (all four `TenantId`-indexed + FK-restricted; `menus` additionally `OrganisationId`/`LocationId`-indexed). No `HasData` seed rows. Verified to apply cleanly in sequence from an empty database (all 12 migrations, disposable throwaway Postgres database, then dropped — not the shared dev database, which was migrated separately for the working tree).
+
+### Endpoints implemented
+
+- `POST/GET /api/v1/menus`, `GET/PATCH/{id}`, `.../deactivate`, `.../reactivate` (6).
+- `POST/GET /api/v1/menu-sections`, `GET/PATCH/{id}` (4 — no separate deactivate/reactivate; `IsActive` is one of the fields the single `PATCH` updates).
+- `POST /api/v1/menu-section-items` (assign), `DELETE /{id}` (unassign) (2).
+- `POST/GET /api/v1/menu-availability-rules`, `DELETE /{id}` (3 — create/list/delete only, no update; a rule is replaced by delete-then-recreate).
+- `GET /api/v1/menus/resolved?locationId={id}` (1).
+
+16 total, matching the plan's exact count.
+
+### ResolvedMenuEndpoints behaviour
+
+`GetResolvedMenuAsync` resolves in this order: (1) a location-bound staff-PIN session's own `AuthContext.LocationId` must match the requested `locationId` (404 otherwise, independent of the organisation check — the same rule `ProductSoldOutEndpoints` uses); (2) the `Location` must exist and belong to the caller's organisation (404); (3) a `VenueTaxConfiguration` must exist for the location (404 — fails closed, matching `VenueTaxConfigurationEndpoints`' own missing-config behaviour, approved Human Decision #5); (4) applicable `Menu`s are loaded (`OrganisationId` match, `IsActive`, and `LocationId == null || LocationId == locationId`); (5) each menu's `MenuAvailabilityRule`s are evaluated against `Location.TimeZoneId`-converted local time — zero active rules means always available, one or more means available only if at least one rule's `DaysOfWeekMask` includes today and `StartTimeLocal <= now < EndTimeLocal`; (6) for products appearing in both an available org-wide and an available location-specific menu, the location-specific occurrence is kept and the org-wide one dropped entirely (not merged section-by-section); (7) each surviving item is excluded if its `Product` is inactive/archived, or its `ProductLocationOverride` (if any) says `IsAvailable == false` or `IsSoldOut == true`; (8) `PriceResolver.Resolve(product, null, [], productLocationOverride, venueTaxConfiguration)` resolves the price — `variant`/`modifiers` are always empty since `MenuSectionItem` carries only a `ProductId`; (9) each item's `TaxCategory.Code`/`TaxTreatment` are included as marker metadata, not a calculated tax amount.
+
+Response shape: `ResolvedMenuResponse(LocationId, Sections)` where each `ResolvedMenuSectionResponse` carries its originating `MenuId`/`MenuSectionId`/`Name`/`DisplayOrder` and its list of `ResolvedMenuItemResponse`s. Sections from different `Menu`s are never merged into one — only individual *products* are deduplicated across menus per the approved merge-precedence rule; two menus are never reconciled section-by-section since nothing in the plan establishes a rule for matching sections by name across separate `Menu` rows.
+
+### Tests added
+
+44 new integration tests across 5 files:
+- `MenuEndpointsTests.cs`, `MenuSectionEndpointsTests.cs`, `MenuAvailabilityRuleEndpointsTests.cs` — standard CRUD/authorization matrix (create/read/update/deactivate-reactivate or create/list/delete as applicable, 400 on client-supplied `TenantId`, 403 without `menus.manage`, 404 cross-organisation, audit-row assertions), plus entity-specific validation (`MenuAvailabilityRule` rejects `DaysOfWeekMask.None` and non-strictly-ordered start/end times).
+- `MenuSectionItemEndpointsTests.cs` — assign/unassign happy path (`DisplayOrder` persisted, asserted directly via `DbContext.IgnoreQueryFilters()` since no list endpoint exists for this join, matching `ProductModifierGroupEndpointsTests`' precedent), rejection of an inactive/archived product, both cross-organisation reference checks (section, product) independently, missing-permission 403, and an audit-row test for both `"Assigned"`/`"Unassigned"`.
+- `ResolvedMenuEndpointsTests.cs` — the full staff-PIN scenario chain (device registration → staff member → `Staff` role assignment → PIN login), proving: **a staff-PIN session succeeds** (the critical assertion, mirroring `ProductSoldOutEndpointsTests`' asymmetry-proof pattern but for a no-permission-code endpoint rather than an `Operational`-permission one); unauthenticated requests get 401; sold-out and unavailable products are excluded; an org-wide and a location-specific menu merge with the location-specific item winning, including its own `DisplayOrder` and section; a menu with an availability rule covering every day except today is hidden, and the same-shaped rule covering every day including today is shown; prices come from `PriceResolver`'s base-price and location-override paths, matching `PriceResolverTests`' own expectations for equivalent inputs; a missing `VenueTaxConfiguration` fails the whole endpoint closed (404); and both cross-organisation and cross-location (staff session's own location) access are blocked.
+- `StaffPinLoginTests`'s extended inventory — the 4 `menus.manage` configuration endpoints only (not the resolved-menu endpoint, proven separately as staff-**succeeds** in `ResolvedMenuEndpointsTests`).
+
+### Commands run
+
+```
+dotnet build DaxaPos.sln                                           (0 warnings/errors, confirmed before any Milestone G code was added this session)
+dotnet ef migrations add AddMenus --project src/DaxaPos.Persistence --startup-project src/DaxaPos.Api
+dotnet ef database update --project src/DaxaPos.Persistence --startup-project src/DaxaPos.Api
+dotnet test tests/DaxaPos.Api.Tests/DaxaPos.Api.Tests.csproj --filter "FullyQualifiedName~MenuEndpointsTests|FullyQualifiedName~MenuSectionEndpointsTests|FullyQualifiedName~MenuSectionItemEndpointsTests|FullyQualifiedName~MenuAvailabilityRuleEndpointsTests"
+dotnet test tests/DaxaPos.Api.Tests/DaxaPos.Api.Tests.csproj --filter "FullyQualifiedName~ResolvedMenuEndpointsTests"
+dotnet test tests/DaxaPos.Api.Tests/DaxaPos.Api.Tests.csproj --filter "FullyQualifiedName~StaffPinLoginTests"
+dotnet test DaxaPos.sln
+docker exec deploy-db-1 psql -U daxapos -d daxapos -c "CREATE DATABASE daxapos_migration_check;"
+dotnet ef database update ... --connection "...daxapos_migration_check..."   (clean-database migration re-verification, all 12)
+docker exec deploy-db-1 psql -U daxapos -d daxapos -c "DROP DATABASE daxapos_migration_check;"
+```
+
+### Build/test result
+
+`dotnet build DaxaPos.sln` — 0 warnings, 0 errors.
+`dotnet test DaxaPos.sln` — **577/577 passed** (104 unit tests + 473 API tests, up from 533 at Milestone F close — 44 new tests, zero regressions), against real Postgres, 0 failed, 0 skipped.
+All 12 migrations verified to apply cleanly in sequence from an empty database.
+
+### Deviations from the written plan (flagged, not silently made)
+
+1. **The recovery-session crash-tail's claim of file corruption in `MenuAvailabilityRuleEndpoints.cs` did not match the file's actual on-disk state.** Verified with a hex dump before trusting the claim (per systematic-debugging practice: verify, don't assume) — the file was complete and well-formed. Recorded here so a future reader doesn't wonder why no corruption-repair work appears in this report despite the recovery brief describing one.
+2. **The resolved-menu response groups items by section, one section list entry per surviving `MenuSection`** — not specified by the plan's prose beyond the merge-precedence and exclusion rules themselves. A flat, ungrouped list was considered and rejected: a POS sales screen (the endpoint's stated consumer) needs section grouping to render a usable menu, and grouping by the *winning* menu's own sections (rather than attempting to reconcile org-wide and location-specific sections with the same name) avoids inventing an unstated name-matching rule.
+3. **`ResolvedMenuItemResponse` exposes `TaxCategory.Code`/`TaxTreatment` as marker metadata, not a `TaxDefinition`-resolved receipt marker letter (`F`/`Z`/`E`).** The plan's Milestone G bullet says "includes the product's tax category marker info (not a calculated tax amount)" — resolving an actual `TaxDefinition`/`ReceiptMarkerCode` would require the `(TaxCategory, Location)` → `TaxDefinition` resolution step the plan's own Architecture Assumptions explicitly defer to PLAN-0005 ("a separate, thin resolution step ... callable independently"). Exposing `TaxCategory`'s own fields satisfies "tax category marker info" literally without building that deferred resolution layer early.
+4. **`ResolvedMenuEndpoints` raises no domain event** — it is a pure read, matches the plan's explicit "must not mutate data" requirement, and every other lifecycle/changed event in the codebase exists to audit a write.
+5. **Availability-window boundary semantics (`StartTimeLocal <= now < EndTimeLocal`, half-open) were not specified by the plan** beyond "strictly before" for `Start`/`End` themselves — chosen as the least surprising interpretation (a 9am–5pm window is open at exactly 9:00 and closed at exactly 5:00) and proven by dedicated tests rather than left to accidental `TimeOnly` comparison-operator behaviour.
+
+None of these required backing out or redoing anything.
+
+### ADR-0016 status re-check (per this session's explicit instruction not to move it silently)
+
+Re-checked: still `docs/adr/proposed/`, not `accepted/`. `Menu.Name`/`MenuSection.Name` are the newest translatable-in-future columns — mapped as plain invariant/fallback bounded `varchar` per the plan's pre-recorded constraint, matching every prior milestone. Nothing in Milestone G depends on ADR-0016's acceptance status. Still not moved — now touched by every milestone since B; recommend the human action the one-line `git mv` whenever convenient, most naturally alongside Milestone H's documentation closeout.
+
+### Blockers before Milestone H
+
+None. Menu construction and the resolved-menu read endpoint are fully functional; `dotnet build`/`dotnet test` are clean (577/577); migrations verified clean from empty. Milestone H (consolidation, RBAC sweep, and documentation closeout — test-and-documentation-only, per the plan) can start on request.
+
+One heads-up for whoever starts Milestone H: it is scoped as test-and-documentation-only (no entities, no migration, no endpoints) — extend `RbacTests.cs`'s endpoint inventory with every Milestone A–G permission-gated endpoint (including the two deliberate staff-PIN-succeeds rows: the sold-out toggle and the resolved-menu read, each asserted explicitly rather than merely absent from the rejection inventory), confirm zero new `IgnoreQueryFilters()` call sites, re-verify all 12 migrations from empty one more time, and file the three candidate open issues the plan's own Open Issues Required section already names (archive-and-replace concurrency race; menu merge-precedence revisit if real use suggests a different rule; `VenueTaxConfiguration`-absence behaviour, already resolved as 404 but worth a formal OI record). Also action the ADR-0016 `git mv` to `docs/adr/accepted/` while touching documentation anyway — it has been re-checked-but-not-moved every milestone since B.

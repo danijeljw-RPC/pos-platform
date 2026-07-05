@@ -59,6 +59,10 @@ ProductTaxCategory
 - **Sold-out toggle** (`POST /api/v1/products/{productId}/locations/{locationId}/sold-out`) is a separate, narrower endpoint gated `catalog.sold-out-toggle` + `rejectStaffPin: false` — the plan's first genuinely staff-accessible catalogue write. It may only ever touch `IsSoldOut` (never `PriceOverride`/`IsAvailable`, which remain `pricing.manage`-only) and upserts the override row if none exists yet, defaulting `IsAvailable` to `true`. A staff-PIN session's own location (from its device) must match the target location — checked independently of the organisation match, so a POS terminal at one location cannot toggle another location's stock even within the same organisation.
 - See `docs/plans/active/PLAN-0004-worker-notes.md`'s "Milestone F Report" for full detail and deviations.
 
+## Implementation Status (PLAN-0004 Milestone G, 2026-07-05)
+
+The resolved-menu read endpoint (`docs/modules/menus.md`) is the first real consumer of `ProductLocationOverride.IsAvailable`/`IsSoldOut` and `Product.IsActive`/`IsArchived` for sales-floor visibility, not just direct CRUD on the override itself — it excludes a product from the resolved menu when any of those four flags says so, confirming the sold-out toggle (Milestone F) actually suppresses display, not just the field on the override row.
+
 ## Related Modules
 
 - Tax (TaxCategory assignment)

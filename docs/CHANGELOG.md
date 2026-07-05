@@ -4,6 +4,41 @@ Changes are listed in reverse chronological order.
 
 ---
 
+## 2026-07-05 — PLAN-0004 Milestone G (menu construction and resolved-menu read endpoint)
+
+### Summary
+
+Implemented PLAN-0004 Milestone G only: `Menu`, `MenuSection`, `MenuSectionItem`, `MenuAvailabilityRule` with CRUD/assign-unassign endpoints, and the resolved-menu read endpoint (`GET /api/v1/menus/resolved?locationId={id}`) — the plan's other deliberately staff-accessible endpoint, gated `.RequireAuthorization()` only with no permission code at all (approved Human Decision #1), unlike the sold-out toggle's `Operational`-category permission. Configuration endpoints are `menus.manage` + `rejectStaffPin: true`. The resolved-menu endpoint merges organisation-wide and location-specific menus with location-specific winning on product conflict (approved Human Decision #7), applies `MenuAvailabilityRule` day/time filtering against the location's own local time (`Location.TimeZoneId`, a new column added this milestone), excludes sold-out/unavailable/inactive/archived products, and resolves prices via Milestone F's `PriceResolver` (no variant/modifier — those are order-time selections). Fails closed (404) when `VenueTaxConfiguration` is missing. This session was a recovery from an interrupted prior attempt: the partial work (8 files + 3 tracked edits) was inspected byte-for-byte, confirmed uncorrupted and fully buildable despite the crash-tail's claim otherwise, and preserved rather than rewritten. One migration (`AddMenus`). No order integration, payments, receipts, UI, sync, inventory, or KDS.
+
+### Key areas changed
+
+- `src/DaxaPos.Domain/Entities/Menu.cs`, `MenuSection.cs`, `MenuSectionItem.cs`, `MenuAvailabilityRule.cs` (new); `src/DaxaPos.Domain/Enums/DaysOfWeekMask.cs` (new); `src/DaxaPos.Domain/Events/MenuLifecycleDomainEvent.cs`, `MenuSectionLifecycleDomainEvent.cs`, `MenuSectionItemChangedDomainEvent.cs`, `MenuAvailabilityRuleChangedDomainEvent.cs` (new).
+- `src/DaxaPos.Domain/Entities/Location.cs` (modified — new `TimeZoneId` column, default `"UTC"`); `src/DaxaPos.Persistence/Configurations/LocationConfiguration.cs` (modified — mapping).
+- `src/DaxaPos.Api/Endpoints/Menus/MenuEndpoints.cs`, `MenuSectionEndpoints.cs`, `MenuSectionItemEndpoints.cs`, `MenuAvailabilityRuleEndpoints.cs`, `ResolvedMenuEndpoints.cs` (new).
+- `src/DaxaPos.Persistence/Configurations/MenuConfiguration.cs`, `MenuSectionConfiguration.cs`, `MenuSectionItemConfiguration.cs`, `MenuAvailabilityRuleConfiguration.cs` (new); `DaxaDbContext.cs` (modified — 4 new `DbSet`s, 4 new fail-closed query filters).
+- `src/DaxaPos.Persistence/Migrations/20260705102237_AddMenus.cs` (new).
+- `src/DaxaPos.Api/Audit/DomainEventAuditHandlers.cs` (modified — 4 new handlers); `Program.cs` (modified — DI registrations + 5 new endpoint mappings, none of which existed before this session).
+- `tests/DaxaPos.Api.Tests/MenuEndpointsTests.cs`, `MenuSectionEndpointsTests.cs`, `MenuSectionItemEndpointsTests.cs`, `MenuAvailabilityRuleEndpointsTests.cs`, `ResolvedMenuEndpointsTests.cs` (new, 44 tests); `StaffPinLoginTests.cs` (modified — extended the shared staff-PIN-rejection inventory with the 4 `menus.manage` endpoints only, never the resolved-menu endpoint, proven staff-**succeeds** separately).
+- `docs/modules/menus.md`, `docs/modules/catalog.md`, `docs/modules/pricing.md` (implementation-status sections), `docs/plans/active/PLAN-0004-catalog-menu-tax-pricing-planning.md`, `docs/plans/active/PLAN-0004-worker-notes.md`.
+
+### Open issues resolved
+
+None.
+
+### Tests / verification outcome
+
+`dotnet build DaxaPos.sln` — 0 warnings, 0 errors. `dotnet test DaxaPos.sln` — 577/577 passed (104 unit tests + 473 API tests, up from 533 at Milestone F close — 44 new tests, zero regressions), against real Postgres. All 12 migrations verified to apply cleanly in sequence from an empty database (disposable throwaway database, then dropped).
+
+### ADR-0016
+
+Re-checked per this session's explicit instruction: still `docs/adr/proposed/`, not moved. `Menu.Name`/`MenuSection.Name` are the newest translatable-in-future columns, mapped per the plan's pre-recorded constraint; nothing here depended on its acceptance status.
+
+### Next
+
+PLAN-0004 Milestone H (consolidation, RBAC sweep, and documentation closeout — test-and-documentation-only) — see `docs/plans/active/PLAN-0004-worker-notes.md` for the recommended next-session prompt.
+
+---
+
 ## 2026-07-05 — PLAN-0004 Milestone F (location overrides and pricing resolver)
 
 ### Summary

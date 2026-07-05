@@ -2,7 +2,7 @@
 
 ## Status
 
-In progress — human approved the 7 planning-pass design calls 2026-07-03 (see Human Decisions Needed, all resolved as recommended). Milestone A (permission metadata, closes OI-0015) implemented and committed 2026-07-03. Milestone B (tax foundation entities + pure calculation engine) implemented and committed 2026-07-04; TDD throughout, 383/383 tests passing, all 8 migrations verified clean from empty. Milestone C (tax configuration endpoints) implemented and committed 2026-07-05; no schema changes, 418/418 tests passing (35 new). Milestone D (product catalogue foundation) implemented and committed 2026-07-05; 1 migration, 445/445 tests passing (27 new), all 9 migrations verified clean from empty. Milestone E (product variants and modifiers) implemented and committed 2026-07-05; 1 migration, 489/489 tests passing (44 new), all 10 migrations verified clean from empty. Milestone F (location-level catalog overrides and pricing resolver) implemented and committed 2026-07-05; 1 migration, 533/533 tests passing (44 new), all 11 migrations verified clean from empty. Milestones G–H not started.
+In progress — human approved the 7 planning-pass design calls 2026-07-03 (see Human Decisions Needed, all resolved as recommended). Milestone A (permission metadata, closes OI-0015) implemented and committed 2026-07-03. Milestone B (tax foundation entities + pure calculation engine) implemented and committed 2026-07-04; TDD throughout, 383/383 tests passing, all 8 migrations verified clean from empty. Milestone C (tax configuration endpoints) implemented and committed 2026-07-05; no schema changes, 418/418 tests passing (35 new). Milestone D (product catalogue foundation) implemented and committed 2026-07-05; 1 migration, 445/445 tests passing (27 new), all 9 migrations verified clean from empty. Milestone E (product variants and modifiers) implemented and committed 2026-07-05; 1 migration, 489/489 tests passing (44 new), all 10 migrations verified clean from empty. Milestone F (location-level catalog overrides and pricing resolver) implemented and committed 2026-07-05; 1 migration, 533/533 tests passing (44 new), all 11 migrations verified clean from empty. Milestone G (menu construction and resolved-menu read endpoint) implemented and committed 2026-07-05, recovered mid-session after an interrupted first attempt whose partial work (8 files + 3 tracked edits) was found fully usable on inspection and preserved rather than rewritten; 1 migration, 577/577 tests passing (44 new), all 12 migrations verified clean from empty. Milestone H not started.
 
 ## Goal
 
@@ -281,6 +281,8 @@ CRUD-lifecycle pattern identical to PLAN-0003 Milestone D (create/read/list/upda
 
 ### Milestone G — Menu construction and the resolved-menu read endpoint
 
+**Status: Done (2026-07-05).** Implemented per the plan's exact permission table and Human Decision #1/#7 — `menus.manage` + `rejectStaffPin: true` on every configuration endpoint group, **no permission code at all** on the resolved-menu read. See `PLAN-0004-worker-notes.md`'s Milestone G Report for full detail, deviations, and the recovery-session note (implementation was interrupted mid-session; the partial work found on resumption was inspected byte-for-byte, confirmed uncorrupted and fully buildable, and preserved rather than rewritten).
+
 - `Menu` (`TenantId`, `OrganisationId`, `LocationId?` [null = org-wide], `Name`, `IsActive`, `CreatedAtUtc`).
 - `MenuSection` (`MenuId`, `Name`, `DisplayOrder`, `IsActive`).
 - `MenuSectionItem` (`MenuSectionId`, `ProductId`, `DisplayOrder`).
@@ -383,6 +385,8 @@ docs: update catalog, tax, menus, pricing, and testing docs for PLAN-0004 closeo
 **Milestone E ADR-0016 check (2026-07-05):** re-checked per the same instruction. Still `docs/adr/proposed/`. `ProductVariant.Name`, `ModifierGroup.Name`, and `Modifier.Name` are new translatable-in-future columns this milestone adds, mapped the same way. Still not moved.
 
 **Milestone F ADR-0016 check (2026-07-05):** re-checked per the same instruction. Still `docs/adr/proposed/`. Neither `ProductLocationOverride` nor `VenueTaxConfiguration` adds a `Name`-like translatable column, so nothing here could depend on ADR-0016's acceptance status. Still not moved.
+
+**Milestone G ADR-0016 check (2026-07-05):** re-checked per the same instruction. Still `docs/adr/proposed/`. `Menu.Name`/`MenuSection.Name` are the newest translatable-in-future columns — mapped as plain invariant/fallback bounded `varchar` per the plan's pre-recorded constraint, matching every prior milestone. Nothing in Milestone G depends on ADR-0016's acceptance status. Still not moved.
 
 Recorded here so implementation can start immediately on approval without re-litigating during a milestone. Presented as the specific, consequential calls this planning pass made that a different reasonable person could make differently:
 
