@@ -24,10 +24,12 @@ public class RolePermissionConfiguration : IEntityTypeConfiguration<RolePermissi
             .OnDelete(DeleteBehavior.Cascade);
 
         // Seed mapping per the accepted PLAN-0003 permission catalogue, extended by PLAN-0004
-        // Milestone A's four new codes and PLAN-0005 Milestones A/B's `orders.manage`/
-        // `payments.record`. `Staff` was previously granted none of these — staff PIN login must
-        // never reach identity/tenancy management — but now receives catalog.sold-out-toggle,
-        // orders.manage, and payments.record, all Operational-category permissions (OI-0015).
+        // Milestone A's four new codes and PLAN-0005 Milestones A/B/C's `orders.manage`/
+        // `payments.record`/`payments.refund`. `Staff` was previously granted none of these — staff
+        // PIN login must never reach identity/tenancy management — but now receives
+        // catalog.sold-out-toggle, orders.manage, and payments.record, all Operational-category
+        // permissions (OI-0015). `payments.refund` is AdminSensitive (approved Human Decision #4,
+        // manager/admin-only by default) and is deliberately absent from `staffPermissionIds` below.
         var allPermissionIds = new[]
         {
             RbacSeedIds.OrganisationsManagePermissionId,
@@ -44,6 +46,7 @@ public class RolePermissionConfiguration : IEntityTypeConfiguration<RolePermissi
             RbacSeedIds.CatalogSoldOutTogglePermissionId,
             RbacSeedIds.OrdersManagePermissionId,
             RbacSeedIds.PaymentsRecordPermissionId,
+            RbacSeedIds.PaymentsRefundPermissionId,
         };
 
         var organisationOwnerPermissionIds = new[]
@@ -61,6 +64,7 @@ public class RolePermissionConfiguration : IEntityTypeConfiguration<RolePermissi
             RbacSeedIds.CatalogSoldOutTogglePermissionId,
             RbacSeedIds.OrdersManagePermissionId,
             RbacSeedIds.PaymentsRecordPermissionId,
+            RbacSeedIds.PaymentsRefundPermissionId,
         };
 
         var venueManagerPermissionIds = new[]
@@ -75,6 +79,7 @@ public class RolePermissionConfiguration : IEntityTypeConfiguration<RolePermissi
             RbacSeedIds.CatalogSoldOutTogglePermissionId,
             RbacSeedIds.OrdersManagePermissionId,
             RbacSeedIds.PaymentsRecordPermissionId,
+            RbacSeedIds.PaymentsRefundPermissionId,
         };
 
         var supportAccessPermissionIds = new[]

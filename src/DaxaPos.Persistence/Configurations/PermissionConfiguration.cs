@@ -35,6 +35,7 @@ public class PermissionConfiguration : IEntityTypeConfiguration<Permission>
             new Permission { Id = RbacSeedIds.MenusManagePermissionId, Code = "menus.manage", Description = "Create/update menus, sections, and availability rules.", Category = PermissionCategory.AdminSensitive },
             new Permission { Id = RbacSeedIds.CatalogSoldOutTogglePermissionId, Code = "catalog.sold-out-toggle", Description = "Toggle a product's sold-out state at a location.", Category = PermissionCategory.Operational },
             new Permission { Id = RbacSeedIds.OrdersManagePermissionId, Code = "orders.manage", Description = "Open orders, add/void lines, hold/resume/void/cancel orders.", Category = PermissionCategory.Operational },
-            new Permission { Id = RbacSeedIds.PaymentsRecordPermissionId, Code = "payments.record", Description = "Record cash and manual EFTPOS payments against an order.", Category = PermissionCategory.Operational });
+            new Permission { Id = RbacSeedIds.PaymentsRecordPermissionId, Code = "payments.record", Description = "Record cash and manual EFTPOS payments against an order.", Category = PermissionCategory.Operational },
+            new Permission { Id = RbacSeedIds.PaymentsRefundPermissionId, Code = "payments.refund", Description = "Record full/partial refunds against a payment.", Category = PermissionCategory.AdminSensitive });
     }
 }

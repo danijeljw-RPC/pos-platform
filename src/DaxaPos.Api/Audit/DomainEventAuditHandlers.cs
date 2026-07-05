@@ -874,3 +874,34 @@ public sealed class PaymentLifecycleAuditHandler(DaxaDbContext dbContext)
         await dbContext.SaveChangesAsync(cancellationToken);
     }
 }
+
+/// <summary>
+/// PLAN-0005 Milestone C refund audit handler (ADR-0010's explicit refund-audit requirement: who,
+/// when, reason, linked order/payment ids). Same dual <c>UserId</c>/<c>StaffMemberId</c> shape as
+/// <see cref="PaymentLifecycleAuditHandler"/> for consistency, though <c>StaffMemberId</c> is never
+/// populated in practice — <c>payments.refund</c> is <c>rejectStaffPin: true</c>, so no staff-PIN
+/// session can ever reach the endpoint that raises this event.
+/// </summary>
+public sealed class RefundLifecycleAuditHandler(DaxaDbContext dbContext)
+    : IDomainEventHandler<RefundLifecycleDomainEvent>
+{
+    public async Task HandleAsync(RefundLifecycleDomainEvent domainEvent, CancellationToken cancellationToken = default)
+    {
+        dbContext.AuditEvents.Add(new AuditEvent
+        {
+            Id = Guid.NewGuid(),
+            TenantId = domainEvent.TenantId,
+            OrganisationId = domainEvent.OrganisationId,
+            UserId = domainEvent.UserId,
+            StaffMemberId = domainEvent.StaffMemberId,
+            EventType = $"{nameof(Refund)}{domainEvent.Action}",
+            EntityType = nameof(Refund),
+            EntityId = domainEvent.RefundId,
+            BeforeValue = domainEvent.BeforeValue,
+            AfterValue = domainEvent.AfterValue,
+            OccurredAtUtc = domainEvent.OccurredAtUtc,
+        });
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+}

@@ -47,4 +47,13 @@ public static class Permissions
     /// work, the same reasoning as <see cref="OrdersManage"/>.
     /// </summary>
     public const string PaymentsRecord = "payments.record";
+
+    /// <summary>
+    /// PLAN-0005 Milestone C. AdminSensitive — manager/admin-only by default (approved Human
+    /// Decision #4), a firmer floor than <see cref="OrdersManage"/>/<see cref="PaymentsRecord"/>:
+    /// refunds are exactly the kind of override CLAUDE.md's pricing/discounts section says must be
+    /// "permissioned and audited," matching <see cref="CatalogManage"/>/<see cref="PricingManage"/>/
+    /// <see cref="MenusManage"/>'s precedent.
+    /// </summary>
+    public const string PaymentsRefund = "payments.refund";
 }

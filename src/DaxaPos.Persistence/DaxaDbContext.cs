@@ -85,6 +85,8 @@ public class DaxaDbContext(DbContextOptions<DaxaDbContext> options, ICurrentTena
 
     public DbSet<PaymentLedgerEntry> PaymentLedgerEntries => Set<PaymentLedgerEntry>();
 
+    public DbSet<Refund> Refunds => Set<Refund>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(DaxaDbContext).Assembly);
@@ -234,5 +236,13 @@ public class DaxaDbContext(DbContextOptions<DaxaDbContext> options, ICurrentTena
 
         modelBuilder.Entity<PaymentLedgerEntry>()
             .HasQueryFilter(e => currentTenantProvider.TenantId != null && e.TenantId == currentTenantProvider.TenantId);
+
+        // Refund service (PLAN-0005 Milestone C). Refund carries no OrganisationId/LocationId
+        // column of its own — scoped entirely through PaymentId/OrderId, matching Payment's own
+        // precedent. Same fail-closed pattern as every other tenant-owned entity above; no
+        // bootstrap IgnoreQueryFilters() caller is needed (every Milestone C endpoint runs under an
+        // already-authenticated tenant/org context).
+        modelBuilder.Entity<Refund>()
+            .HasQueryFilter(r => currentTenantProvider.TenantId != null && r.TenantId == currentTenantProvider.TenantId);
     }
 }
