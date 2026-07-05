@@ -482,6 +482,17 @@ public class StaffPinLoginTests : IClassFixture<WebApplicationFactory<Program>>
             await staffClient.PostAsJsonAsync(
                 "/api/v1/product-modifier-groups",
                 new AssignProductModifierGroupRequest(Guid.NewGuid(), Guid.NewGuid(), 0)),
+            // PLAN-0004 Milestone F: pricing.manage endpoints reject staff PIN, unlike the
+            // separate, deliberately staff-accessible sold-out toggle (see
+            // ProductSoldOutEndpointsTests.cs for that proof).
+            await staffClient.GetAsync("/api/v1/product-location-overrides"),
+            await staffClient.PostAsJsonAsync(
+                "/api/v1/product-location-overrides",
+                new CreateProductLocationOverrideRequest(Guid.NewGuid(), Guid.NewGuid(), true, false, null)),
+            await staffClient.GetAsync("/api/v1/venue-tax-configurations"),
+            await staffClient.PostAsJsonAsync(
+                "/api/v1/venue-tax-configurations",
+                new CreateVenueTaxConfigurationRequest(Guid.NewGuid(), true, TaxCalculationScope.PerLine)),
         };
 
         Assert.All(attempts, response => Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode));
