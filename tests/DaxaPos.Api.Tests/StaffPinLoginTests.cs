@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using DaxaPos.Api.Endpoints.Catalog;
 using DaxaPos.Api.Endpoints.Identity;
+using DaxaPos.Api.Endpoints.Menus;
 using DaxaPos.Api.Endpoints.Tax;
 using DaxaPos.Api.Tests.Support;
 using DaxaPos.Application.Identity;
@@ -493,6 +494,24 @@ public class StaffPinLoginTests : IClassFixture<WebApplicationFactory<Program>>
             await staffClient.PostAsJsonAsync(
                 "/api/v1/venue-tax-configurations",
                 new CreateVenueTaxConfigurationRequest(Guid.NewGuid(), true, TaxCalculationScope.PerLine)),
+            // PLAN-0004 Milestone G: menu construction configuration is menus.manage +
+            // rejectStaffPin: true, unlike the resolved-menu read endpoint (no permission code at
+            // all — see ResolvedMenuEndpointsTests.cs for that proof).
+            await staffClient.GetAsync("/api/v1/menus"),
+            await staffClient.PostAsJsonAsync(
+                "/api/v1/menus",
+                new CreateMenuRequest("Nope", organisationId, null)),
+            await staffClient.GetAsync("/api/v1/menu-sections"),
+            await staffClient.PostAsJsonAsync(
+                "/api/v1/menu-sections",
+                new CreateMenuSectionRequest("Nope", Guid.NewGuid(), 0)),
+            await staffClient.PostAsJsonAsync(
+                "/api/v1/menu-section-items",
+                new AssignMenuSectionItemRequest(Guid.NewGuid(), Guid.NewGuid(), 0)),
+            await staffClient.GetAsync("/api/v1/menu-availability-rules"),
+            await staffClient.PostAsJsonAsync(
+                "/api/v1/menu-availability-rules",
+                new CreateMenuAvailabilityRuleRequest(Guid.NewGuid(), DaysOfWeekMask.Monday, new TimeOnly(9, 0), new TimeOnly(17, 0))),
         };
 
         Assert.All(attempts, response => Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode));
