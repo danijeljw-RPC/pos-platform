@@ -4,6 +4,41 @@ Changes are listed in reverse chronological order.
 
 ---
 
+## 2026-07-05 — PLAN-0004 Milestone F (location overrides and pricing resolver)
+
+### Summary
+
+Implemented PLAN-0004 Milestone F only: `ProductLocationOverride` and `VenueTaxConfiguration` entities with CRUD endpoints, the pure `PriceResolver`, and the plan's first genuinely staff-accessible catalogue write — the sold-out toggle. Confirmed against the plan's exact permission table before implementation: `ProductLocationOverride`/`VenueTaxConfiguration` are gated `pricing.manage` + `rejectStaffPin: true` (not `catalog.manage`); the sold-out toggle is gated `catalog.sold-out-toggle` + `rejectStaffPin: false`, deliberately the opposite. The sold-out toggle may only ever touch `IsSoldOut`, upserts the override row, and additionally checks that a location-bound staff-PIN session's own location matches the target — a new check beyond organisation matching. `PriceResolver` (TDD'd first, the second genuinely financial logic in the codebase) resolves base price → variant delta → modifier deltas → location override (replaces the total outright) → tax-inclusive/exclusive mode from `VenueTaxConfiguration`, failing closed when that configuration is missing rather than silently defaulting. One migration (`AddLocationOverridesAndVenueTaxConfig`). No menus, order-price snapshotting, receipts, or UI.
+
+### Key areas changed
+
+- `src/DaxaPos.Domain/Entities/ProductLocationOverride.cs`, `VenueTaxConfiguration.cs` (new); `src/DaxaPos.Domain/Events/ProductLocationOverrideChangedDomainEvent.cs`, `VenueTaxConfigurationLifecycleDomainEvent.cs` (new).
+- `src/DaxaPos.Application/Pricing/PriceResolutionModels.cs`, `PriceResolutionResult.cs`, `PriceResolver.cs` (new) — the pure resolver.
+- `src/DaxaPos.Api/Endpoints/Catalog/ProductLocationOverrideEndpoints.cs`, `ProductSoldOutEndpoints.cs` (new); `src/DaxaPos.Api/Endpoints/Tax/VenueTaxConfigurationEndpoints.cs` (new, matching the plan's own file-location intent).
+- `src/DaxaPos.Persistence/Configurations/ProductLocationOverrideConfiguration.cs`, `VenueTaxConfigurationConfiguration.cs` (new); `DaxaDbContext.cs` (modified — 2 new `DbSet`s, 2 new fail-closed query filters).
+- `src/DaxaPos.Persistence/Migrations/20260705051120_AddLocationOverridesAndVenueTaxConfig.cs` (new).
+- `src/DaxaPos.Api/Audit/DomainEventAuditHandlers.cs` (modified — 2 new handlers); `Program.cs` (modified — DI registrations + endpoint mapping).
+- `tests/DaxaPos.UnitTests/Pricing/PriceResolverTests.cs` (new, 12 tests, TDD'd first); `tests/DaxaPos.Api.Tests/ProductLocationOverrideEndpointsTests.cs`, `VenueTaxConfigurationEndpointsTests.cs`, `ProductSoldOutEndpointsTests.cs` (new, 32 tests); `StaffPinLoginTests.cs` (modified — extended the shared staff-PIN-rejection inventory with the `pricing.manage` endpoints only, never the sold-out toggle).
+- `docs/modules/catalog.md`, `docs/modules/pricing.md`, `docs/modules/tax.md`, `docs/architecture/tax-engine.md`, `docs/architecture/multi-location.md` (implementation-status sections), `docs/plans/active/PLAN-0004-catalog-menu-tax-pricing-planning.md`, `docs/plans/active/PLAN-0004-worker-notes.md`.
+
+### Open issues resolved
+
+None.
+
+### Tests / verification outcome
+
+`dotnet build DaxaPos.sln` — 0 warnings, 0 errors. `dotnet test DaxaPos.sln` — 533/533 passed (104 unit tests + 429 API tests, up from 489 at Milestone E close — 44 new tests, zero regressions), against real Postgres. All 11 migrations verified to apply cleanly in sequence from an empty database (disposable throwaway database, then dropped).
+
+### ADR-0016
+
+Re-checked per this session's explicit instruction: still `docs/adr/proposed/`, not moved. No new translatable-in-future text columns were added this milestone (`ProductLocationOverride`/`VenueTaxConfiguration` carry no `Name`-like fields), so nothing here depended on its acceptance status.
+
+### Next
+
+PLAN-0004 Milestone G (menu construction and the resolved-menu read endpoint — the plan's second and last deliberately staff-accessible endpoint, this time with no permission code at all) — see `docs/plans/active/PLAN-0004-worker-notes.md` for the recommended next-session prompt.
+
+---
+
 ## 2026-07-05 — PLAN-0004 Milestone E (product variants and modifiers)
 
 ### Summary

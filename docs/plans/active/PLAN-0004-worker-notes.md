@@ -457,3 +457,108 @@ Re-checked: still `docs/adr/proposed/`, not `accepted/`. `ProductVariant.Name`, 
 None. Variants and modifiers are fully CRUD-manageable via the API; `dotnet build`/`dotnet test` are clean (489/489); migrations verified clean from empty. Milestone F (location-level catalog overrides and the pricing resolver: `ProductLocationOverride`, `VenueTaxConfiguration`, `PriceResolver`, plus the sold-out toggle) can start on request.
 
 One heads-up for whoever starts Milestone F: it introduces the plan's first genuinely staff-accessible write endpoint (the sold-out toggle, gated `catalog.sold-out-toggle` + `rejectStaffPin: false`, granted to `Staff` since Milestone A) — this is the plan's single highest-risk design call (see Risks section), so double-check the permission/rejectStaffPin combination against the plan's exact wording before writing the endpoint, not just copying the `catalog.manage`/`rejectStaffPin: true` pattern used by every endpoint so far. `VenueTaxConfiguration` absence-handling (404 vs. silent default) was already decided (Human Decision #5, approved: 404/explicit-error) — don't re-litigate it.
+
+---
+
+## Milestone F Report (2026-07-05)
+
+**Permission check before implementation, as instructed:** re-read the Milestone F section's endpoint table before writing any code. It says `pricing.manage` for `ProductLocationOverride`/`VenueTaxConfiguration` — **not `catalog.manage`** — and `catalog.sold-out-toggle` + `rejectStaffPin: false` for the sold-out toggle. Implemented exactly as the plan states, not as a task-prompt summary elsewhere loosely paraphrased it. `PriceResolver` was TDD'd first — tests written and confirmed RED (missing types) before any implementation existed, then implementation written and confirmed GREEN — per CLAUDE.md's mandatory-TDD rule for financial logic (`TaxCalculationEngine`/`PriceResolver` named explicitly in the plan's "Tests To Run Later" section). CRUD endpoints used the acceptance-test-alongside convention, same as every prior milestone.
+
+### Files changed
+
+New:
+- `src/DaxaPos.Domain/Entities/ProductLocationOverride.cs`, `VenueTaxConfiguration.cs`
+- `src/DaxaPos.Domain/Events/ProductLocationOverrideChangedDomainEvent.cs`, `VenueTaxConfigurationLifecycleDomainEvent.cs`
+- `src/DaxaPos.Application/Pricing/PriceResolutionModels.cs` (`ResolvedPrice`), `PriceResolutionResult.cs` (`PriceResolutionErrorCode`, `PriceResolutionResult`), `PriceResolver.cs`
+- `src/DaxaPos.Api/Endpoints/Catalog/ProductLocationOverrideEndpoints.cs`, `ProductSoldOutEndpoints.cs`
+- `src/DaxaPos.Api/Endpoints/Tax/VenueTaxConfigurationEndpoints.cs` — placed here, not `Endpoints/Catalog/`, matching the plan's own "Files Likely To Change" section which explicitly lists `VenueTaxConfigurationEndpoints` under `Endpoints/Tax/` alongside the other tax-config endpoint files.
+- `src/DaxaPos.Persistence/Configurations/ProductLocationOverrideConfiguration.cs`, `VenueTaxConfigurationConfiguration.cs`
+- `src/DaxaPos.Persistence/Migrations/20260705051120_AddLocationOverridesAndVenueTaxConfig.cs`
+- `tests/DaxaPos.UnitTests/Pricing/PriceResolverTests.cs`
+- `tests/DaxaPos.Api.Tests/ProductLocationOverrideEndpointsTests.cs`, `VenueTaxConfigurationEndpointsTests.cs`, `ProductSoldOutEndpointsTests.cs`
+
+Modified:
+- `src/DaxaPos.Persistence/DaxaDbContext.cs` — 2 new `DbSet`s, 2 new fail-closed query filters.
+- `src/DaxaPos.Api/Audit/DomainEventAuditHandlers.cs` — 2 new handler classes.
+- `src/DaxaPos.Api/Program.cs` — 2 new `AddScoped<IDomainEventHandler<...>>` registrations, 3 new `app.Map...Endpoints()` calls.
+- `tests/DaxaPos.Api.Tests/StaffPinLoginTests.cs` — extended `AssertAllSensitiveEndpointsForbiddenAsync` with the `pricing.manage` endpoints (never the sold-out toggle, which has its own dedicated positive-allow tests instead).
+- `docs/modules/catalog.md`, `docs/modules/pricing.md`, `docs/modules/tax.md`, `docs/architecture/tax-engine.md`, `docs/architecture/multi-location.md` (implementation-status sections), `docs/plans/active/PLAN-0004-catalog-menu-tax-pricing-planning.md`, `docs/CHANGELOG.md`.
+
+No menus, order-price snapshotting, receipts, or UI were added — Milestone F is location overrides and the pricing resolver only, exactly as scoped.
+
+### Migration created
+
+`20260705051120_AddLocationOverridesAndVenueTaxConfig` — creates `product_location_overrides` (unique `(LocationId, ProductId)` index — one override per pair, since two would be ambiguous which applies) and `venue_tax_configurations` (unique `LocationId` index — one row per location, per the plan's own text). Neither carries an `OrganisationId` column; both derive it via `LocationId`. No `HasData` seed rows. Verified to apply cleanly in sequence from an empty database (all 11 migrations, disposable throwaway Postgres database, then dropped).
+
+### Endpoints implemented
+
+- `POST/GET /api/v1/product-location-overrides`, `GET/PATCH/{id}`, `DELETE /{id}` (5, `pricing.manage`, `rejectStaffPin: true`) — hard delete (a pure config override, not a financial record).
+- `POST /api/v1/products/{productId}/locations/{locationId}/sold-out` (1, `catalog.sold-out-toggle`, `rejectStaffPin: false`).
+- `POST/GET /api/v1/venue-tax-configurations`, `GET/PATCH/{id}` (4, `pricing.manage`, `rejectStaffPin: true`) — no delete/deactivate/reactivate (no `IsActive` on the entity).
+
+10 total, matching the plan's exact count.
+
+### ProductLocationOverride behaviour
+
+Create/Update validate that both the referenced `Product` and `Location` belong to the caller's organisation (two independent lookups, 404 on either mismatch). A duplicate `(LocationId, ProductId)` pair on create returns 409 Conflict — not specified by the plan's prose, but a necessary consequence of the unique index (which one would even apply otherwise). `PriceOverride` must be non-negative when supplied (an absolute venue-set price, unlike variant/modifier deltas). Delete is a genuine hard delete — removing the row reverts to the organisation-wide `Product` defaults per ADR-0003, exactly as the plan's Domain Assumptions describe override absence.
+
+### VenueTaxConfiguration behaviour
+
+One row per location (unique index + a pre-check `Conflict` on duplicate create, mirroring `ProductLocationOverride`). `GetByIdAsync` for a genuinely-missing id returns 404 like any other entity — there is no special "compute a default" code path anywhere in this milestone; the fail-closed behaviour Human Decision #5 asked for is simply the absence of any auto-provisioning logic, not a bespoke mechanism. `TaxCalculationMode`'s type is the existing `TaxCalculationScope` enum (`PerLine`/`PerComponent`) — the plan's field list names a "`TaxCalculationMode` enum" without defining distinct values, and this concept is identical to the one `TaxDefinition.CalculationScope` already models, so introducing a second near-duplicate enum was judged unnecessary.
+
+### PriceResolver behaviour
+
+`PriceResolver.Resolve(Product, ProductVariant?, IReadOnlyList<Modifier>, ProductLocationOverride?, VenueTaxConfiguration?)` → `PriceResolutionResult` (mirroring `TaxCalculationEngine`'s typed-result shape exactly). Resolution order: `Product.BasePrice + (variant?.PriceDelta ?? 0) + modifiers.Sum(m => m.PriceDelta)`, then `locationOverride?.PriceOverride` **replaces** that computed total outright when set (never adds to it — the plan's explicit Design Decision), then `IsTaxInclusive` is read from `venueTaxConfiguration.TaxInclusivePricing`. If `venueTaxConfiguration` is `null`, the function returns `Failure(PriceResolutionErrorCode.MissingVenueTaxConfiguration)` immediately, before computing anything — the same fail-closed-first-not-last pattern `TaxCalculationEngine` uses for `MissingTaxConfiguration`. Pure: no DB dependency, no constructor parameters, deterministic (proven by a repeat-call test). `ProductLocationOverride` being `null` is not a failure condition — it is the expected default-and-override path (ADR-0003), unlike a missing `VenueTaxConfiguration`.
+
+### Sold-out toggle behaviour
+
+`ProductSoldOutEndpoints.SetSoldOutAsync` is deliberately separate code from `ProductLocationOverrideEndpoints` — it may only ever set `IsSoldOut`; the request DTO (`SetSoldOutRequest`) has no `PriceOverride`/`IsAvailable` field at all, so there is no code path by which a staff-PIN session could reach those fields even by accident. It upserts: if no `ProductLocationOverride` exists yet for the `(product, location)` pair, one is created with `IsAvailable = true`, `PriceOverride = null`; if one exists, only `IsSoldOut` is touched. Beyond the plan's literal wording, this endpoint also checks `authContext.LocationId is not null && authContext.LocationId != locationId` → 404 — a location-bound session (staff PIN, from its registered device) may only toggle its own location, checked independently of the organisation match, the same way `rejectStaffPin` is checked independently of the permission code. An organisation-scoped admin session (`LocationId` null) has no such restriction. The domain event carries both `UserId` and `StaffMemberId` (only one populated per event) since this is the plan's first staff-PIN-accessible catalogue write, and its `Action` (`"SoldOutToggled"`) is kept distinct from the CRUD endpoint's `"Created"`/`"Updated"`/`"Deleted"` so an auditor can tell which surface made a given change.
+
+### Tests added
+
+44 new tests: 12 unit (`PriceResolverTests.cs`, TDD-first) + 32 integration across 3 files:
+- `ProductLocationOverrideEndpointsTests.cs`, `VenueTaxConfigurationEndpointsTests.cs` — standard CRUD/authorization matrix (as prior milestones), plus duplicate-pair/duplicate-location `Conflict` tests and, for venue tax config, `Get_MissingConfiguration_ReturnsNotFound_InsteadOfSilentlyDefaulting` — the explicit fail-closed proof.
+- `ProductSoldOutEndpointsTests.cs` — the full staff-PIN scenario chain (device registration → staff member → `Staff` role assignment → PIN login), proving: the toggle **succeeds** for a staff session with `catalog.sold-out-toggle`; the *same* session still gets 403 on the `pricing.manage`-gated `PATCH` (the plan's explicit asymmetry-proof pair); upsert-creates with safe defaults; upsert-updates without touching `PriceOverride`/`IsAvailable`; a session lacking `catalog.sold-out-toggle` (seeded directly, since every current role includes it) is rejected; cross-organisation and cross-location (same organisation, different location) are both blocked; and an audit row is written with `StaffMemberId` set, `UserId` null.
+- `StaffPinLoginTests`'s extended inventory — the `pricing.manage` endpoints only.
+
+### Commands run
+
+```
+dotnet build tests/DaxaPos.UnitTests/DaxaPos.UnitTests.csproj      (RED: 2 compile errors, expected symbols)
+dotnet test tests/DaxaPos.UnitTests/DaxaPos.UnitTests.csproj --filter "FullyQualifiedName~PriceResolverTests"   (GREEN: 12/12)
+dotnet build DaxaPos.sln
+dotnet ef migrations add AddLocationOverridesAndVenueTaxConfig --project src/DaxaPos.Persistence --startup-project src/DaxaPos.Api
+dotnet ef database update --project src/DaxaPos.Persistence --startup-project src/DaxaPos.Api
+dotnet test tests/DaxaPos.Api.Tests/DaxaPos.Api.Tests.csproj --filter "FullyQualifiedName~ProductLocationOverrideEndpointsTests|FullyQualifiedName~VenueTaxConfigurationEndpointsTests|FullyQualifiedName~ProductSoldOutEndpointsTests"
+dotnet test tests/DaxaPos.Api.Tests/DaxaPos.Api.Tests.csproj --filter "FullyQualifiedName~StaffPinLoginTests"
+dotnet test DaxaPos.sln
+docker exec deploy-db-1 psql -U daxapos -d daxapos -c "CREATE DATABASE daxapos_migration_check;"
+dotnet ef database update ... --connection "...daxapos_migration_check..."   (clean-database migration re-verification, all 11)
+docker exec deploy-db-1 psql -U daxapos -d daxapos -c "DROP DATABASE daxapos_migration_check;"
+```
+
+### Build/test result
+
+`dotnet build DaxaPos.sln` — 0 warnings, 0 errors.
+`dotnet test DaxaPos.sln` — **533/533 passed** (104 unit tests + 429 API tests, up from 489 at Milestone E close — 44 new tests, zero regressions), against real Postgres, 0 failed, 0 skipped.
+All 11 migrations verified to apply cleanly in sequence from an empty database.
+
+### Deviations from the written plan (flagged, not silently made)
+
+1. **The sold-out toggle additionally enforces location-scoping for staff-PIN sessions** (`authContext.LocationId != locationId` → 404) — not specified anywhere in the plan's prose, which only calls out the organisation check implicitly (via the general "cross-organisation is blocked" pattern). Without this, any staff PIN at any location in an organisation could toggle sold-out state at every other location in that organisation, which doesn't match the operational reality this endpoint exists for (a POS terminal managing its own counter's stock). Flagged as a security-relevant addition, not assumed silently — a different reasonable reading could omit it, but leaving it out seemed like the greater risk.
+2. **`VenueTaxConfigurationEndpoints.cs` lives under `Endpoints/Tax/`, not `Endpoints/Catalog/`** — matching the plan's own "Files Likely To Change" section (written during the original planning pass) rather than where a first guess might place it alongside `ProductLocationOverrideEndpoints`.
+3. **`TaxCalculationMode` reuses `TaxCalculationScope`** rather than a new enum — see VenueTaxConfiguration behaviour above.
+4. **Duplicate-pair/duplicate-location `Conflict` checks** on both `ProductLocationOverride` and `VenueTaxConfiguration` creation — not specified by the plan's field lists, but required by the unique indexes both entities need (documented under each entity's behaviour above).
+5. **`ProductLocationOverrideChangedDomainEvent` carries both `UserId` and `StaffMemberId`** — the first Milestone F/earlier lifecycle event to need this, since it can be raised by either an admin (`pricing.manage`) or a staff session (the sold-out toggle). Every other lifecycle event in the codebase carries only `UserId` because nothing else could ever be staff-triggered until now.
+
+None of these required backing out or redoing anything.
+
+### ADR-0016 status re-check (per this session's explicit instruction not to move it silently)
+
+Re-checked: still `docs/adr/proposed/`, not `accepted/`. Neither `ProductLocationOverride` nor `VenueTaxConfiguration` adds a `Name`-like translatable column, so nothing in Milestone F could depend on ADR-0016's acceptance status. Still not moved.
+
+### Blockers before Milestone G
+
+None. Location-level overrides, venue tax configuration, and the pricing resolver are fully functional; `dotnet build`/`dotnet test` are clean (533/533); migrations verified clean from empty. Milestone G (menu construction and the resolved-menu read endpoint: `Menu`, `MenuSection`, `MenuSectionItem`, `MenuAvailabilityRule`) can start on request.
+
+One heads-up for whoever starts Milestone G: the resolved-menu read endpoint (`GET /api/v1/menus/resolved?locationId={id}`) is the plan's *other* deliberately staff-accessible endpoint, but with a different mechanism than the sold-out toggle — **no permission code at all**, only `.RequireAuthorization()` (Human Decision #1, approved). Don't reach for `RequirePermission(..., rejectStaffPin: false)` here; the plan is explicit that this read needs no permission gate whatsoever, matching `/auth/me`'s existing precedent. The resolved-menu endpoint must exclude products where `ProductLocationOverride.IsAvailable == false || IsSoldOut == true` (now buildable, from this milestone) and resolve prices via this milestone's `PriceResolver` — both dependencies are ready. The menu org-wide/location-specific merge precedence (location wins) and the day/time `MenuAvailabilityRule` shape are both already fixed by the plan (Human Decision #7, approved) — don't re-litigate either.

@@ -51,6 +51,14 @@ ProductTaxCategory
 - Permission: `catalog.manage` on every endpoint, `rejectStaffPin: true` throughout — no schema change to the permission catalogue was needed.
 - See `docs/plans/active/PLAN-0004-worker-notes.md`'s "Milestone E Report" for full detail and deviations.
 
+## Implementation Status (PLAN-0004 Milestone F, 2026-07-05)
+
+`ProductLocationOverride` (location-specific availability/price) and the pure `PriceResolver` are implemented; see `docs/modules/pricing.md` for the resolver and `docs/architecture/multi-location.md` for the location-scoping angle.
+
+- `ProductLocationOverride` (`LocationId`, `ProductId`, `IsAvailable`, `IsSoldOut`, `PriceOverride?`) — one per `(Product, Location)` pair (unique index), no `OrganisationId` column (derived via `LocationId`). Full CRUD (create/list/read/update/hard-delete) gated `pricing.manage` + `rejectStaffPin: true`.
+- **Sold-out toggle** (`POST /api/v1/products/{productId}/locations/{locationId}/sold-out`) is a separate, narrower endpoint gated `catalog.sold-out-toggle` + `rejectStaffPin: false` — the plan's first genuinely staff-accessible catalogue write. It may only ever touch `IsSoldOut` (never `PriceOverride`/`IsAvailable`, which remain `pricing.manage`-only) and upserts the override row if none exists yet, defaulting `IsAvailable` to `true`. A staff-PIN session's own location (from its device) must match the target location — checked independently of the organisation match, so a POS terminal at one location cannot toggle another location's stock even within the same organisation.
+- See `docs/plans/active/PLAN-0004-worker-notes.md`'s "Milestone F Report" for full detail and deviations.
+
 ## Related Modules
 
 - Tax (TaxCategory assignment)

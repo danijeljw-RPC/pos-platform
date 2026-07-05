@@ -44,6 +44,10 @@ Tax configuration endpoints are implemented; no schema changes were needed (Mile
 
 `Product.TaxCategoryId` (see `docs/modules/catalog.md`) is a required, organisation-validated reference to a `TaxCategory` row from Milestone C — a product always has exactly one tax category, unchanged from the original architecture assumption. Changing it is the sole trigger for OI-0007's archive-and-replace on `Product` (see `docs/modules/catalog.md`'s Implementation Status). Resolving a product's `TaxCategoryId` into the actual `TaxComponentSnapshot`s the pure `TaxCalculationEngine` consumes (via `TaxCategoryDefinition`) is still not built — that DB-touching resolution step depends on `Order`/pricing context that doesn't exist until later milestones/PLAN-0005.
 
+## Implementation Status (PLAN-0004 Milestone F, 2026-07-05)
+
+`VenueTaxConfiguration` (`GET/POST/PATCH /api/v1/venue-tax-configurations`, `src/DaxaPos.Api/Endpoints/Tax/VenueTaxConfigurationEndpoints.cs`) is implemented — one row per `Location`, gated `pricing.manage` + `rejectStaffPin: true`, no hard delete/deactivate lifecycle (the entity has no `IsActive` column). `TaxCalculationMode` reuses the existing `TaxCalculationScope` enum (`PerLine`/`PerComponent`) rather than a near-duplicate type with identical values. Absence for a location 404s exactly like any other missing row — nothing in this milestone auto-creates a `VenueTaxConfiguration` on a caller's behalf, matching the plan's approved Human Decision #5 and the same "no silent auto-provisioning" rule already applied to `TaxDefinition` cloning (Milestone C). `PriceResolver` (`docs/modules/pricing.md`) consumes `VenueTaxConfiguration.TaxInclusivePricing` and fails closed when it's missing, rather than defaulting.
+
 ## Related Plans
 
 - [PLAN-0004 — Catalog, Menu, Tax, Pricing](../plans/active/PLAN-0004-catalog-menu-tax-pricing-planning.md)
