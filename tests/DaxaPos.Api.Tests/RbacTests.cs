@@ -28,9 +28,11 @@ public sealed class RbacScenarioFixture : IAsyncLifetime
     public HttpClient GarbageTokenClient { get; private set; } = null!;
 
     /// <summary>
-    /// A real LocalUsernamePassword session whose role is the seeded <c>Staff</c> role — which
-    /// deliberately carries zero permission codes, so it is authenticated but authorized for none
-    /// of the permission-gated endpoints.
+    /// A real LocalUsernamePassword session whose role is the seeded <c>Staff</c> role. Since
+    /// PLAN-0004 Milestone A, <c>Staff</c> carries exactly one permission code
+    /// (<c>catalog.sold-out-toggle</c>, <c>Operational</c>) — deliberately not zero any more, but
+    /// still none of the codes any endpoint in <see cref="PermissionGatedEndpoints"/> requires, so
+    /// this client is still authorized for none of them.
     /// </summary>
     public HttpClient NoPermissionClient { get; private set; } = null!;
 
@@ -105,9 +107,15 @@ public class RbacTests : IClassFixture<RbacScenarioFixture>
     public RbacTests(RbacScenarioFixture fixture) => _fixture = fixture;
 
     /// <summary>
-    /// Every permission-gated endpoint built by PLAN-0003 (Milestones C–F). All of them are also
-    /// <c>rejectStaffPin: true</c>, so this one inventory drives the wrong-permission,
-    /// device-token, and staff-PIN-session 403 sweeps as well as the 401 sweeps.
+    /// Every permission-gated endpoint built by PLAN-0003 (Milestones C–F) and PLAN-0004
+    /// (Milestones C–G). All of them are also <c>rejectStaffPin: true</c>, so this one inventory
+    /// drives the wrong-permission, device-token, and staff-PIN-session 403 sweeps as well as the
+    /// 401 sweeps. Deliberately excludes PLAN-0004's two staff-accessible exceptions —
+    /// <c>catalog.sold-out-toggle</c> (<c>rejectStaffPin: false</c>) and the resolved-menu read
+    /// (no permission code at all) — each already has its own dedicated staff-**succeeds** proof
+    /// (<c>ProductSoldOutEndpointsTests</c>, <c>ResolvedMenuEndpointsTests</c>); adding either here
+    /// would either be redundant or actively wrong, since this inventory's own staff-PIN theory
+    /// asserts 403 for every entry.
     /// </summary>
     public static TheoryData<string, string> PermissionGatedEndpoints() => new()
     {
@@ -140,11 +148,99 @@ public class RbacTests : IClassFixture<RbacScenarioFixture>
         { "POST", $"/api/v1/staff-members/{Id}/reset-pin" },
         { "POST", $"/api/v1/staff-members/{Id}/roles" },
         { "POST", $"/api/v1/staff-members/{Id}/disable" },
+
+        // PLAN-0004 Milestone C: tax configuration (catalog.manage). 17 endpoints.
+        { "GET", "/api/v1/tax-definition-templates" },
+        { "POST", "/api/v1/tax-definitions" },
+        { "POST", "/api/v1/tax-definitions/from-template" },
+        { "GET", "/api/v1/tax-definitions" },
+        { "GET", $"/api/v1/tax-definitions/{Id}" },
+        { "PATCH", $"/api/v1/tax-definitions/{Id}" },
+        { "POST", $"/api/v1/tax-definitions/{Id}/deactivate" },
+        { "POST", $"/api/v1/tax-definitions/{Id}/reactivate" },
+        { "POST", "/api/v1/tax-categories" },
+        { "GET", "/api/v1/tax-categories" },
+        { "GET", $"/api/v1/tax-categories/{Id}" },
+        { "PATCH", $"/api/v1/tax-categories/{Id}" },
+        { "POST", $"/api/v1/tax-categories/{Id}/deactivate" },
+        { "POST", $"/api/v1/tax-categories/{Id}/reactivate" },
+        { "POST", "/api/v1/tax-category-definitions" },
+        { "GET", "/api/v1/tax-category-definitions" },
+        { "DELETE", $"/api/v1/tax-category-definitions/{Id}" },
+
+        // PLAN-0004 Milestone D: product catalogue foundation (catalog.manage). 12 endpoints.
+        { "POST", "/api/v1/product-categories" },
+        { "GET", "/api/v1/product-categories" },
+        { "GET", $"/api/v1/product-categories/{Id}" },
+        { "PATCH", $"/api/v1/product-categories/{Id}" },
+        { "POST", $"/api/v1/product-categories/{Id}/deactivate" },
+        { "POST", $"/api/v1/product-categories/{Id}/reactivate" },
+        { "POST", "/api/v1/products" },
+        { "GET", "/api/v1/products" },
+        { "GET", $"/api/v1/products/{Id}" },
+        { "PATCH", $"/api/v1/products/{Id}" },
+        { "POST", $"/api/v1/products/{Id}/deactivate" },
+        { "POST", $"/api/v1/products/{Id}/reactivate" },
+
+        // PLAN-0004 Milestone E: variants and modifiers (catalog.manage). 20 endpoints.
+        { "POST", "/api/v1/product-variants" },
+        { "GET", "/api/v1/product-variants" },
+        { "GET", $"/api/v1/product-variants/{Id}" },
+        { "PATCH", $"/api/v1/product-variants/{Id}" },
+        { "POST", $"/api/v1/product-variants/{Id}/deactivate" },
+        { "POST", $"/api/v1/product-variants/{Id}/reactivate" },
+        { "POST", "/api/v1/modifier-groups" },
+        { "GET", "/api/v1/modifier-groups" },
+        { "GET", $"/api/v1/modifier-groups/{Id}" },
+        { "PATCH", $"/api/v1/modifier-groups/{Id}" },
+        { "POST", $"/api/v1/modifier-groups/{Id}/deactivate" },
+        { "POST", $"/api/v1/modifier-groups/{Id}/reactivate" },
+        { "POST", "/api/v1/modifiers" },
+        { "GET", "/api/v1/modifiers" },
+        { "GET", $"/api/v1/modifiers/{Id}" },
+        { "PATCH", $"/api/v1/modifiers/{Id}" },
+        { "POST", $"/api/v1/modifiers/{Id}/deactivate" },
+        { "POST", $"/api/v1/modifiers/{Id}/reactivate" },
+        { "POST", "/api/v1/product-modifier-groups" },
+        { "DELETE", $"/api/v1/product-modifier-groups/{Id}" },
+
+        // PLAN-0004 Milestone F: location overrides and venue tax configuration (pricing.manage).
+        // 9 endpoints. The sold-out toggle is deliberately excluded — see the class doc comment.
+        { "POST", "/api/v1/product-location-overrides" },
+        { "GET", "/api/v1/product-location-overrides" },
+        { "GET", $"/api/v1/product-location-overrides/{Id}" },
+        { "PATCH", $"/api/v1/product-location-overrides/{Id}" },
+        { "DELETE", $"/api/v1/product-location-overrides/{Id}" },
+        { "POST", "/api/v1/venue-tax-configurations" },
+        { "GET", "/api/v1/venue-tax-configurations" },
+        { "GET", $"/api/v1/venue-tax-configurations/{Id}" },
+        { "PATCH", $"/api/v1/venue-tax-configurations/{Id}" },
+
+        // PLAN-0004 Milestone G: menu construction (menus.manage). 15 endpoints. The resolved-menu
+        // read is deliberately excluded — see the class doc comment.
+        { "POST", "/api/v1/menus" },
+        { "GET", "/api/v1/menus" },
+        { "GET", $"/api/v1/menus/{Id}" },
+        { "PATCH", $"/api/v1/menus/{Id}" },
+        { "POST", $"/api/v1/menus/{Id}/deactivate" },
+        { "POST", $"/api/v1/menus/{Id}/reactivate" },
+        { "POST", "/api/v1/menu-sections" },
+        { "GET", "/api/v1/menu-sections" },
+        { "GET", $"/api/v1/menu-sections/{Id}" },
+        { "PATCH", $"/api/v1/menu-sections/{Id}" },
+        { "POST", "/api/v1/menu-section-items" },
+        { "DELETE", $"/api/v1/menu-section-items/{Id}" },
+        { "POST", "/api/v1/menu-availability-rules" },
+        { "GET", "/api/v1/menu-availability-rules" },
+        { "DELETE", $"/api/v1/menu-availability-rules/{Id}" },
     };
 
     /// <summary>
     /// The full protected surface: the permission-gated inventory plus the endpoints protected by
-    /// authentication alone (<c>RequireAuthorization()</c> without a permission code).
+    /// authentication alone (<c>RequireAuthorization()</c> without a permission code) — including
+    /// the resolved-menu read (PLAN-0004 Milestone G), for the 401/garbage-token sweeps only. Its
+    /// staff-PIN-succeeds and no-permission-required behaviour is proven by the dedicated
+    /// <c>ResolvedMenuEndpointsTests</c> suite, not duplicated here.
     /// </summary>
     public static TheoryData<string, string> AllProtectedEndpoints()
     {
@@ -152,6 +248,7 @@ public class RbacTests : IClassFixture<RbacScenarioFixture>
         data.Add("GET", "/api/v1/auth/me");
         data.Add("POST", "/api/v1/auth/logout");
         data.Add("POST", "/api/v1/auth/staff-pin/login");
+        data.Add("GET", $"/api/v1/menus/resolved?locationId={Id}");
         return data;
     }
 
