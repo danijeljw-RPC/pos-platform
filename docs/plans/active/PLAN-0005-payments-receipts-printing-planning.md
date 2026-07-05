@@ -2,7 +2,7 @@
 
 ## Status
 
-Draft — planning pass complete (2026-07-05), converted into 6 named milestones (A–F) following the same process PLAN-0004's own planning pass used. Awaiting human approval of the Human Decisions Needed section before Milestone A implementation starts.
+Approved (2026-07-05) — all 5 Human Decisions Needed items approved, see the Approval Record under Human Decisions Needed below. Milestone A implementation starting.
 
 ## Goal
 
@@ -102,7 +102,7 @@ tests/DaxaPos.Api.Tests/               (OrderEndpointsTests.cs, PaymentEndpoints
 
 No payments, refunds, receipts, or printing. Pure order/order-line/tax-snapshot foundation — every later milestone depends on `Order` existing.
 
-- `Order`: `Id`, `TenantId`, `OrganisationId`, `LocationId`, `TerminalId`, `OrderNumber` (location-scoped display sequence — see Human Decisions Needed #2), `Status` (`Open`, `Held`, `Completed`, `Voided`, `Cancelled` — only `Open`/`Held`/`Voided`/`Cancelled` are reachable in this milestone; `Completed` is wired when Milestone B's payment recording closes an order), `OpenedAtUtc`, `ClosedAtUtc?`, `OpenedByUserId?`, `OpenedByStaffMemberId?`, `Notes?`, `IsTaxInclusivePricing` (snapshotted from `VenueTaxConfiguration` at open time — the venue config can change later without altering an already-open order's basis), `SubtotalAmount`, `TotalTaxAmount`, `GrandTotalAmount` (all server-computed, never client-supplied).
+- `Order`: `Id`, `TenantId`, `OrganisationId`, `LocationId`, `TerminalId`, `OrderNumber` (`long`, location-scoped monotonic sequence per approved Human Decision #2 — implemented as an `OrderNumberCounter` row per `LocationId` incremented via a single atomic `INSERT ... ON CONFLICT DO UPDATE ... RETURNING` statement, not a computed `MAX(OrderNumber) + 1`, so concurrent order-open calls at the same location never race; not a native Postgres `SEQUENCE` object, since those can't be created dynamically per location without per-tenant DDL), `Status` (`Open`, `Held`, `Completed`, `Voided`, `Cancelled` — only `Open`/`Held`/`Voided`/`Cancelled` are reachable in this milestone; `Completed` is wired when Milestone B's payment recording closes an order), `OpenedAtUtc`, `ClosedAtUtc?`, `OpenedByUserId?`, `OpenedByStaffMemberId?`, `Notes?`, `IsTaxInclusivePricing` (snapshotted from `VenueTaxConfiguration` at open time — the venue config can change later without altering an already-open order's basis), `SubtotalAmount`, `TotalTaxAmount`, `GrandTotalAmount` (all server-computed, never client-supplied).
 - `OrderLine`: `Id`, `OrderId`, `ProductId`, `ProductVariantId?`, `Quantity`, `ProductNameSnapshot`, `UnitPriceSnapshot`, `LineSubtotalAmount`, `LineTotalAmount`, `TaxCategoryCodeSnapshot`, `Notes?`, `Status` (`Active`/`Voided`), `VoidedAtUtc?`, `VoidedByUserId?`, `VoidedByStaffMemberId?`, `VoidReason?`.
 - `OrderLineModifier`: `Id`, `OrderLineId`, `ModifierId`, `NameSnapshot`, `PriceDeltaSnapshot`.
 - `OrderLineTax`: `Id`, `OrderLineId`, `TaxDefinitionId`, `TaxNameSnapshot`, `RatePercentSnapshot`, `TaxableAmount`, `TaxAmount`, `JurisdictionNameSnapshot`, `JurisdictionTypeSnapshot`, `ReceiptMarkerCodeSnapshot?`, `ReceiptMarkerLabelSnapshot?` — one row per `TaxLineResult` returned by `TaxCalculationEngine.CalculateLine`, stored verbatim (not recalculated later).
@@ -179,13 +179,7 @@ Test-and-documentation-only, mirroring PLAN-0004 Milestone H exactly: extend `Rb
 
 ## Permission Catalogue Additions (Summary)
 
-Pending Human Decisions Needed #5 — working assumption:
-
-| Code | Category | Milestone |
-|------|----------|-----------|
-| `orders.manage` | Operational | A |
-| `payments.record` | Operational | B |
-| `payments.refund` | AdminSensitive | C |
+Approved per Human Decisions Needed #5 (Approval Record above) — see that section's table for the full 5-code list including the two receipt/printing codes added by approval (`receipts.reprint`, `printing.manage`). Milestone A implements only `orders.manage`.
 
 ## Tests To Run Later
 
@@ -236,6 +230,24 @@ docs: close PLAN-0005 Milestone F
 ```
 
 ## Human Decisions Needed
+
+**Approval record (2026-07-05):** all 5 items below were approved, unblocking Milestone A. Approval refined three of the five beyond the plan's own recommendation, recorded here so a later milestone doesn't re-derive or contradict them:
+
+- **Item 1** (interface ownership split) approved as recommended, with an explicit scope boundary added: this plan owns the payment, receipt, print-job, and order-transaction *domain* abstractions (`IPaymentTerminalProvider`'s interface in Milestone B; the outbox/work-item and `ReceiptDocument` shapes in Milestones D/E) — hardware/provider-specific adapters, daemons, printer discovery, device protocols, and installer/runtime deployment mechanics belong to PLAN-0009 or a later hardware-integration plan. **Milestone E's printer transport code must stay behind an interface Milestone A–D's abstractions don't leak past** — no ESC/POS byte-generation or transport-specific type may appear in `Order`/`Payment`/`Refund`/`ReceiptDocument` shapes.
+- **Item 2** (`Order.OrderNumber`) approved as recommended: a server-side, database-backed sequence/counter per venue/location, monotonic and safe under concurrent order creation, never client-generated.
+- **Item 3** (OI-0017) approved as recommended: tracked risk, not a Milestone A blocker. Milestone A may read `Product`/`ProductVariant`/`Menu` data as needed but must not attempt to fix the archive-and-replace race unless a direct implementation blocker appears. OI-0017 stays open.
+- **Item 4** (refund permission model) approved with a firmer floor than the plan's own recommendation: explicit refund permission code(s), kept separate from `orders.manage`/`payments.record`, and **manager/admin-only by default** (not merely "AdminSensitive category" — the plan's `payments.refund` proposal already satisfies this; approval confirms it rather than leaving the threshold-escalation question open for Milestone C to re-litigate).
+- **Item 5** (permission codes/categories) approved with one addition beyond the plan's original three-code table: **explicit receipt and printing permission codes are also required**, resolving Milestone D's previously-open "may need its own code, not resolved here" question. Concretely: `receipts.reprint` (reprinting a receipt after the fact) and `printing.manage` (print-job retry/administration) must be permission-gated separately from `orders.manage`'s live-sale surface — working proposal below, to be finalised when Milestones D/E are actually implemented, not decided further now.
+
+**Permission Catalogue Additions, updated per approval:**
+
+| Code | Category | Milestone | Note |
+|------|----------|-----------|------|
+| `orders.manage` | Operational | A | Staff-PIN-eligible — order entry is core counter work. |
+| `payments.record` | Operational | B | Staff-PIN-eligible — cash/EFTPOS recording is core counter work. |
+| `payments.refund` | AdminSensitive | C | Manager/admin-only by default, per approved Item 4. |
+| `receipts.reprint` | Operational (proposed) | D | New per approved Item 5 — live-sale receipt viewing/printing stays under `orders.manage`; only the standalone after-the-fact reprint action gets its own code. Category to be confirmed at Milestone D start. |
+| `printing.manage` | AdminSensitive (proposed) | E | New per approved Item 5 — print-job retry and print-job administration, never staff-PIN-eligible. |
 
 Recorded here, mirroring PLAN-0004's own planning-pass convention, so implementation can start on approval without re-litigating mid-milestone:
 
