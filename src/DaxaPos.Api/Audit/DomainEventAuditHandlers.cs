@@ -417,3 +417,78 @@ public sealed class StaffMemberDisabledAuditHandler(DaxaDbContext dbContext)
         await dbContext.SaveChangesAsync(cancellationToken);
     }
 }
+
+/// <summary>
+/// PLAN-0004 Milestone C tax-configuration audit handlers (OI-0007's explicit audit requirement:
+/// who, when, old config, new config). <c>EventType</c> follows the Milestone D
+/// <c>$"{EntityType}{Action}"</c> convention (e.g. <c>"TaxDefinitionCreatedFromTemplate"</c>).
+/// </summary>
+public sealed class TaxDefinitionLifecycleAuditHandler(DaxaDbContext dbContext)
+    : IDomainEventHandler<TaxDefinitionLifecycleDomainEvent>
+{
+    public async Task HandleAsync(TaxDefinitionLifecycleDomainEvent domainEvent, CancellationToken cancellationToken = default)
+    {
+        dbContext.AuditEvents.Add(new AuditEvent
+        {
+            Id = Guid.NewGuid(),
+            TenantId = domainEvent.TenantId,
+            OrganisationId = domainEvent.OrganisationId,
+            UserId = domainEvent.UserId,
+            EventType = $"{nameof(TaxDefinition)}{domainEvent.Action}",
+            EntityType = nameof(TaxDefinition),
+            EntityId = domainEvent.TaxDefinitionId,
+            BeforeValue = domainEvent.BeforeValue,
+            AfterValue = domainEvent.AfterValue,
+            OccurredAtUtc = domainEvent.OccurredAtUtc,
+        });
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+}
+
+public sealed class TaxCategoryLifecycleAuditHandler(DaxaDbContext dbContext)
+    : IDomainEventHandler<TaxCategoryLifecycleDomainEvent>
+{
+    public async Task HandleAsync(TaxCategoryLifecycleDomainEvent domainEvent, CancellationToken cancellationToken = default)
+    {
+        dbContext.AuditEvents.Add(new AuditEvent
+        {
+            Id = Guid.NewGuid(),
+            TenantId = domainEvent.TenantId,
+            OrganisationId = domainEvent.OrganisationId,
+            UserId = domainEvent.UserId,
+            EventType = $"{nameof(TaxCategory)}{domainEvent.Action}",
+            EntityType = nameof(TaxCategory),
+            EntityId = domainEvent.TaxCategoryId,
+            BeforeValue = domainEvent.BeforeValue,
+            AfterValue = domainEvent.AfterValue,
+            OccurredAtUtc = domainEvent.OccurredAtUtc,
+        });
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+}
+
+public sealed class TaxCategoryDefinitionChangedAuditHandler(DaxaDbContext dbContext)
+    : IDomainEventHandler<TaxCategoryDefinitionChangedDomainEvent>
+{
+    public async Task HandleAsync(TaxCategoryDefinitionChangedDomainEvent domainEvent, CancellationToken cancellationToken = default)
+    {
+        dbContext.AuditEvents.Add(new AuditEvent
+        {
+            Id = Guid.NewGuid(),
+            TenantId = domainEvent.TenantId,
+            OrganisationId = domainEvent.OrganisationId,
+            LocationId = domainEvent.LocationId,
+            UserId = domainEvent.UserId,
+            EventType = $"{nameof(TaxCategoryDefinition)}{domainEvent.Action}",
+            EntityType = nameof(TaxCategoryDefinition),
+            EntityId = domainEvent.TaxCategoryDefinitionId,
+            BeforeValue = domainEvent.BeforeValue,
+            AfterValue = domainEvent.AfterValue,
+            OccurredAtUtc = domainEvent.OccurredAtUtc,
+        });
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+}
