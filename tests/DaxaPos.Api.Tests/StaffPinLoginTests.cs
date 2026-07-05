@@ -466,6 +466,22 @@ public class StaffPinLoginTests : IClassFixture<WebApplicationFactory<Program>>
             await staffClient.PostAsJsonAsync(
                 "/api/v1/products",
                 new CreateProductRequest("Nope", organisationId, Guid.NewGuid(), Guid.NewGuid(), null, null, null, 1.00m)),
+            // PLAN-0004 Milestone E: variants/modifiers are the same OI-0007 catalogue surface.
+            await staffClient.GetAsync("/api/v1/product-variants"),
+            await staffClient.PostAsJsonAsync(
+                "/api/v1/product-variants",
+                new CreateProductVariantRequest("Nope", Guid.NewGuid(), 1.00m, null)),
+            await staffClient.GetAsync("/api/v1/modifier-groups"),
+            await staffClient.PostAsJsonAsync(
+                "/api/v1/modifier-groups",
+                new CreateModifierGroupRequest("Nope", organisationId, 0, 1, false)),
+            await staffClient.GetAsync("/api/v1/modifiers"),
+            await staffClient.PostAsJsonAsync(
+                "/api/v1/modifiers",
+                new CreateModifierRequest("Nope", Guid.NewGuid(), 1.00m)),
+            await staffClient.PostAsJsonAsync(
+                "/api/v1/product-modifier-groups",
+                new AssignProductModifierGroupRequest(Guid.NewGuid(), Guid.NewGuid(), 0)),
         };
 
         Assert.All(attempts, response => Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode));
