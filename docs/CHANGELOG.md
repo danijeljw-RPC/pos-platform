@@ -4,6 +4,39 @@ Changes are listed in reverse chronological order.
 
 ---
 
+## 2026-07-05 — PLAN-0004 Milestone H (consolidation, RBAC sweep, ADR-0016 acceptance, and PLAN-0004 closeout)
+
+### Summary
+
+Test-and-documentation-only closeout of PLAN-0004: no new entities, migrations, or endpoint groups. `RbacTests.cs`'s permission-gated endpoint inventory extended from PLAN-0003-only (29 routes) to include all 73 PLAN-0004 `rejectStaffPin: true` routes across Milestones C–G, driving the full 401/403/device-token/staff-PIN matrix automatically; the resolved-menu read added to the 401-only sweep. The sold-out toggle and resolved-menu read were deliberately excluded from the rejection inventory (they're the plan's two staff-accessible exceptions, each already proven staff-**succeeds** by its own dedicated test) rather than added incorrectly. Permission categories, role grants, endpoint registration (`Program.cs`), and the `IgnoreQueryFilters()` allowlist were all swept and found already correct — zero fixes needed for any of them. ADR-0016 (Multi-Language and Localisation Strategy) was accepted and moved from `proposed/` to `accepted/`, after confirming it is internally consistent, nothing in Milestones A–G contradicts it, and acceptance requires no schema/code work. `OI-0017` (product archive-and-replace concurrency race) was filed; the plan's other two candidate issues were evaluated and found already resolved (`VenueTaxConfiguration`-absence, decided at planning approval) or not yet warranted (menu merge-precedence revisit, no real usage exists to have surfaced a problem). PLAN-0004 is now marked complete, in place under `docs/plans/active/` (not relocated — `OI-0016`'s archival-convention question remains open, now spanning three finished plans).
+
+### Key areas changed
+
+- `tests/DaxaPos.Api.Tests/RbacTests.cs` (modified — 73 new endpoint rows, 1 resolved-menu 401-only row, a corrected stale doc comment).
+- `docs/adr/proposed/ADR-0016-multi-language-and-localisation-strategy.md` → `docs/adr/accepted/ADR-0016-multi-language-and-localisation-strategy.md` (moved; Status field updated; internal sibling-ADR links fixed).
+- `docs/adr/index.md` (ADR-0016 moved to the Accepted table).
+- `docs/issues/open/OI-0017-product-archive-and-replace-concurrency.md` (new); `docs/issues/index.md` (new area section); `docs/issues/open/OI-0016-define-completed-plan-archival-convention.md` (updated — PLAN-0004 now a third finished-but-not-relocated plan).
+- `docs/README.md`, `docs/03-phase-roadmap.md`, `docs/architecture/overview.md`, `docs/architecture/tax-engine.md`, `docs/modules/tax.md`, `docs/modules/catalog.md`, `docs/modules/receipts.md`, `docs/plans/active/PLAN-0006-terminal-display-pwa-planning.md`, `docs/plans/active/PLAN-localisation-multi-language.md` (ADR-0016 path/status references updated — historical point-in-time records in `PLAN-0003-worker-notes.md`/`PLAN-0003-identity-tenancy-locations-devices.md` deliberately left unchanged).
+- `docs/plans/active/PLAN-0004-catalog-menu-tax-pricing-planning.md`, `docs/plans/active/PLAN-0004-worker-notes.md` (Milestone H sections, plan marked complete).
+
+### Open issues resolved
+
+None closed. `OI-0017` opened (see above).
+
+### Tests / verification outcome
+
+`dotnet build DaxaPos.sln` — 0 warnings, 0 errors. `dotnet test DaxaPos.sln` — 944/944 passed (104 unit tests + 840 API tests, up from 577 at Milestone G close — 367 new test executions from the RBAC theory expansion, zero regressions), against real Postgres. `IgnoreQueryFiltersUsageTests` re-verified passing with the unchanged 5-file allowlist. All 12 migrations (unchanged count — no migration added this milestone) re-verified to apply cleanly in sequence from an empty database.
+
+### ADR-0016
+
+**Accepted 2026-07-05.** Moved from `docs/adr/proposed/` to `docs/adr/accepted/` after confirming internal consistency, no contradiction with anything Milestones A–G implemented, and that acceptance requires no further schema/code work — see the Milestone H Report in `PLAN-0004-worker-notes.md` for the full four-point confirmation.
+
+### Next
+
+**PLAN-0004 is complete.** PLAN-0005 (Payments, Receipts, Printing) is next per `docs/README.md`'s Active Plans ordering — its Order module is the first consumer of this plan's `TaxCalculationEngine`, `PriceResolver`, and resolved-menu output, and is where ADR-0006's per-order 20-tax-component limit (deferred throughout PLAN-0004) finally gets enforced.
+
+---
+
 ## 2026-07-05 — PLAN-0004 Milestone G (menu construction and resolved-menu read endpoint)
 
 ### Summary

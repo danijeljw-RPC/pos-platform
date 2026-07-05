@@ -16,6 +16,8 @@ There is no decided convention for what happens to a plan document once its work
 
 PLAN-0002 (Platform Skeleton) has been complete and committed for some time but was never moved out of `docs/plans/active/`. PLAN-0003 (Identity, Tenancy, Locations, Devices) reached completion at Milestone H (2026-07-03); the same question was raised explicitly during Milestone H closeout planning. Human decision at that time: keep PLAN-0003 in `active/` rather than move it, specifically to avoid (a) creating a one-off convention applied to only one of two equally-finished plans, and (b) unnecessary churn updating the 17 files across `docs/` that link to PLAN-0003's `active/` path by relative reference. This issue exists to hold the underlying convention question open until it is deliberately decided — for PLAN-0002 and PLAN-0003 together, not piecemeal.
 
+**Update (2026-07-05):** PLAN-0004 (Catalog, Menu, Tax, Pricing) reached completion at its own Milestone H closeout, per the same explicit instruction not to move it without a resolved convention. It is marked complete in place (a status line in the plan doc itself) rather than relocated, for the same reasons already recorded above. The eventual decision now needs to account for **three** finished-but-not-relocated plans (PLAN-0002, PLAN-0003, PLAN-0004), not two — worth resolving sooner rather than later, since the migration cost keeps growing exactly as this issue's Impact section predicted.
+
 ## Impact
 
 - A reader of `docs/README.md`'s Active Plans list cannot currently tell which listed plans are still in progress and which are finished but simply never relocated.

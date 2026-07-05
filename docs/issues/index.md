@@ -7,7 +7,7 @@ Issues that have been decided are moved to `issues/closed/` and listed under Clo
 
 ## Open Issues
 
-Grouped by area. Five were opened by PLAN-0003 Milestone G (2026-07-03), converting deferred risks recorded in the Milestone C–F worker notes into tracked issues. A sixth, OI-0016, was opened by PLAN-0003 Milestone H (2026-07-03) closeout, recording a process question raised while deciding whether to relocate the plan document itself. One of the original six, OI-0015, was closed by PLAN-0004 Milestone A (2026-07-03) — see Closed Issues below.
+Grouped by area. Five were opened by PLAN-0003 Milestone G (2026-07-03), converting deferred risks recorded in the Milestone C–F worker notes into tracked issues. A sixth, OI-0016, was opened by PLAN-0003 Milestone H (2026-07-03) closeout, recording a process question raised while deciding whether to relocate the plan document itself. One of the original six, OI-0015, was closed by PLAN-0004 Milestone A (2026-07-03) — see Closed Issues below. A seventh, OI-0017, was opened by PLAN-0004 Milestone H (2026-07-05) closeout, converting the archive-and-replace concurrency race (deferred since Milestone D) into a tracked issue — the plan's other two candidate issues (`VenueTaxConfiguration`-absence behaviour, menu merge-precedence revisit) were evaluated and found not to need filing; see the Milestone H report in `PLAN-0004-worker-notes.md`.
 
 ### Identity / Security
 
@@ -27,6 +27,12 @@ Grouped by area. Five were opened by PLAN-0003 Milestone G (2026-07-03), convert
 | Issue | Title | Deferred from |
 |-------|-------|---------------|
 | [OI-0014](open/OI-0014-tenantless-security-event-auditing.md) | Tenant-less Unauthenticated Security-Event Auditing | PLAN-0003 Milestones C/E |
+
+### Catalog / Data Integrity
+
+| Issue | Title | Deferred from |
+|-------|-------|---------------|
+| [OI-0017](open/OI-0017-product-archive-and-replace-concurrency.md) | Product Archive-and-Replace Concurrency Race | PLAN-0004 Milestone D |
 
 ### Documentation / Process
 

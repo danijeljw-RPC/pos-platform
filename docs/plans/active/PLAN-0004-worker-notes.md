@@ -666,3 +666,102 @@ Re-checked: still `docs/adr/proposed/`, not `accepted/`. `Menu.Name`/`MenuSectio
 None. Menu construction and the resolved-menu read endpoint are fully functional; `dotnet build`/`dotnet test` are clean (577/577); migrations verified clean from empty. Milestone H (consolidation, RBAC sweep, and documentation closeout — test-and-documentation-only, per the plan) can start on request.
 
 One heads-up for whoever starts Milestone H: it is scoped as test-and-documentation-only (no entities, no migration, no endpoints) — extend `RbacTests.cs`'s endpoint inventory with every Milestone A–G permission-gated endpoint (including the two deliberate staff-PIN-succeeds rows: the sold-out toggle and the resolved-menu read, each asserted explicitly rather than merely absent from the rejection inventory), confirm zero new `IgnoreQueryFilters()` call sites, re-verify all 12 migrations from empty one more time, and file the three candidate open issues the plan's own Open Issues Required section already names (archive-and-replace concurrency race; menu merge-precedence revisit if real use suggests a different rule; `VenueTaxConfiguration`-absence behaviour, already resolved as 404 but worth a formal OI record). Also action the ADR-0016 `git mv` to `docs/adr/accepted/` while touching documentation anyway — it has been re-checked-but-not-moved every milestone since B.
+
+---
+
+## Milestone H Report (2026-07-05)
+
+Working tree confirmed clean before editing except one pre-existing uncommitted change: a whitespace-only markdown table-separator normalization in `ADR-0016-multi-language-and-localisation-strategy.md` (`|---|---|` → `| --- | --- |`, no semantic change), absorbed into this milestone's ADR-0016 edits since that file was already being touched for the acceptance move.
+
+Test-and-documentation-only, exactly as scoped: no new entities, no migration, no new endpoint groups, no order/payment/receipt/UI/sync/inventory/KDS/pricing-rule work.
+
+### RBAC sweep
+
+`tests/DaxaPos.Api.Tests/RbacTests.cs`'s `PermissionGatedEndpoints()` — previously PLAN-0003-only (Organisation/Location/Terminal/Device/StaffMember, 29 routes) — extended with all 73 PLAN-0004 `rejectStaffPin: true` routes: Milestone C tax configuration (17: templates read, tax-definitions incl. from-template, tax-categories, tax-category-definitions), Milestone D product catalogue (12: categories, products), Milestone E variants/modifiers (20: variants, modifier groups, modifiers, product-modifier-group assign/unassign), Milestone F location overrides/venue tax config (9: `product-location-overrides`, `venue-tax-configurations` — **not** the sold-out toggle, see below), Milestone G menus (15: menus, sections, section-items, availability rules — **not** the resolved-menu read, see below). This one addition drives four theories automatically (`Unauthenticated_Request_Returns401`, `GarbageBearerToken_Returns401`, `AuthenticatedSession_WithoutThePermission_Returns403`, `DeviceToken_Returns403`, `StaffPinSession_Returns403`) across all 73 new routes, per the file's existing single-inventory design. `AllProtectedEndpoints()` additionally gained the resolved-menu read (`GET /api/v1/menus/resolved`) for its 401/garbage-token sweep only.
+
+**Deliberately excluded from the sweep, not an oversight:** `catalog.sold-out-toggle` (`rejectStaffPin: false`) and the resolved-menu read (no permission code at all) are PLAN-0004's two staff-accessible exceptions — adding either to `PermissionGatedEndpoints()` would make the shared `StaffPinSession_Returns403_OnEveryRejectStaffPinEndpoint` theory assert something false for that one row. Both already have their own dedicated staff-**succeeds** proof (`ProductSoldOutEndpointsTests.StaffSession_WithCatalogSoldOutToggle_CanSetSoldOut`, `ResolvedMenuEndpointsTests.StaffSession_CanReadResolvedMenu`) — duplicating that proof here would be redundant at best and actively wrong if placed in the wrong theory.
+
+**Permission categories** — verified via the existing `StaffPinLoginTests.PermissionCatalogue_ClassifiesPLAN0004MilestoneAPermissions_ByCategory` test (already covers all 4 codes: `catalog.manage`/`pricing.manage`/`menus.manage` = `AdminSensitive`, `catalog.sold-out-toggle` = `Operational`) — already correct, no changes needed.
+
+**Role grants** — verified by reading `RolePermissionConfiguration.cs` directly: `SystemAdmin`/`OrganisationOwner`/`VenueManager` all hold `catalog.manage`/`pricing.manage`/`menus.manage`/`catalog.sold-out-toggle`; `Staff` holds only `catalog.sold-out-toggle` (its first-ever grant, Milestone A) — matches the plan's permission table exactly, already correct.
+
+**Stale comment fixed in passing:** `RbacScenarioFixture.NoPermissionClient`'s doc comment claimed the seeded `Staff` role "deliberately carries zero permission codes" — true when PLAN-0003 wrote it, false since Milestone A gave `Staff` its first grant (`catalog.sold-out-toggle`). Corrected to say so explicitly; the test behaviour itself was never wrong (that one `Operational` permission doesn't match any code in the inventory), only the comment's claim.
+
+**Deliberately not extended:** `RbacTests.ValidSession_ForAnotherTenant_SeesNothing_AndNeverAnError` (the cross-tenant "hijack" 404 proof) was not extended to PLAN-0004 entities. That test is about tenant-isolation data leakage, not permission gating — a different axis from this sweep's scope. Every PLAN-0004 milestone's own endpoint test file already carries its own cross-tenant/cross-organisation 404 proof for its entities (e.g. `ProductEndpointsTests.Read_Blocked_ForDifferentTenant`, `MenuEndpointsTests.ReadAndUpdate_Blocked_ForDifferentOrganisation_SameTenant`), so the coverage exists, just not consolidated into this one giant test. Flagged as a scoping decision, not a silent gap.
+
+### Staff-PIN sweep
+
+`StaffPinLoginTests.AssertAllSensitiveEndpointsForbiddenAsync`'s shared inventory was already complete as of the Milestone G session (extended incrementally at C/D/E/F/G) — re-verified by listing every `staffClient.*Async` call in the file: one representative GET+POST pair per Milestone C–G endpoint group, matching the file's own documented "shared inventory, not per-entity duplication" convention. No additions needed this milestone.
+
+### Endpoint registration sweep
+
+`src/DaxaPos.Api/Program.cs` re-checked against all 18 required groups (`TaxDefinitionTemplateEndpoints` through `ResolvedMenuEndpoints`) — all 18 already registered, in the same order they were added at each milestone. No fix needed; the Milestone G session had already wired everything.
+
+### IgnoreQueryFilters() sweep
+
+`grep -rn "IgnoreQueryFilters" src/` re-run: the only production call sites are the 5 files already on `IgnoreQueryFiltersUsageTests.ApprovedFiles` (`DeviceTokenAuthenticationHandler.cs`, `SessionAuthenticationHandler.cs`, `BootstrapAdminSeeder.cs`, `AuthEndpoints.cs`, `DeviceRegistrationEndpoints.cs`) — the exact same set as before PLAN-0004 started. Zero new call sites from any PLAN-0004 milestone; every PLAN-0004 endpoint runs under an already-authenticated tenant/organisation context, so none of them ever needed the bootstrap escape hatch. `dotnet test --filter IgnoreQueryFiltersUsageTests` re-run green, confirming the guard test itself still passes with the unchanged allowlist. **Final allowlist: unchanged from PLAN-0003, 5 files, 0 additions.**
+
+### Migration verification
+
+All 12 migrations (unchanged count — no migration added this milestone) re-verified to apply cleanly in sequence from a completely empty database (disposable throwaway Postgres database `daxapos_migration_check_h`, then dropped — not the shared dev database).
+
+### ADR-0016 acceptance
+
+Per explicit human approval scoped to this closeout, and only after the four required confirmations:
+
+1. **Read ADR-0016 in full.** 9 sections (five localisation types, UI localisation, business-data translation records, default language/fallback, receipt/tax label localisation, audit-log codes-not-sentences, MVP scope, non-goals, documentation/follow-up), Consequences, Alternatives Considered, Follow-Up Work — internally consistent, no contradictions found across the document.
+2. **Nothing in Milestones A–G contradicts it.** Every translatable-in-future column (`TaxDefinitionTemplate.Name`/`ReceiptMarkerLabel`, `TaxDefinition.Name`/`ReceiptMarkerLabel`, `TaxCategory.Name`, `Product.Name`/`Description`, `ProductCategory.Name`, `ProductVariant.Name`, `ModifierGroup.Name`, `Modifier.Name`, `Menu.Name`, `MenuSection.Name`) is a plain invariant/fallback bounded `varchar`, confirmed at each milestone's own ADR-0016 re-check note above. No business logic anywhere string-matches on any of these `Name`/label fields for behaviour — matching is always on `Id`/`Code` (`TaxDefinitionTemplate.Code`, `TaxCategory.Code`, `Product.Sku`/`Barcode` as plain optional identifiers, never compared for branching). Zero `{Entity}Translation` tables exist. Every `AuditEvent` write uses a stable `EventType` string code (`$"{nameof(Entity)}{Action}"`) plus JSON `BeforeValue`/`AfterValue` snapshots — never a pre-rendered English sentence — satisfying §6 exactly, unchanged since PLAN-0003.
+3. **Acceptance requires no schema/code work in this milestone** — confirmed directly from the ADR's own text ("no implementation required by acceptance, only formalizes constraints this plan already honours") and from the fact that nothing above required a single line of production code to change.
+4. **Recorded the acceptance** in `docs/adr/index.md` (row moved from Proposed to Accepted table; Proposed table now empty), the ADR file's own Status field (`Proposed` → `Accepted`, Date field annotated with the acceptance date/context), this plan's ADR Gaps section and Human Decision #6, and this report.
+
+`git mv docs/adr/proposed/ADR-0016-multi-language-and-localisation-strategy.md docs/adr/accepted/ADR-0016-multi-language-and-localisation-strategy.md`. Fixed the file's own internal sibling-ADR links (`ADR-0003`/`ADR-0006`/`ADR-0011`/`ADR-0015` are now same-directory neighbours, not `../accepted/`-prefixed). Updated every **living** doc that linked the old `proposed/` path: `docs/README.md`, `docs/03-phase-roadmap.md`, `docs/architecture/overview.md`, `docs/architecture/tax-engine.md`, `docs/modules/tax.md`, `docs/modules/catalog.md`, `docs/modules/receipts.md`, `docs/plans/active/PLAN-0006-terminal-display-pwa-planning.md`, `docs/plans/active/PLAN-localisation-multi-language.md` (the placeholder implementation plan itself — no longer "blocked on acceptance," still no worker assigned). **Deliberately left unchanged:** `docs/plans/active/PLAN-0003-worker-notes.md` and `docs/plans/active/PLAN-0003-identity-tenancy-locations-devices.md`'s own historical statements ("ADR-0016 stays proposed") and this plan's own per-milestone ADR-0016 check notes (A through G) above — these are point-in-time records of what was true when each was written, and rewriting them would falsify history rather than record it.
+
+### Open issues reviewed
+
+Per the plan's Open Issues Required section, three candidates named:
+
+1. **Archive-and-replace concurrency race — filed as `OI-0017`.** Still a live, undecided risk exactly as accepted at planning approval (Human Decision #4) and reserved for Milestone H by Milestone D's own report. Written parallel to `OI-0013`'s precedent (same race shape: check-then-update with no serialisation), recommending the same fix mechanism (optimistic concurrency token) for consistency, flagging the one structural difference (`Product`'s version also *creates* a row, not just increments a counter).
+2. **`VenueTaxConfiguration`-absence behaviour — not filed.** This was never actually an open question by the time Milestone H arrived: Human Decision #5 (approved 2026-07-03, before Milestone C even started) definitively resolved it as "404/explicit-error, never silent default," and Milestones F/G both implemented and tested that exact behaviour (`VenueTaxConfigurationEndpointsTests.Get_MissingConfiguration_ReturnsNotFound_InsteadOfSilentlyDefaulting`, `ResolvedMenuEndpointsTests.ResolvedMenu_FailsClosed_WhenVenueTaxConfigurationIsMissing`). Filing an open issue for an already-decided, already-implemented, already-tested behaviour would misrepresent it as unresolved.
+3. **Menu merge-precedence revisit — not filed.** The plan's own wording was conditional: "if the human wants a different rule than 'location wins' once seen in practice." No real usage exists yet — `Order`/PLAN-0005 hasn't been built, so there is no "practice" to have surfaced a problem with the location-wins rule. Filing a speculative issue with no concrete trigger would be inventing a question rather than tracking a real one; if PLAN-0005 (or real tenant usage after launch) surfaces an actual problem with the precedence rule, that is the point to file it, with a concrete scenario attached.
+
+`docs/issues/index.md` updated: new "Catalog / Data Integrity" area section for OI-0017; the Open Issues intro paragraph extended to record the count and reasoning for the two non-filed candidates.
+
+### Docs updated
+
+`docs/plans/active/PLAN-0004-catalog-menu-tax-pricing-planning.md` (Status line, Milestone H status marker, ADR Gaps, Human Decision #6, Milestone H ADR-0016 acceptance note), this file (Milestone H Report), `docs/CHANGELOG.md` (new entry), `docs/adr/index.md`, `docs/adr/accepted/ADR-0016-...md`, `docs/issues/index.md`, `docs/issues/open/OI-0017-...md` (new), `docs/issues/open/OI-0016-...md` (updated — PLAN-0004 now a third finished-but-not-relocated plan), `docs/README.md`, `docs/03-phase-roadmap.md`, `docs/architecture/overview.md`, `docs/architecture/tax-engine.md`, `docs/modules/tax.md`, `docs/modules/catalog.md`, `docs/modules/receipts.md`, `docs/plans/active/PLAN-0006-terminal-display-pwa-planning.md`, `docs/plans/active/PLAN-localisation-multi-language.md`.
+
+### Commands run
+
+```
+dotnet build DaxaPos.sln
+dotnet test tests/DaxaPos.Api.Tests/DaxaPos.Api.Tests.csproj --filter "FullyQualifiedName~RbacTests"
+dotnet test tests/DaxaPos.UnitTests/DaxaPos.UnitTests.csproj --filter "FullyQualifiedName~IgnoreQueryFiltersUsageTests"
+dotnet test DaxaPos.sln
+docker exec deploy-db-1 psql -U daxapos -d daxapos -c "CREATE DATABASE daxapos_migration_check_h;"
+dotnet ef database update ... --connection "...daxapos_migration_check_h..."   (clean-database migration re-verification, all 12)
+docker exec deploy-db-1 psql -U daxapos -d daxapos -c "DROP DATABASE daxapos_migration_check_h;"
+```
+
+### Build/test result
+
+`dotnet build DaxaPos.sln` — 0 warnings, 0 errors.
+`dotnet test DaxaPos.sln` — **944/944 passed** (104 unit tests + 840 API tests, up from 577 at Milestone G close — 367 new test executions from the RBAC theory expansion, zero regressions), against real Postgres, 0 failed, 0 skipped.
+All 12 migrations verified to apply cleanly in sequence from an empty database.
+
+### Deviations from the written plan (flagged, not silently made)
+
+1. **Only 1 of the 3 candidate open issues named by the plan was actually filed** — see "Open issues reviewed" above. Filing all three regardless of whether they were still live questions would have misrepresented two already-decided/already-implemented behaviours as open.
+2. **The cross-tenant "hijack" 404 test (`RbacTests.ValidSession_ForAnotherTenant_SeesNothing_AndNeverAnError`) was not extended to PLAN-0004 entities** — a deliberate scoping decision (see RBAC sweep section above), not an oversight; coverage exists per-entity in each milestone's own test file already.
+3. **A stale doc comment was corrected in passing** (`RbacScenarioFixture.NoPermissionClient`'s "zero permission codes" claim, now inaccurate since Milestone A) — a one-line factual correction while already editing the file for the sweep, not scope creep.
+
+None of these required backing out or redoing anything.
+
+### PLAN-0004 completion
+
+**PLAN-0004 is complete as of Milestone H (2026-07-05), in place under `docs/plans/active/`** — not moved to `docs/plans/completed/`, matching PLAN-0003's own precedent, since `OI-0016` (define completed-plan archival convention) remains open and unresolved. `OI-0016` updated to record that three plans (PLAN-0002, PLAN-0003, PLAN-0004) are now in this same finished-but-not-relocated state.
+
+### Recommended next plan
+
+**PLAN-0005 (Payments, Receipts, Printing)** is next in the plan sequence per `docs/README.md`'s Active Plans ordering and this plan's own Handoff Notes (written at the original planning pass): PLAN-0005's Order module is the first consumer of this plan's `TaxCalculationEngine`/`PriceResolver`/resolved-menu output, and is where ADR-0006's per-order 20-tax-component limit (deferred throughout PLAN-0004) finally gets enforced.
+
+One heads-up for whoever starts PLAN-0005: read `TaxCalculationEngine`/`PriceResolver`/`ResolvedMenuEndpoints` as already-built dependencies to call, not to re-derive — the tax/pricing resolution logic this plan built is specifically designed to be reused, not reimplemented, by the Order module. `OI-0017` (archive-and-replace concurrency) is worth a look if PLAN-0005's order-entry traffic will read `Product` under real concurrent load for the first time.
