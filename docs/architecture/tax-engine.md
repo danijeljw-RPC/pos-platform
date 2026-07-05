@@ -97,6 +97,16 @@ F = GST-free
 
 ---
 
+## Implementation Status (PLAN-0004 Milestone B, 2026-07-04)
+
+The `TaxRate`/`TaxCategory` model above was the original architecture-level sketch; the implemented schema (`src/DaxaPos.Domain/Entities/TaxDefinitionTemplate.cs`, `TaxDefinition.cs`, `TaxCategory.cs`, `TaxCategoryDefinition.cs`) splits "rate" into two tables rather than one:
+
+- `TaxDefinitionTemplate` — the global, unfiltered, system-wide reference catalogue (this doc's 5-row AU/NZ table below, now seeded via EF Core `HasData`).
+- `TaxDefinition` — a tenant-owned clone of a template, independently editable per OI-0007 (one tenant's rate edit must never leak into another's).
+- `TaxCategoryDefinition` replaces the direct `TaxCategory` → rate link with a join that can be organisation-wide or location-specific, so one multi-location tenant spanning AU and NZ can share a single `Taxable` category resolving to different rates per location.
+
+The calculation engine (`DaxaPos.Application.Tax.TaxCalculationEngine`) is pure and DB-independent, taking `TaxComponentSnapshot` value inputs rather than querying `TaxDefinition` directly — the DB-touching resolution step (product/location → applicable components) is a separate, later concern (Milestone C+). Fully unit-tested against this doc's exact AU mixed-basket example; see `tests/DaxaPos.UnitTests/Tax/TaxCalculationEngineTests.cs`.
+
 ## Planned: Localised Tax Labels (Deferred)
 
 Tax label text ("GST", "Includes GST", tax-free marker legends) is planned to become translatable, extending the existing configurable-marker mechanism (ADR-0011) rather than replacing it. See [ADR-0016 — Multi-Language and Localisation Strategy](../adr/proposed/ADR-0016-multi-language-and-localisation-strategy.md) (proposed, not yet implemented). AU/NZ wording remains the first concrete example; it is not hard-coded into the architecture.

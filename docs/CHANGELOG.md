@@ -4,6 +4,39 @@ Changes are listed in reverse chronological order.
 
 ---
 
+## 2026-07-04 — PLAN-0004 Milestone B (tax foundation entities and pure calculation engine)
+
+### Summary
+
+Implemented PLAN-0004 Milestone B only: the tax data model and a pure, DB-independent tax calculation engine. Added `TaxDefinitionTemplate` (global, unfiltered, 5 AU/NZ rows seeded), `TaxDefinition` (tenant-owned, clonable from a template), `TaxCategory` (tenant-owned semantic label), and `TaxCategoryDefinition` (tenant-owned join, optionally location-scoped) — no tax configuration endpoints yet (Milestone C). `TaxCalculationEngine.CalculateLine` supports tax-inclusive/exclusive calculation, mixed baskets, configurable rounding, and fails closed on missing tax configuration rather than silently returning zero tax. TDD throughout; reproduces the CLAUDE.md/ADR-0006 AU mixed-basket worked example byte-for-byte. No product/catalog/menu/pricing entities, order-line tax snapshots, or endpoints were added.
+
+### Key areas changed
+
+- `src/DaxaPos.Domain/Enums/TaxJurisdictionType.cs`, `TaxRoundingMode.cs`, `TaxCalculationScope.cs`, `TaxTreatment.cs` (new); `Entities/TaxDefinitionTemplate.cs`, `TaxDefinition.cs`, `TaxCategory.cs`, `TaxCategoryDefinition.cs` (new).
+- `src/DaxaPos.Application/Tax/TaxCalculationModels.cs`, `TaxLineCalculationResult.cs`, `TaxCalculationEngine.cs` (new) — the pure engine.
+- `src/DaxaPos.Persistence/Seed/TaxSeedIds.cs`, `Configurations/TaxDefinitionTemplateConfiguration.cs`, `TaxDefinitionConfiguration.cs`, `TaxCategoryConfiguration.cs`, `TaxCategoryDefinitionConfiguration.cs` (new); `DaxaDbContext.cs` (modified — 4 new `DbSet`s, 3 new fail-closed query filters).
+- `src/DaxaPos.Persistence/Migrations/20260704120431_AddTaxFoundation.cs` (new).
+- `tests/DaxaPos.UnitTests/Tax/TaxCalculationEngineTests.cs` (new, 10 tests).
+- `docs/modules/tax.md`, `docs/architecture/tax-engine.md`, `docs/testing/tax-tests.md` (implementation-status sections), `docs/plans/active/PLAN-0004-catalog-menu-tax-pricing-planning.md`, `docs/plans/active/PLAN-0004-worker-notes.md`.
+
+### Open issues resolved
+
+None. (OI-0015 was closed by Milestone A, not this milestone.)
+
+### Tests / verification outcome
+
+`dotnet build DaxaPos.sln` — 0 warnings, 0 errors. `dotnet test DaxaPos.sln` — 383/383 passed (92 unit tests + 291 API tests, up from 373 at Milestone A close), against real Postgres. All 8 migrations verified to apply cleanly in sequence from an empty database (disposable throwaway database, not the shared dev database).
+
+### ADR-0016
+
+Re-checked per this session's explicit instruction: still `docs/adr/proposed/`, not moved. Milestone B's new `Name`/`ReceiptMarkerLabel` columns are already mapped as plain invariant/fallback text per the plan's pre-recorded ADR-0016 constraint, so nothing here depended on its acceptance status.
+
+### Next
+
+PLAN-0004 Milestone C (tax configuration endpoints: `TaxDefinitionTemplateEndpoints`, `TaxDefinitionEndpoints`, `TaxCategoryEndpoints`, `TaxCategoryDefinitionEndpoints`, all `catalog.manage` + `rejectStaffPin: true`) — see `docs/plans/active/PLAN-0004-worker-notes.md` for the recommended next-session prompt.
+
+---
+
 ## 2026-07-03 — PLAN-0004 Milestone A (permission metadata, closes OI-0015)
 
 ### Summary

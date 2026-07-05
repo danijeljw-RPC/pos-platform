@@ -39,6 +39,14 @@ public class DaxaDbContext(DbContextOptions<DaxaDbContext> options, ICurrentTena
 
     public DbSet<StaffMemberRole> StaffMemberRoles => Set<StaffMemberRole>();
 
+    public DbSet<TaxDefinitionTemplate> TaxDefinitionTemplates => Set<TaxDefinitionTemplate>();
+
+    public DbSet<TaxDefinition> TaxDefinitions => Set<TaxDefinition>();
+
+    public DbSet<TaxCategory> TaxCategories => Set<TaxCategory>();
+
+    public DbSet<TaxCategoryDefinition> TaxCategoryDefinitions => Set<TaxCategoryDefinition>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(DaxaDbContext).Assembly);
@@ -93,5 +101,20 @@ public class DaxaDbContext(DbContextOptions<DaxaDbContext> options, ICurrentTena
 
         modelBuilder.Entity<StaffMemberRole>()
             .HasQueryFilter(sr => currentTenantProvider.TenantId != null && sr.TenantId == currentTenantProvider.TenantId);
+
+        // Tax foundation (PLAN-0004 Milestone B). `TaxDefinitionTemplate` is a system-wide,
+        // unfiltered reference catalogue — same status as Role/Permission — never tenant-edited.
+        // `TaxDefinition`/`TaxCategory`/`TaxCategoryDefinition` are tenant-owned and follow the
+        // same fail-closed pattern as every other tenant-owned entity above; no bootstrap
+        // IgnoreQueryFilters() caller is needed for any of them (every Milestone C+ endpoint runs
+        // under an already-authenticated tenant/org context, unlike PLAN-0003's pre-auth flows).
+        modelBuilder.Entity<TaxDefinition>()
+            .HasQueryFilter(t => currentTenantProvider.TenantId != null && t.TenantId == currentTenantProvider.TenantId);
+
+        modelBuilder.Entity<TaxCategory>()
+            .HasQueryFilter(t => currentTenantProvider.TenantId != null && t.TenantId == currentTenantProvider.TenantId);
+
+        modelBuilder.Entity<TaxCategoryDefinition>()
+            .HasQueryFilter(t => currentTenantProvider.TenantId != null && t.TenantId == currentTenantProvider.TenantId);
     }
 }

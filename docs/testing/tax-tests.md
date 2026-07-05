@@ -53,8 +53,14 @@ Tax engine tests are mandatory. Financial and tax logic must not be changed with
 ## Test Project
 
 ```
-tests/DaxaPos.Tax.Tests/
+tests/DaxaPos.UnitTests/Tax/
 ```
+
+The original architecture-level sketch above named a dedicated `DaxaPos.Tax.Tests` project; the actual repository (PLAN-0002 Platform Skeleton onward) has only two test projects, `DaxaPos.UnitTests` and `DaxaPos.Api.Tests`. Pure-logic tests with no DB/HTTP dependency (like the tax engine) live under `DaxaPos.UnitTests`, matching PLAN-0003's `Pbkdf2PinHasherTests`/`LoginLockoutPolicyTests` precedent.
+
+## Implementation Status (PLAN-0004 Milestone B, 2026-07-04)
+
+`tests/DaxaPos.UnitTests/Tax/TaxCalculationEngineTests.cs` — 10 tests, covering: AU GST-inclusive single item, the AU mixed-basket worked example above (byte-for-byte), a GST-free line producing a populated zero-tax result (not an absent line), NZ GST-inclusive at 15%, tax-exclusive calculation, rounding at a genuine 2-decimal midpoint (proving `NearestCent` is implemented as away-from-zero, not the CLR's banker's-rounding default), missing-configuration fail-closed behaviour, the exact-10/over-10 component boundary (ADR-0006's design limit), and determinism (no DB/HTTP/session dependency exists to inject). Tax Snapshot, Tax Summary (order-level), Receipt Marker, and Modifier Tax test categories below are not yet implemented — they depend on `Order`/`Product`/`Receipt` entities that don't exist until PLAN-0005/Milestone D+.
 
 ---
 

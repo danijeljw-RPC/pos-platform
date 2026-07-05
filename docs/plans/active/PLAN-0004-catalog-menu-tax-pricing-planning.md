@@ -2,7 +2,7 @@
 
 ## Status
 
-In progress — human approved the 7 planning-pass design calls 2026-07-03 (see Human Decisions Needed, all resolved as recommended). Milestone A (permission metadata, closes OI-0015) implemented and committed 2026-07-03; TDD, 373/373 tests passing, migrations verified clean from empty. Milestones B–H not started.
+In progress — human approved the 7 planning-pass design calls 2026-07-03 (see Human Decisions Needed, all resolved as recommended). Milestone A (permission metadata, closes OI-0015) implemented and committed 2026-07-03. Milestone B (tax foundation entities + pure calculation engine) implemented and committed 2026-07-04; TDD throughout, 383/383 tests passing, all 8 migrations verified clean from empty. Milestones C–H not started.
 
 ## Goal
 
@@ -181,6 +181,8 @@ No product/tax/menu entities. Pure identity-layer follow-up, deliberately sequen
 ---
 
 ### Milestone B — Tax foundation: entities, templates, and the pure calculation engine
+
+**Status: Done (2026-07-04).** Implemented largely as planned, with the deviations recorded in `PLAN-0004-worker-notes.md`'s Milestone B Report — most notably: `TaxComponentSnapshot` does not carry `CalculationScope` (nothing consumes it yet, deferred to PLAN-0005's order aggregation); the engine fails closed with `MissingTaxConfiguration` when zero components are supplied (an explicit interpretation of the approved Human Decision #5 "fail closed" instruction, applied at the pure-engine level rather than only at the future DB-resolution layer); rounding is `NearestCent` = round-half-away-from-zero, a concrete choice for the one rounding mode defined so far (not specified by ADR-0006 itself, flagged as a documented implementation decision). Migration is `20260704120431_AddTaxFoundation` (timestamp differs from the placeholder name below, same as Milestone A's migration).
 
 - `TaxDefinitionTemplate` (system-wide, unfiltered — same status as `Role`/`Permission`): `Id`, `Code`, `Name`, `CountryCode`, `RegionCode?`, `RatePercent`, `JurisdictionName`, `JurisdictionType`, `IncludedInPrice`, `RoundingMode`, `RoundingPrecision`, `CalculationScope`, `ReceiptMarkerCode?`, `ReceiptMarkerLabel?`, `ReportingCategory?`, `IsActive`. Seeded via `HasData` with the 5 AU/NZ rows from the table above.
 - `TaxDefinition` (tenant-owned: `TenantId`, `OrganisationId`, plus the same fields as the template, plus `SourceTemplateCode?` for traceability, `IsActive`, `CreatedAtUtc`).
@@ -363,6 +365,8 @@ docs: update catalog, tax, menus, pricing, and testing docs for PLAN-0004 closeo
 ## Human Decisions Needed
 
 **Approval record (2026-07-03):** all 7 items below were approved as recommended, to unblock implementation. None of them are Milestone A concerns (Milestone A adds no catalog/tax/pricing/menu entities or endpoints), so nothing below was actioned by Milestone A's implementation — they apply starting at the milestone that actually builds the affected entity/endpoint. One exception is item 6 (ADR-0016): the approval was conditional — "accept now if not already accepted, otherwise flag rather than move silently." `ADR-0016` was checked during Milestone A and is **still `docs/adr/proposed/`, not `docs/adr/accepted/`** — per the conditional instruction, it was **not moved** in this session (moving an ADR's status is a distinct, human-visible action independent of Milestone A's own scope, and Milestone A does not depend on ADR-0016's acceptance). This is flagged here and in `PLAN-0004-worker-notes.md` for the human to explicitly action (a one-line `git mv` + status edit) whenever convenient — most naturally alongside Milestone B or G, whichever first touches a column ADR-0016 constrains.
+
+**Milestone B ADR-0016 check (2026-07-04):** re-checked per this milestone's explicit instruction not to move it silently. Still `docs/adr/proposed/ADR-0016-multi-language-and-localisation-strategy.md`. Milestone B does add the first translatable-in-future columns this plan constrains (`TaxDefinitionTemplate.Name`/`ReceiptMarkerLabel`, `TaxDefinition.Name`/`ReceiptMarkerLabel`, `TaxCategory.Name`) — these were mapped as invariant/fallback bounded `varchar` columns per the plan's own pre-recorded constraint (no `{Entity}Translation` tables, no culture-resolution logic), so nothing in Milestone B's implementation actually depends on ADR-0016's acceptance status either. Still not moved.
 
 Recorded here so implementation can start immediately on approval without re-litigating during a milestone. Presented as the specific, consequential calls this planning pass made that a different reasonable person could make differently:
 

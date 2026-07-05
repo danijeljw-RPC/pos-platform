@@ -114,3 +114,84 @@ Checked during this session: `ADR-0016` is still at `docs/adr/proposed/ADR-0016-
 None. `Permission.Category` exists and is seeded correctly for all 12 current permission codes; `dotnet build`/`dotnet test` are clean; migrations verified clean from empty. Milestone B (tax foundation: `TaxDefinitionTemplate`, `TaxDefinition`, `TaxCategory`, `TaxCategoryDefinition`, and the pure `TaxCalculationEngine`) can start on request.
 
 One heads-up for whoever starts Milestone B: it is the first milestone with genuinely financial logic (the tax calculation engine) — CLAUDE.md's Testing Rules make TDD mandatory specifically for that engine, not just good practice. Recommend starting Milestone B with the `TaxCalculationEngineTests` AU/NZ mixed-basket assertions before writing a single line of `TaxCalculationEngine` itself, exactly as the plan's own Milestone B "Tests" line already specifies.
+
+---
+
+## Milestone B Report (2026-07-04)
+
+Implemented per the plan using strict TDD: wrote all 10 `TaxCalculationEngineTests` first, confirmed RED via `dotnet build` (4 compile errors — `DaxaPos.Application.Tax` namespace and `TaxComponentSnapshot` not found, the expected reason since neither existed yet), then implemented the pure engine, confirmed GREEN, then added the persisted entities/EF configs/migration (schema-only, no additional TDD cycle needed — matches PLAN-0003 Milestone A's precedent of not TDD'ing bare enums/entities with no branching logic).
+
+### Files changed
+
+New:
+- `src/DaxaPos.Domain/Enums/TaxJurisdictionType.cs`, `TaxRoundingMode.cs`, `TaxCalculationScope.cs`, `TaxTreatment.cs`
+- `src/DaxaPos.Domain/Entities/TaxDefinitionTemplate.cs`, `TaxDefinition.cs`, `TaxCategory.cs`, `TaxCategoryDefinition.cs`
+- `src/DaxaPos.Application/Tax/TaxCalculationModels.cs` (`TaxComponentSnapshot`, `TaxableLineRequest`, `TaxLineResult`), `TaxLineCalculationResult.cs` (`TaxCalculationErrorCode`, `TaxLineCalculationResult`), `TaxCalculationEngine.cs`
+- `src/DaxaPos.Persistence/Seed/TaxSeedIds.cs`
+- `src/DaxaPos.Persistence/Configurations/TaxDefinitionTemplateConfiguration.cs`, `TaxDefinitionConfiguration.cs`, `TaxCategoryConfiguration.cs`, `TaxCategoryDefinitionConfiguration.cs`
+- `src/DaxaPos.Persistence/Migrations/20260704120431_AddTaxFoundation.cs` (+ `.Designer.cs`)
+- `tests/DaxaPos.UnitTests/Tax/TaxCalculationEngineTests.cs`
+
+Modified:
+- `src/DaxaPos.Persistence/DaxaDbContext.cs` — 4 new `DbSet`s; fail-closed query filters added for `TaxDefinition`/`TaxCategory`/`TaxCategoryDefinition` (not `TaxDefinitionTemplate`, which is global/unfiltered like `Role`/`Permission`).
+- `docs/plans/active/PLAN-0004-catalog-menu-tax-pricing-planning.md` (Status line, Milestone B status marker, ADR-0016 re-check note).
+
+No tax configuration endpoints, product/menu/pricing entities, or order-line tax snapshots were added — Milestone B is entities + pure engine only, exactly as scoped.
+
+### Migration created
+
+`20260704120431_AddTaxFoundation` — creates `tax_definition_templates` (global, unfiltered, unique `Code` index), `tax_definitions`, `tax_categories`, `tax_category_definitions` (all three tenant-owned, `TenantId` index + fail-closed filter, `(TenantId, Code)` unique index on the two named-catalogue tables), plus the 5 AU/NZ `HasData` rows on `tax_definition_templates`. Verified to apply cleanly in sequence from an empty database (all 8 migrations, disposable throwaway Postgres database, then dropped — not the shared dev database, which was migrated separately for the working tree).
+
+### Tests added
+
+10 new unit tests in `tests/DaxaPos.UnitTests/Tax/TaxCalculationEngineTests.cs`, covering every item in the task's required list:
+1. `CalculateLine_AuGst10Inclusive_FiveFiftyDollarItem_ExtractsFiftyCentsGst` — $5.50 → $0.50 GST.
+2. `CalculateLine_AuMixedBasket_TotalGstAcrossThreeLinesEqualsOneThirty` — the CLAUDE.md/ADR-0006 worked example, byte-for-byte: 3 separate `CalculateLine` calls (flat white/cake/bread) summed by the test, not a basket API in the engine (see Design Decisions below).
+3. `CalculateLine_GstFreeLine_ProducesAZeroTaxLineResult_NotAnAbsentLine` — proves the 0%-rate case still returns a populated result, per ADR-0006's Global Tax Design Constraints.
+4. `CalculateLine_NzGst15Inclusive_ElevenFiftyDollarItem_ExtractsOneFiftyGst` — $11.50 → $1.50 GST (chosen so the division is exact, no rounding ambiguity).
+5. `CalculateLine_ExclusiveComponent_AddsTaxOnTopOfTheLineAmount_InsteadOfExtractingIt` — tax-exclusive path.
+6. `CalculateLine_RoundsHalfAwayFromZero_AtTheConfiguredPrecision` — $1.65 at 10% exclusive = $0.165 exactly, a genuine 2-decimal midpoint; asserts $0.17 (away-from-zero), which would be $0.16 under .NET's default banker's rounding — proves the rounding choice is deliberate, not a CLR-default accident.
+7. `CalculateLine_WithNoComponents_FailsClosed_InsteadOfSilentlyReturningZeroTax` — the task's explicit "fail closed" requirement.
+8. `CalculateLine_IsDeterministic_AndTakesNoDependencies` — same input called twice produces equal-by-value output; the class has zero constructor dependencies so there is nothing to inject a database/clock/HTTP context into.
+
+Plus 2 extra covering the plan's own ADR-0006 design limit: `CalculateLine_WithExactlyTenComponents_Succeeds` (boundary) and `CalculateLine_WithMoreThanTenComponents_FailsClosed_InsteadOfThrowing`.
+
+### Commands run
+
+```
+dotnet build tests/DaxaPos.UnitTests/DaxaPos.UnitTests.csproj      (RED: 4 compile errors, expected symbols)
+dotnet test tests/DaxaPos.UnitTests/DaxaPos.UnitTests.csproj --filter "FullyQualifiedName~TaxCalculationEngineTests"   (GREEN: 10/10)
+dotnet build DaxaPos.sln                                           (0 warnings/errors, after entities+configs+DbContext)
+dotnet ef migrations add AddTaxFoundation --project src/DaxaPos.Persistence --startup-project src/DaxaPos.Api
+dotnet ef database update --project src/DaxaPos.Persistence --startup-project src/DaxaPos.Api
+dotnet test DaxaPos.sln
+docker exec deploy-db-1 psql -U daxapos -d daxapos -c "CREATE DATABASE daxapos_migration_check;"
+dotnet ef database update ... --connection "...daxapos_migration_check..."   (clean-database migration re-verification, all 8)
+docker exec deploy-db-1 psql -U daxapos -d daxapos -c "DROP DATABASE daxapos_migration_check;"
+```
+
+### Build/test result
+
+`dotnet build DaxaPos.sln` — 0 warnings, 0 errors.
+`dotnet test DaxaPos.sln` — **383/383 passed** (92 unit tests + 291 API tests, up from 373 at Milestone A close — 10 new tax tests, zero regressions), against real Postgres, 0 failed, 0 skipped.
+All 8 migrations (7 from PLAN-0003 + Milestone A + this one) verified to apply cleanly in sequence from an empty database.
+
+### Deviations from the written plan (flagged, not silently made)
+
+1. **`TaxComponentSnapshot` does not carry `CalculationScope`.** The plan's Milestone B entity field lists include `CalculationScope` on `TaxDefinitionTemplate`/`TaxDefinition`, which this implementation honours — but the *engine's* per-line calculation is identical regardless of scope (per-line vs. per-component only matters when aggregating one tax component's contribution across multiple order lines, which requires `Order` — PLAN-0005). Including an unread field in the snapshot would be a decorative parameter with no behaviour; the entities still carry `CalculationScope` as configuration metadata for PLAN-0005 to read directly from `TaxDefinition` when it builds order-level aggregation.
+2. **The engine fails closed on an empty `Components` list** (`TaxCalculationErrorCode.MissingTaxConfiguration`), which the plan's Milestone B section does not explicitly specify (it only names the `>10` rejection). This directly implements the task prompt's explicit requirement ("Missing tax configuration must fail closed") and the approved Human Decision #5's spirit (`VenueTaxConfiguration` absence should 404/fail, never silently default) applied one layer down, at the pure-engine boundary rather than only at the future DB-resolution layer. Not a plan violation — an interpretation filling a gap the plan itself left open, flagged rather than silently assumed.
+3. **`TaxRoundingMode.NearestCent` is implemented as round-half-away-from-zero** (`MidpointRounding.AwayFromZero`), not .NET's default round-half-to-even. Neither ADR-0006 nor the plan specifies which midpoint rule "NearestCent" implies. Away-from-zero was chosen as the common retail/ATO-style cash-rounding convention and is proven deliberately by a dedicated test (`CalculateLine_RoundsHalfAwayFromZero...`) rather than left to whatever the CLR happens to default to. If a different midpoint rule is wanted, this is the one line (`TaxCalculationEngine.Round`) and one test to change — flagged here so a future reader doesn't assume it was unexamined.
+4. **`RatePercent` uses `HasPrecision(9, 4)`** on all three rate-carrying tables — not specified in the plan's field lists (which don't give column types). Chosen to allow fractional rates (e.g. a hypothetical 8.375% VAT) without redesigning the column later, while remaining `decimal` throughout (never `double`/`float`) per standard financial-data practice.
+5. **Migration timestamp is `20260704120431`, not literally `AddTaxFoundation`** — same naming-convention note as Milestone A's deviation #4 (this is just how `dotnet ef migrations add` names files).
+
+None of these required backing out or redoing anything — all were caught while writing the tests first (2, 3) or while writing the entity configs (1, 4).
+
+### ADR-0016 status re-check (per this session's explicit instruction not to move it silently)
+
+Re-checked: `ADR-0016` is still `docs/adr/proposed/`, not `accepted/`. Milestone B adds the first translatable-in-future columns this plan's own pre-recorded ADR-0016 constraint applies to (`Name`/`ReceiptMarkerLabel` on the template/definition/category tables) — mapped as plain bounded `varchar` invariant/fallback columns, no `{Entity}Translation` tables, no culture-resolution logic, exactly as the plan already committed to doing regardless of ADR-0016's acceptance status. Nothing in Milestone B depends on ADR-0016 being Accepted, so nothing was skipped. Still not moved — remains a one-line action for the human whenever convenient.
+
+### Blockers before Milestone C
+
+None. `TaxDefinitionTemplate`/`TaxDefinition`/`TaxCategory`/`TaxCategoryDefinition` exist, are seeded/query-filtered correctly, and the pure `TaxCalculationEngine` is fully unit-tested. `dotnet build`/`dotnet test` are clean; migrations verified clean from empty. Milestone C (tax configuration endpoints: `TaxDefinitionTemplateEndpoints`, `TaxDefinitionEndpoints`, `TaxCategoryEndpoints`, `TaxCategoryDefinitionEndpoints`, all `catalog.manage` + `rejectStaffPin: true`) can start on request.
+
+One heads-up for whoever starts Milestone C: it's the first milestone to actually exercise `catalog.manage` (seeded in Milestone A but never gated on an endpoint yet) and the first to write a lifecycle domain event + `jsonb` before/after snapshot for a Milestone-B-defined entity — reuse the exact `LocationEndpoints.cs`/Milestone-D CRUD-sextet shape and the Milestone D `jsonb` serialization pitfall note (bare strings/bools must be `JsonSerializer.Serialize`d) already recorded in `PLAN-0003-worker-notes.md`, not re-derived.
