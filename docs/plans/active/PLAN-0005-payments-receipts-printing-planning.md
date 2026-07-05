@@ -2,7 +2,7 @@
 
 ## Status
 
-Approved (2026-07-05) — all 5 Human Decisions Needed items approved, see the Approval Record under Human Decisions Needed below. Milestone A implementation starting.
+Milestone A done (2026-07-05) — see Milestone A's status note below. Milestones B–F not yet started.
 
 ## Goal
 
@@ -99,6 +99,8 @@ tests/DaxaPos.Api.Tests/               (OrderEndpointsTests.cs, PaymentEndpoints
 ## Milestones
 
 ### Milestone A — Order service foundation
+
+**Status: Done (2026-07-05).** Implemented as planned below, with the atomic `OrderNumberCounter` upsert mechanism per approved Human Decision #2. 967/967 tests passing (23 new: 5 unit `OrderTaxAggregationTests` + 18 API `OrderEndpointsTests`), 13 migrations verified clean from empty. See `PLAN-0005-worker-notes.md`'s "Milestone A Report" for full detail and deviations.
 
 No payments, refunds, receipts, or printing. Pure order/order-line/tax-snapshot foundation — every later milestone depends on `Order` existing.
 

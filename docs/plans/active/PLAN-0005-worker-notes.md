@@ -32,8 +32,90 @@ Not yet touched: `docs/adr/index.md`, `docs/issues/index.md` — no ADR or issue
 
 See "Human Decisions Needed" in the plan itself — summarized: (1) confirm `IPaymentTerminalProvider`'s interface lands in this plan's Milestone B, not PLAN-0009; (2) confirm `Order.OrderNumber` uses a Postgres sequence per location rather than a computed max; (3) confirm OI-0017 stays an accepted risk for Milestone A specifically, with this plan flagged as the trigger for a future hardening pass; (4) confirm a single `payments.refund` code is sufficient for MVP rather than a threshold-based escalation; (5) confirm the three new permission codes and their categories (`orders.manage`/`payments.record` as `Operational`, `payments.refund` as `AdminSensitive`).
 
-## Recommended Next Session
+## Recommended Next Session (superseded — see Milestone A Report below)
 
-1. Human reviews and (dis)approves the plan's 5 Human Decisions Needed items.
-2. On approval, implement Milestone A first (Order service foundation — `Order`, `OrderLine`, `OrderLineModifier`, `OrderLineTax`, the 9 endpoints, and the 20-tax-component-per-order enforcement).
+1. ~~Human reviews and (dis)approves the plan's 5 Human Decisions Needed items~~ — done 2026-07-05, all 5 approved (three refined beyond the plan's own recommendation: firmer manager/admin-only refund floor, explicit receipt/printing permission codes added to the catalogue, explicit no-hardware-coupling scope boundary on the interface split).
+2. ~~On approval, implement Milestone A first~~ — done, see report below.
 3. Update this plan's Status section with milestone checkboxes as work proceeds — no more than 3 commits without a refresh, per CLAUDE.md's plan-refresh rule, exactly as PLAN-0003/PLAN-0004 did throughout their own milestones.
+
+---
+
+## Milestone A Report (2026-07-05)
+
+Implemented per the plan using strict TDD for the one genuinely financial-logic unit (ADR-0006's 20-distinct-tax-component-per-order limit): wrote `OrderTaxAggregationTests.cs` first, confirmed RED via `dotnet build` (compile error — `DaxaPos.Application.Orders` namespace not found, the expected reason since neither existed yet), implemented the pure `OrderTaxAggregation` class, confirmed GREEN. Everything else (entities, EF configs, endpoints, integration tests) followed the established CRUD-endpoint convention from PLAN-0004 Milestones C–G (not TDD-first), matching how those milestones treated schema/endpoint code versus the pure calculation engines.
+
+### Files changed
+
+New:
+- `src/DaxaPos.Domain/Enums/OrderStatus.cs`, `OrderLineStatus.cs`
+- `src/DaxaPos.Domain/Entities/Order.cs`, `OrderLine.cs`, `OrderLineModifier.cs`, `OrderLineTax.cs`, `OrderNumberCounter.cs`
+- `src/DaxaPos.Domain/Events/OrderLifecycleDomainEvent.cs`, `OrderLineChangedDomainEvent.cs`
+- `src/DaxaPos.Application/Orders/OrderTaxAggregation.cs`
+- `src/DaxaPos.Persistence/Configurations/OrderConfiguration.cs`, `OrderLineConfiguration.cs`, `OrderLineModifierConfiguration.cs`, `OrderLineTaxConfiguration.cs`, `OrderNumberCounterConfiguration.cs`
+- `src/DaxaPos.Persistence/Migrations/20260705122929_AddOrderFoundation.cs` (+ `.Designer.cs`)
+- `src/DaxaPos.Api/Endpoints/Orders/OrderEndpoints.cs`
+- `tests/DaxaPos.UnitTests/Orders/OrderTaxAggregationTests.cs`
+- `tests/DaxaPos.Api.Tests/OrderEndpointsTests.cs`
+
+Modified:
+- `src/DaxaPos.Persistence/DaxaDbContext.cs` — 5 new `DbSet`s, 5 new fail-closed query filters (`Order`, `OrderLine`, `OrderLineModifier`, `OrderLineTax`, `OrderNumberCounter` — all denormalized `TenantId`, none derive it via a join, matching every prior entity).
+- `src/DaxaPos.Application/Identity/Permissions.cs` — added `OrdersManage` constant.
+- `src/DaxaPos.Persistence/Seed/RbacSeedIds.cs`, `PermissionConfiguration.cs`, `RolePermissionConfiguration.cs` — new `orders.manage` permission (`Operational`), granted to `SystemAdmin`/`OrganisationOwner`/`VenueManager`/`Staff` (first plan whose write endpoints are staff-accessible from day one).
+- `src/DaxaPos.Api/Audit/DomainEventAuditHandlers.cs` — 2 new handler classes (`OrderLifecycleAuditHandler`, `OrderLineChangedAuditHandler`), same `$"{EntityType}{Action}"` convention, both carrying dual `UserId`/`StaffMemberId`.
+- `src/DaxaPos.Api/Program.cs` — 2 new `AddScoped<IDomainEventHandler<...>>` registrations, 1 new `app.MapOrderEndpoints()` call.
+- `docs/modules/orders.md`, `docs/plans/active/PLAN-0005-payments-receipts-printing-planning.md` (Status line + Milestone A status marker), this file.
+
+No payments, refunds, receipts, or printing were added — Milestone A is order/order-line/tax-snapshot foundation only, exactly as scoped.
+
+### Migration created
+
+`20260705122929_AddOrderFoundation` — creates `orders`, `order_lines`, `order_line_modifiers`, `order_line_taxes` (all four `TenantId`-indexed + fail-closed query filters, no bootstrap `IgnoreQueryFilters()` caller needed — every endpoint runs under an already-authenticated tenant/org context), and `order_number_counters` (`LocationId` primary key, `TenantId`-indexed). A unique index on `(LocationId, OrderNumber)` enforces the location-scoped display sequence at the database level as a second line of defense behind the atomic counter allocation. Verified to apply cleanly in sequence from an empty database (all 13 migrations, disposable throwaway Postgres database, then dropped — not the shared dev database, which was migrated separately for the working tree).
+
+### Deviations from the written plan (flagged, not silently made)
+
+1. **`TenantId` added to `OrderLine`, `OrderLineModifier`, and `OrderLineTax`**, though the plan's per-entity field lists for these three don't list it — only `Order` does. The plan's own Milestone A migration bullet ("all four tables, `TenantId`-indexed + fail-closed query filters on all four") requires it, and every other tenant-owned, no-`OrganisationId`, derived-through-parent entity in the codebase (`ProductVariant`, `Modifier`, `MenuSection`, `MenuSectionItem`) carries its own denormalized `TenantId` rather than deriving it via a join — this follows that established, load-bearing precedent (`DaxaDbContext`'s query filters are always a single indexed comparison, never a join) rather than leaving a contradiction between the plan's entity-field prose and its own migration bullet unresolved.
+2. **`Order.IsTaxInclusivePricing` is fail-closed-checked and snapshotted at *open* time, not deferred to first line-add.** The plan's Architecture Assumptions describe the snapshot happening "at open time" but its explicit fail-closed `VenueTaxConfiguration`-missing bullet appears only under the line-add-flow description. Resolved by doing both: `VenueTaxConfiguration` is looked up and required at order-open (matching the entity field's own "at open time" language — there is nothing else for `IsTaxInclusivePricing` to be snapshotted from), and looked up again at every line-add (matching the line-add flow's own explicit bullet, and defensive against a future deletion path that doesn't exist yet, but keeps the endpoint correct if one is ever added without needing a second look at this code).
+3. **`OrderTaxAggregation.CountDistinctTaxComponents` counts distinct `TaxDefinitionId`s across an order's active lines, not `OrderLineTax` row count** — not spelled out by the plan's Milestone A bullet, but required by ADR-0006's own framing of the limit as "components" (i.e. how many different tax rates/rules the order has to reconcile), proven by a dedicated test (`CountDistinctComponents_SameTaxDefinitionAcrossMultipleLines_CountsOnce`) so a future reader doesn't assume it's a naive row count.
+4. **Tax category resolution precedence (location-specific wins entirely over organisation-wide for the same `TaxCategory`) is new logic this milestone had to write** — the plan's Architecture Assumptions note `TaxCategoryDefinition` supports this via its nullable `LocationId`, but no resolution helper existed before this milestone (PLAN-0004 built the config CRUD, not a runtime resolver). Implemented as an "all region-specific rows or all org-wide rows, never mixed" precedence, explicitly modelled on the resolved-menu endpoint's approved Human Decision #7 merge rule rather than inventing a new merge shape.
+5. **Line-level charged-total math (`LineTotalAmount`/`LineSubtotalAmount`) required deriving a formula the plan doesn't spell out**: inclusive-component tax is already embedded in the pre-tax line amount (nothing extra to charge); exclusive-component tax adds on top. Implemented as `LineTotalAmount = lineAmountBeforeTax + Σ(TaxAmount for exclusive components)`, `LineSubtotalAmount = LineTotalAmount - Σ(all TaxAmount)` — verified against the CLAUDE.md/ADR-0006 AU worked example byte-for-byte ($5.50 + $8.80 + $6.00 → $20.30 total, $1.30 GST) in `AddLine_AuMixedBasket_MatchesClaudeMdWorkedExample`.
+6. **Order void/cancel accept an optional `reason` via query string, not a JSON body.** The plan doesn't specify the transport; a nullable-body-on-POST risks an empty-request-body deserialization failure that has no precedent elsewhere in the codebase (every existing deactivate/reactivate-style action takes no body at all), so `reason` was bound the same way `VoidLineAsync`'s reason is — query string — rather than introducing a new, untested body-binding pattern.
+7. **No dedicated modifier/variant integration test** in `OrderEndpointsTests.cs`, though the add-line code path validates both. The plan's Tests bullet lists tax aggregation, the 20-component boundary, the CRUD/state-machine matrix, RBAC, cross-tenant/org 404s, and the missing-`VenueTaxConfiguration` fail-closed case explicitly — it does not call for modifier/variant coverage, and CLAUDE.md's "don't test what wasn't asked" balance was applied here rather than expanding scope. Flagged so a future milestone (or a follow-up hardening pass) knows this is an intentional gap, not an oversight.
+
+None of these required backing out or redoing anything — all were caught while writing the code (1, 4, 5) or while writing the tests (2, 3, 6).
+
+### Tests added
+
+5 new unit tests (`OrderTaxAggregationTests.cs`): distinct-component counting across lines with and without overlap, the exact-20/21-boundary pair (mirroring `TaxCalculationEngineTests`' exact-10/11 pattern for its sibling limit), and a determinism proof.
+
+18 new integration tests (`OrderEndpointsTests.cs`): order-open happy path with snapshotted `IsTaxInclusivePricing` and sequential per-location `OrderNumber` allocation; a staff-PIN-succeeds proof (`Open_Succeeds_ForStaffPinSession` — the load-bearing proof that `orders.manage`'s `Operational` category actually admits a staff session, mirroring PLAN-0004's `catalog.sold-out-toggle` precedent); client-supplied-`TenantId` rejection; cross-organisation terminal rejection; missing-`VenueTaxConfiguration` fail-closed rejection; the full AU mixed-basket worked example end-to-end (byte-for-byte against CLAUDE.md's example); sold-out-product rejection; add-line-on-a-closed-order conflict; void-line total recomputation; hold/resume round-trip and hold-when-not-open conflict; void/cancel transitions; the 20-component-per-order boundary (20 lines succeed, the 21st distinct component is rejected); cross-tenant and cross-organisation read blocking; missing-permission 403 (via the `SupportAccess` seeded role, which does not carry `orders.manage`); and an audit-row test covering both `Order`- and `OrderLine`-entity events.
+
+### Commands run
+
+```
+dotnet build tests/DaxaPos.UnitTests/DaxaPos.UnitTests.csproj                      (RED: 1 compile error, expected symbol)
+dotnet test tests/DaxaPos.UnitTests/DaxaPos.UnitTests.csproj --filter "FullyQualifiedName~OrderTaxAggregationTests"   (GREEN: 5/5)
+dotnet build DaxaPos.sln                                                            (0 warnings/errors)
+dotnet ef migrations add AddOrderFoundation --project src/DaxaPos.Persistence --startup-project src/DaxaPos.Api
+dotnet ef database update --project src/DaxaPos.Persistence --startup-project src/DaxaPos.Api
+dotnet test tests/DaxaPos.Api.Tests/DaxaPos.Api.Tests.csproj --filter "FullyQualifiedName~OrderEndpointsTests"
+dotnet test DaxaPos.sln
+docker exec deploy-db-1 psql -U daxapos -d daxapos -c "CREATE DATABASE daxapos_migration_check;"
+dotnet ef database update --project src/DaxaPos.Persistence --startup-project src/DaxaPos.Api --connection "...daxapos_migration_check..."   (clean-database migration re-verification, all 13)
+docker exec deploy-db-1 psql -U daxapos -d daxapos -c "DROP DATABASE daxapos_migration_check;"
+```
+
+### Build/test result
+
+`dotnet build DaxaPos.sln` — 0 warnings, 0 errors.
+`dotnet test DaxaPos.sln` — **967/967 passed** (109 unit tests + 858 API tests, up from 944 before this session — 23 new tests, zero regressions), against real Postgres, 0 failed, 0 skipped.
+All 13 migrations verified to apply cleanly in sequence from an empty database.
+
+### Scope boundary re-check (approved Human Decision #1)
+
+No hardware coupling was introduced — `OrderEndpoints.cs`/`Order`/`OrderLine`/`OrderLineTax` contain no printer, payment-terminal, or provider-specific code of any kind. This milestone's only "adapter-shaped" surface is `OrderTaxAggregation`/`PriceResolver`/`TaxCalculationEngine` reuse, all pure domain logic. Nothing here anticipates or blocks PLAN-0009's hardware-adapter work.
+
+### Blockers before Milestone B
+
+None. `Order`/`OrderLine`/`OrderLineModifier`/`OrderLineTax` exist, are fully CRUD/state-machine-manageable via the API, tax-aggregated and limit-enforced; `dotnet build`/`dotnet test` are clean (967/967); migrations verified clean from empty. Milestone B (payment foundation: `Payment`, `PaymentLedgerEntry`, cash/manual-EFTPOS recording, `IPaymentTerminalProvider` interface + DI wiring) can start on request.
+
+One heads-up for whoever starts Milestone B: it's the first milestone to reach back into this milestone's `Order` state machine (a fully-settled payment transitions `Order.Status` to `Completed` and sets `ClosedAtUtc`) — reuse `OrderEndpoints`' `LoadAuthorizedOrderAsync`/`RecomputeOrderTotalsAsync`-style helpers rather than re-deriving the context-provenance or totals logic, and note the established "save the mutation, then recompute via a fresh query, then save again" ordering this milestone had to fix once (`VoidLineAsync`'s original bug — recomputing before saving the triggering change reads stale data, since `RecomputeOrderTotalsAsync` is a real DB query, not a local in-memory filter).

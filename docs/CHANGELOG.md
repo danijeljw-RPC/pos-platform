@@ -4,6 +4,35 @@ Changes are listed in reverse chronological order.
 
 ---
 
+## 2026-07-05 — PLAN-0005 Milestone A (order service foundation)
+
+### Summary
+
+Order service foundation: `Order`, `OrderLine`, `OrderLineModifier`, `OrderLineTax`, and `OrderNumberCounter` implemented with 9 endpoints under `src/DaxaPos.Api/Endpoints/Orders/`. Reuses PLAN-0004's `TaxCalculationEngine`/`PriceResolver` directly rather than re-deriving tax/pricing logic. `OrderTaxAggregation` (TDD'd first, the milestone's one genuinely financial-logic unit) finally enforces ADR-0006's 20-distinct-tax-component-per-order limit, which PLAN-0004 deliberately left unenforced since `Order` didn't exist yet. `Order.OrderNumber` is a location-scoped monotonic sequence allocated via a single atomic `INSERT ... ON CONFLICT DO UPDATE ... RETURNING` against `OrderNumberCounter` (approved Human Decision #2) — never a computed `MAX + 1`. New permission `orders.manage` (`Operational`, staff-PIN-eligible, granted to `SystemAdmin`/`OrganisationOwner`/`VenueManager`/`Staff`) is the plan's first staff-accessible write surface from day one. This session also recorded the human approval of all 5 "Human Decisions Needed" items from the prior planning-pass session (interface ownership split with PLAN-0009, the `OrderNumberCounter` mechanism, OI-0017 accepted as a tracked risk, a manager/admin-only refund permission floor, and two new receipt/printing permission codes — `receipts.reprint`, `printing.manage` — added to the catalogue for Milestones D/E).
+
+### Key areas changed
+
+- `src/DaxaPos.Domain/Enums/OrderStatus.cs`, `OrderLineStatus.cs`; `Entities/Order.cs`, `OrderLine.cs`, `OrderLineModifier.cs`, `OrderLineTax.cs`, `OrderNumberCounter.cs`; `Events/OrderLifecycleDomainEvent.cs`, `OrderLineChangedDomainEvent.cs` (new).
+- `src/DaxaPos.Application/Orders/OrderTaxAggregation.cs` (new, TDD'd first).
+- `src/DaxaPos.Persistence/Configurations/Order*.cs` (5 new configs); `Migrations/20260705122929_AddOrderFoundation.cs` (new); `DaxaDbContext.cs` (5 new `DbSet`s + query filters); `Seed/RbacSeedIds.cs`, `Configurations/PermissionConfiguration.cs`, `RolePermissionConfiguration.cs` (new `orders.manage` permission).
+- `src/DaxaPos.Api/Endpoints/Orders/OrderEndpoints.cs` (new, 9 endpoints); `Audit/DomainEventAuditHandlers.cs` (2 new handlers); `Program.cs` (registrations); `src/DaxaPos.Application/Identity/Permissions.cs` (`OrdersManage` constant).
+- `tests/DaxaPos.UnitTests/Orders/OrderTaxAggregationTests.cs`, `tests/DaxaPos.Api.Tests/OrderEndpointsTests.cs` (new).
+- `docs/modules/orders.md` (implementation-status section); `docs/plans/active/PLAN-0005-payments-receipts-printing-planning.md` (Approval Record, finalized permission catalogue, Milestone A status); `docs/plans/active/PLAN-0005-worker-notes.md` (Milestone A Report).
+
+### Open issues resolved
+
+None closed or opened. OI-0017 remains open, tracked as an accepted risk (approved Human Decision #3) — not a Milestone A blocker.
+
+### Tests / verification outcome
+
+`dotnet build DaxaPos.sln` — 0 warnings, 0 errors. `dotnet test DaxaPos.sln` — 967/967 passed (109 unit tests + 858 API tests, up from 944 at PLAN-0004 close — 23 new tests, zero regressions), against real Postgres. All 13 migrations verified to apply cleanly in sequence from an empty database. No new `IgnoreQueryFilters()` call sites.
+
+### Next
+
+Milestone B (payment foundation: `Payment`, `PaymentLedgerEntry`, cash/manual-EFTPOS recording, `IPaymentTerminalProvider` interface + DI wiring) can start on request.
+
+---
+
 ## 2026-07-05 — PLAN-0004 Milestone H (consolidation, RBAC sweep, ADR-0016 acceptance, and PLAN-0004 closeout)
 
 ### Summary
