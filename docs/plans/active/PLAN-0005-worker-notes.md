@@ -119,3 +119,89 @@ No hardware coupling was introduced — `OrderEndpoints.cs`/`Order`/`OrderLine`/
 None. `Order`/`OrderLine`/`OrderLineModifier`/`OrderLineTax` exist, are fully CRUD/state-machine-manageable via the API, tax-aggregated and limit-enforced; `dotnet build`/`dotnet test` are clean (967/967); migrations verified clean from empty. Milestone B (payment foundation: `Payment`, `PaymentLedgerEntry`, cash/manual-EFTPOS recording, `IPaymentTerminalProvider` interface + DI wiring) can start on request.
 
 One heads-up for whoever starts Milestone B: it's the first milestone to reach back into this milestone's `Order` state machine (a fully-settled payment transitions `Order.Status` to `Completed` and sets `ClosedAtUtc`) — reuse `OrderEndpoints`' `LoadAuthorizedOrderAsync`/`RecomputeOrderTotalsAsync`-style helpers rather than re-deriving the context-provenance or totals logic, and note the established "save the mutation, then recompute via a fresh query, then save again" ordering this milestone had to fix once (`VoidLineAsync`'s original bug — recomputing before saving the triggering change reads stale data, since `RecomputeOrderTotalsAsync` is a real DB query, not a local in-memory filter).
+
+---
+
+## Milestone B Report (2026-07-05)
+
+Implemented per the plan using strict TDD for the one genuinely financial-logic unit (the payment/order settlement rules): wrote `PaymentSettlementTests.cs` first, confirmed RED via `dotnet build` (compile error — `DaxaPos.Application.Payments` namespace not found, the expected reason since neither existed yet), implemented the pure `PaymentSettlement` class, confirmed GREEN. Everything else (entities, EF configs, endpoints, integration tests) followed the established CRUD-endpoint convention from Milestone A (not TDD-first).
+
+### Files changed
+
+New:
+- `src/DaxaPos.Domain/Enums/PaymentMethod.cs`, `PaymentStatus.cs`
+- `src/DaxaPos.Domain/Entities/Payment.cs`, `PaymentLedgerEntry.cs`
+- `src/DaxaPos.Domain/Events/PaymentLifecycleDomainEvent.cs`
+- `src/DaxaPos.Application/Payments/PaymentSettlement.cs`, `IPaymentTerminalProvider.cs`
+- `src/DaxaPos.Persistence/Configurations/PaymentConfiguration.cs`, `PaymentLedgerEntryConfiguration.cs`
+- `src/DaxaPos.Persistence/Migrations/20260705130818_AddPaymentFoundation.cs` (+ `.Designer.cs`)
+- `src/DaxaPos.Api/Endpoints/Payments/PaymentEndpoints.cs`
+- `tests/DaxaPos.UnitTests/Payments/PaymentSettlementTests.cs`
+- `tests/DaxaPos.Api.Tests/PaymentEndpointsTests.cs`
+
+Modified:
+- `src/DaxaPos.Persistence/DaxaDbContext.cs` — 2 new `DbSet`s, 2 new fail-closed query filters (`Payment`, `PaymentLedgerEntry`).
+- `src/DaxaPos.Application/Identity/Permissions.cs` — added `PaymentsRecord` constant.
+- `src/DaxaPos.Persistence/Seed/RbacSeedIds.cs`, `PermissionConfiguration.cs`, `RolePermissionConfiguration.cs` — new `payments.record` permission (`Operational`), granted to the same four roles as `orders.manage` (`SystemAdmin`/`OrganisationOwner`/`VenueManager`/`Staff`).
+- `src/DaxaPos.Api/Audit/DomainEventAuditHandlers.cs` — 1 new handler class (`PaymentLifecycleAuditHandler`), same `$"{EntityType}{Action}"` convention, dual `UserId`/`StaffMemberId`. The order-completion side effect of a fully-settling payment reuses the existing `OrderLifecycleAuditHandler` (a `"Completed"`-action `OrderLifecycleDomainEvent`) — no second handler needed for that part.
+- `src/DaxaPos.Api/Program.cs` — 1 new `AddScoped<IDomainEventHandler<...>>` registration, 1 new `app.MapPaymentEndpoints()` call.
+- `docs/modules/payments.md`, `docs/modules/orders.md` (the `Completed`-is-now-reachable line), `docs/plans/active/PLAN-0005-payments-receipts-printing-planning.md` (Status line + Milestone B status marker), this file.
+
+No refunds, receipts, or printing were added — Milestone B is payment foundation only, exactly as scoped. No hardware/provider code: `IPaymentTerminalProvider` is interface + placeholder DTOs, never called by any endpoint.
+
+### Migration created
+
+`20260705130818_AddPaymentFoundation` — creates `payments` (`TenantId`/`OrderId`/`LocationId`-indexed, `IdempotencyKey` globally unique) and `payment_ledger_entries` (`TenantId`/`PaymentId`-indexed, `Metadata` as `jsonb`). Verified to apply cleanly in sequence from an empty database (all 14 migrations, disposable throwaway Postgres database, then dropped — not the shared dev database, which was migrated separately for the working tree).
+
+### Deviations from the written plan (flagged, not silently made)
+
+1. **`TenantId` added to `PaymentLedgerEntry`**, though the plan's field list for it doesn't include one — only `Payment` does. Same reasoning as Milestone A's identical deviation for `OrderLine`/`OrderLineModifier`/`OrderLineTax`: every tenant-owned, derived-through-parent entity in this codebase carries its own denormalized `TenantId` for `DaxaDbContext`'s fail-closed query filter, never a join.
+2. **`PaymentLedgerEntry.Amount`, not `AmountAmount`.** The plan's literal field list reads "`AmountAmount`" — read as a typo (a doubled word), not a deliberate two-part name; no other entity in the codebase uses a repeated-word field name. Corrected rather than reproduced literally.
+3. **`IPaymentTerminalProvider` has no DI registration**, though the plan's Milestone B bullet says "interface only, adapter resolution wiring (DI registration keyed by configured provider)." With zero concrete adapters to register, a "keyed by configured provider" DI registration would have nothing to key — there is no provider configuration concept yet, and building one now would be guessing PLAN-0009's requirements before that plan actually states them (CLAUDE.md: don't design for hypothetical future requirements). The interface and placeholder DTOs exist and compile; wiring is deferred to whichever plan adds the first concrete adapter.
+4. **`Payment.Status` only ever reaches `Recorded` in this milestone** (`Created`/`Approved`/`Declined`/`Cancelled`/`TimedOut` are defined per the plan's literal enum list but never assigned by any code path) — cash and manual EFTPOS have no external system to produce an intermediate state from. This matches the plan's own description ("recorded immediately as `Recorded`") rather than being a gap; flagged so a future reader doesn't go looking for code that sets the other five values.
+5. **Settlement equality (`AmountApproved == Order.GrandTotalAmount`, literal in the plan) is made safe by rejecting any payment that would push the running recorded total past the order's grand total** (400 Bad Request), rather than accepting an overpayment and reconciling change elsewhere. The plan doesn't say what happens above the total; not rejecting it would make the plan's own `==` check unreachable in the overpayment case (the sum would jump past the total without ever equalling it) and would leave the order permanently un-completable by this logic. Change-giving/tender-amount UI concerns are out of this milestone's scope (no terminal UI exists yet — PLAN-0006) and are not addressed here.
+6. **Idempotency-key retry is checked before the order-open/held-state check**, not spelled out by the plan. A retry of the exact payment that already fully settled and closed the order must still return the existing payment (200 OK), not a spurious 409 — checking idempotency first means a retry is never affected by a state transition its own first attempt caused.
+7. **No `GET` single-payment-by-id endpoint** — the plan's own endpoint list is exactly 2 (`POST`/`GET` list), and `Results.Created`'s `Location` header still points at a plausible (if unroutable) `/api/v1/orders/{orderId}/payments/{paymentId}` path, matching `ProductModifierGroupEndpoints`' identical precedent (an assign/list-only entity with no single-item `GET`).
+
+None of these required backing out or redoing anything — all were caught while writing the code (1, 3, 4, 7) or while writing the tests (2, 5, 6).
+
+### Tests added
+
+7 new unit tests (`PaymentSettlementTests.cs`): exact-settlement boundary (does not exceed), over-the-total rejection, partial/split-payment-in-progress (does not exceed), a zero-grand-total edge case (any positive payment exceeds), the fully-settled/not-fully-settled pair, and a determinism proof — mirroring `OrderTaxAggregationTests`' style precisely.
+
+11 new integration tests (`PaymentEndpointsTests.cs`): cash payment for the full amount settling and completing the order; a staff-PIN-succeeds proof (`RecordPayment_Succeeds_ForStaffPinSession` — the load-bearing proof that `payments.record`'s `Operational` category actually admits a staff session, mirroring Milestone A's `orders.manage` precedent, exercised end-to-end: staff opens the order, adds the line, and records the payment); a split payment across two calls that only completes the order on the second, fully-settling call; idempotency-key retry returning the same payment with no duplicate row; overpayment rejection; `Integrated`-method rejection (no adapter exists); payment-on-a-cancelled-order conflict; client-supplied-`TenantId` rejection; missing-permission 403 (via `SupportAccess`); cross-organisation list-blocking; and an audit-row test covering both the `Payment`-entity event and the `Order`-entity `"Completed"` event.
+
+### Commands run
+
+```
+dotnet build tests/DaxaPos.UnitTests/DaxaPos.UnitTests.csproj                      (RED: 1 compile error, expected symbol)
+dotnet test tests/DaxaPos.UnitTests/DaxaPos.UnitTests.csproj --filter "FullyQualifiedName~PaymentSettlementTests"   (GREEN: 7/7)
+dotnet build DaxaPos.sln                                                            (0 warnings/errors)
+dotnet ef migrations add AddPaymentFoundation --project src/DaxaPos.Persistence --startup-project src/DaxaPos.Api
+dotnet ef database update --project src/DaxaPos.Persistence --startup-project src/DaxaPos.Api
+dotnet test tests/DaxaPos.Api.Tests/DaxaPos.Api.Tests.csproj --filter "FullyQualifiedName~PaymentEndpointsTests"
+dotnet test DaxaPos.sln
+docker exec deploy-db-1 psql -U daxapos -d daxapos -c "CREATE DATABASE daxapos_migration_check;"
+dotnet ef database update --project src/DaxaPos.Persistence --startup-project src/DaxaPos.Api --connection "...daxapos_migration_check..."   (clean-database migration re-verification, all 14)
+docker exec deploy-db-1 psql -U daxapos -d daxapos -c "DROP DATABASE daxapos_migration_check;"
+```
+
+### Build/test result
+
+`dotnet build DaxaPos.sln` — 0 warnings, 0 errors.
+`dotnet test DaxaPos.sln` — **985/985 passed** (116 unit tests + 869 API tests, up from 967 before this session — 18 new tests, zero regressions), against real Postgres, 0 failed, 0 skipped.
+All 14 migrations verified to apply cleanly in sequence from an empty database. No new `IgnoreQueryFilters()` call sites.
+
+### Scope boundary re-check (approved Human Decision #1)
+
+No hardware coupling was introduced — `PaymentEndpoints.cs`/`Payment`/`PaymentLedgerEntry` contain no printer or provider-specific code. `IPaymentTerminalProvider` and its DTOs are pure abstractions with no HTTP client, no vendor SDK reference, and are never invoked by any endpoint in this milestone. Nothing here anticipates or blocks PLAN-0009's hardware-adapter work.
+
+### OI-0017 status re-check
+
+Not touched. Milestone B never reads `Product`/`ProductVariant` — its only entity interactions are `Order` (read/update) and its own new `Payment`/`PaymentLedgerEntry` tables. OI-0017 remains open, unaffected.
+
+### Blockers before Milestone C
+
+None. `Payment`/`PaymentLedgerEntry` exist, cash/manual EFTPOS recording works end-to-end including split payments and order settlement; `dotnet build`/`dotnet test` are clean (985/985); migrations verified clean from empty. Milestone C (refund service: `Refund` entity, full/partial refunds, `payments.refund` permission) can start on request.
+
+One heads-up for whoever starts Milestone C: `payments.refund` was approved as manager/admin-only (`AdminSensitive`, `rejectStaffPin: true`) — a different category and staff-PIN posture than every permission this plan has added so far (`orders.manage`/`payments.record`, both `Operational`). Reuse the `Payment`/`Order` context-provenance helpers' shape but do not copy their `rejectStaffPin` default; refunds must reject staff-PIN sessions explicitly, matching PLAN-0004's `catalog.manage`/`pricing.manage`/`menus.manage` precedent, not this plan's own `orders.manage`/`payments.record` precedent.

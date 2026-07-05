@@ -2,7 +2,7 @@
 
 ## Status
 
-Milestone A done (2026-07-05) — see Milestone A's status note below. Milestones B–F not yet started.
+Milestones A and B done (2026-07-05) — see each milestone's status note below. Milestones C–F not yet started.
 
 ## Goal
 
@@ -120,6 +120,8 @@ No payments, refunds, receipts, or printing. Pure order/order-line/tax-snapshot 
 **Docs:** `docs/modules/orders.md` implementation-status section.
 
 ### Milestone B — Payment foundation (cash, manual EFTPOS, ledger, adapter interface)
+
+**Status: Done (2026-07-05).** Implemented as planned below. `PaymentLedgerEntry` gained a denormalized `TenantId` (deviation, same reasoning as Milestone A's `OrderLine`/`OrderLineModifier`/`OrderLineTax`). `IPaymentTerminalProvider` is interface + placeholder DTOs only, with no DI registration (nothing to register with zero adapters). 985/985 tests passing (18 new: 7 unit `PaymentSettlementTests` + 11 API `PaymentEndpointsTests`), 14 migrations verified clean from empty. See `PLAN-0005-worker-notes.md`'s "Milestone B Report" for full detail and deviations.
 
 - `Payment`: `Id`, `OrderId`, `TenantId`, `LocationId`, `Method` (`Cash`, `ManualEftpos`, `Integrated` — `GiftCard`/`StoreCredit` deferred), `Status` (`Created`, `Approved`, `Declined`, `Cancelled`, `TimedOut`, `Recorded` — matching `docs/modules/payments.md`'s documented lifecycle exactly), `AmountRequested`, `AmountApproved?`, `IdempotencyKey` (unique index), `TakenByUserId?`, `TakenByStaffMemberId?`, `RecordedAtUtc`, `ProviderReference?` (null for cash/manual).
 - `PaymentLedgerEntry`: append-only row per state transition — `Id`, `PaymentId`, `Status`, `AmountAmount`, `OccurredAtUtc`, `Metadata` (jsonb) — proves the ledger is genuinely append-only rather than `Payment.Status` being overwritten with no trail.

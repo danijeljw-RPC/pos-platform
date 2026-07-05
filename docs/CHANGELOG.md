@@ -4,6 +4,35 @@ Changes are listed in reverse chronological order.
 
 ---
 
+## 2026-07-05 — PLAN-0005 Milestone B (payment foundation)
+
+### Summary
+
+Payment foundation: `Payment`, `PaymentLedgerEntry` implemented with 2 endpoints under `src/DaxaPos.Api/Endpoints/Payments/` — record a cash/manual EFTPOS payment against an order, list an order's payments. `PaymentSettlement` (TDD'd first, the milestone's one genuinely financial-logic unit) enforces that the running total of recorded payments against an order may never exceed its grand total, and that reaching it exactly transitions `Order.Status` to `Completed` (the first place this plan reaches back into Milestone A's state machine, reusing `OrderLifecycleDomainEvent`/its existing audit handler rather than a new one). Idempotency-key retries return the already-recorded payment rather than creating a duplicate. `IPaymentTerminalProvider` (ADR-0005's conceptual interface) is added as an interface plus placeholder DTOs only — no concrete adapter, no DI registration, never called by any endpoint; `PaymentMethod.Integrated` is rejected at the endpoint since no adapter exists to call a terminal. New permission `payments.record` (`Operational`, staff-PIN-eligible, same grant set as `orders.manage`).
+
+### Key areas changed
+
+- `src/DaxaPos.Domain/Enums/PaymentMethod.cs`, `PaymentStatus.cs`; `Entities/Payment.cs`, `PaymentLedgerEntry.cs`; `Events/PaymentLifecycleDomainEvent.cs` (new).
+- `src/DaxaPos.Application/Payments/PaymentSettlement.cs` (new, TDD'd first), `IPaymentTerminalProvider.cs` (new, interface only).
+- `src/DaxaPos.Persistence/Configurations/PaymentConfiguration.cs`, `PaymentLedgerEntryConfiguration.cs` (new); `Migrations/20260705130818_AddPaymentFoundation.cs` (new); `DaxaDbContext.cs` (2 new `DbSet`s + query filters); `Seed/RbacSeedIds.cs`, `Configurations/PermissionConfiguration.cs`, `RolePermissionConfiguration.cs` (new `payments.record` permission).
+- `src/DaxaPos.Api/Endpoints/Payments/PaymentEndpoints.cs` (new, 2 endpoints); `Audit/DomainEventAuditHandlers.cs` (1 new handler); `Program.cs` (registrations); `src/DaxaPos.Application/Identity/Permissions.cs` (`PaymentsRecord` constant).
+- `tests/DaxaPos.UnitTests/Payments/PaymentSettlementTests.cs`, `tests/DaxaPos.Api.Tests/PaymentEndpointsTests.cs` (new).
+- `docs/modules/payments.md` (implementation-status section); `docs/modules/orders.md` (`Completed` now reachable); `docs/plans/active/PLAN-0005-payments-receipts-printing-planning.md` (Milestone B status); `docs/plans/active/PLAN-0005-worker-notes.md` (Milestone B Report).
+
+### Open issues resolved
+
+None closed or opened. OI-0017 remains open — Milestone B never reads `Product`/`ProductVariant`, so it is unaffected.
+
+### Tests / verification outcome
+
+`dotnet build DaxaPos.sln` — 0 warnings, 0 errors. `dotnet test DaxaPos.sln` — 985/985 passed (116 unit tests + 869 API tests, up from 967 at Milestone A close — 18 new tests, zero regressions), against real Postgres. All 14 migrations verified to apply cleanly in sequence from an empty database. No new `IgnoreQueryFilters()` call sites.
+
+### Next
+
+Milestone C (refund service: `Refund` entity, full/partial refunds, `payments.refund` — `AdminSensitive`, `rejectStaffPin: true`, a different posture than this milestone's `Operational` codes) can start on request.
+
+---
+
 ## 2026-07-05 — PLAN-0005 Milestone A (order service foundation)
 
 ### Summary
