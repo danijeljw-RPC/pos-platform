@@ -30,6 +30,17 @@ Modifier
 ProductTaxCategory
 ```
 
+## Implementation Status (PLAN-0004 Milestone D, 2026-07-05)
+
+`ProductCategory` and `Product` (foundation only — variants, modifiers, and location-level overrides are Milestones E/F) are implemented with CRUD endpoints under `src/DaxaPos.Api/Endpoints/Catalog/`.
+
+- `ProductCategory`: `Name`, `DisplayOrder`, `IsActive`. No `Code` field, so — matching the `Location`/`Organisation` precedent for name-only entities — duplicate names are not rejected.
+- `Product`: `Name`, `Description?`, `Sku?`, `Barcode?`, `ProductCategoryId`, `TaxCategoryId`, `BasePrice`, `IsActive`, `IsArchived`, `ArchivedAtUtc?`, `SupersededByProductId?`. `Sku`/`Barcode` have no uniqueness constraint in this milestone either — the plan's field list treats them as plain optional identifiers, not a deduplicated business key like `TaxDefinition.Code`/`StaffMember.StaffCode`; can be revisited via an explicit ADR/OI if real duplicate-identifier conflicts surface in practice.
+- **Archive-and-replace (OI-0007):** a `PATCH` that changes `Product.TaxCategoryId` archives the current row (`IsArchived = true`, `ArchivedAtUtc` set) and creates a brand-new row carrying every requested field value, linked via `SupersededByProductId`. A `PATCH` that leaves `TaxCategoryId` unchanged updates in place. Archived rows are permanent historical records — no further writes (update, deactivate, reactivate) are accepted against them (409 Conflict), though they remain readable via `GET` by id and via any historical reference. List/read endpoints exclude archived products from the default list (same "list hides, single `GET` doesn't" convention as `IsActive`) — `IsArchived` and `IsActive` are independent flags.
+- The two-simultaneous-edits concurrency race on archive-and-replace is an accepted MVP risk (matching OI-0013's precedent) — no row-locking was added. Flagged for a future open issue at Milestone H, per the plan's Open Issues Required section, not opened here.
+- Permission: `catalog.manage` on every endpoint, `rejectStaffPin: true` throughout — no schema change to the permission catalogue was needed.
+- See `docs/plans/active/PLAN-0004-worker-notes.md`'s "Milestone D Report" for full detail and deviations.
+
 ## Related Modules
 
 - Tax (TaxCategory assignment)

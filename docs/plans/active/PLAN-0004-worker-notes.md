@@ -270,3 +270,97 @@ Re-checked: still `docs/adr/proposed/`, not `accepted/`. Milestone C added no sc
 None. Tax configuration is fully CRUD-manageable via the API; `dotnet build`/`dotnet test` are clean (418/418). Milestone D (product catalogue foundation: `ProductCategory`, `Product`, archive-and-replace on tax-category-changing updates per OI-0007) can start on request.
 
 One heads-up for whoever starts Milestone D: it's the first milestone to implement OI-0007's archive-and-replace behaviour for real (a `PATCH` that changes `Product.TaxCategoryId` archives the current row and creates a new one) — re-read OI-0007's closed-issue file and this plan's Domain Assumptions section (`Product` bullet) before writing the endpoint, and note the Risks section's already-accepted, already-documented concurrency race (parallel to OI-0013) rather than adding row-locking. `Product.TaxCategoryId` will need to validate against a real `TaxCategory` this milestone builds against — Milestone C's `TaxCategoryEndpoints` is where a valid `TaxCategoryId` for a test now comes from.
+
+---
+
+## Milestone D Report (2026-07-05)
+
+Implemented per the plan's endpoint list exactly. CRUD-endpoint acceptance-test convention used (not TDD-first), same as Milestone C and PLAN-0003 Milestone D.
+
+### Files changed
+
+New:
+- `src/DaxaPos.Domain/Entities/ProductCategory.cs`, `Product.cs`
+- `src/DaxaPos.Domain/Events/ProductCategoryLifecycleDomainEvent.cs`, `ProductLifecycleDomainEvent.cs`
+- `src/DaxaPos.Api/Endpoints/Catalog/ProductCategoryEndpoints.cs`, `ProductEndpoints.cs`
+- `src/DaxaPos.Persistence/Configurations/ProductCategoryConfiguration.cs`, `ProductConfiguration.cs`
+- `src/DaxaPos.Persistence/Migrations/20260705034151_AddProductCatalogueFoundation.cs`
+- `tests/DaxaPos.Api.Tests/ProductCategoryEndpointsTests.cs`, `ProductEndpointsTests.cs`
+
+Modified:
+- `src/DaxaPos.Persistence/DaxaDbContext.cs` — 2 new `DbSet`s, 2 new fail-closed query filters (`ProductCategory`, `Product` — both tenant-owned, no bootstrap `IgnoreQueryFilters()` caller needed).
+- `src/DaxaPos.Api/Audit/DomainEventAuditHandlers.cs` — 2 new handler classes (`ProductCategoryLifecycleAuditHandler`, `ProductLifecycleAuditHandler`), same `$"{EntityType}{Action}"` convention as Milestones C/D-prior.
+- `src/DaxaPos.Api/Program.cs` — 2 new `AddScoped<IDomainEventHandler<...>>` registrations, 2 new `app.Map...Endpoints()` calls.
+- `tests/DaxaPos.Api.Tests/StaffPinLoginTests.cs` — extended `AssertAllSensitiveEndpointsForbiddenAsync` with 4 catalogue-endpoint attempts, same shared-inventory convention as Milestone C.
+- `docs/modules/catalog.md`, `docs/modules/tax.md` (implementation-status sections), `docs/plans/active/PLAN-0004-catalog-menu-tax-pricing-planning.md`, `docs/CHANGELOG.md`.
+
+No variants, modifiers, pricing resolver, menus, order integration, or UI were added — Milestone D is product catalogue foundation only, exactly as scoped.
+
+### Migration created
+
+`20260705034151_AddProductCatalogueFoundation` — creates `product_categories` (`TenantId`/`OrganisationId` indexed + FK-restricted) and `products` (`TenantId`/`OrganisationId`/`ProductCategoryId`/`TaxCategoryId`/`SupersededByProductId` all indexed + FK-restricted, `SupersededByProductId` self-referencing). No `HasData` seed rows — unlike Milestone B/C, there is no system-wide reference catalogue to seed here. Verified to apply cleanly in sequence from an empty database (all 9 migrations, disposable throwaway Postgres database, then dropped — not the shared dev database, which was migrated separately for the working tree).
+
+### Endpoints implemented
+
+- `POST/GET /api/v1/product-categories`, `GET/PATCH/{id}`, `.../deactivate`, `.../reactivate` (6, standard CRUD sextet).
+- `POST/GET /api/v1/products`, `GET/PATCH/{id}`, `.../deactivate`, `.../reactivate` (6 routes; `PATCH` branches internally into in-place-update vs. archive-and-replace, the plan's "7th, same route" accounting).
+
+All gated `catalog.manage` + `rejectStaffPin: true`, no exceptions.
+
+### Archive-and-replace behaviour
+
+`UpdateAsync` validates both the new `ProductCategoryId` and `TaxCategoryId` belong to the caller's organisation, rejects any write against an already-archived product (409 Conflict — a detail the plan's prose didn't spell out, added because OI-0007 describes the archived row as a permanent historical record), then branches:
+
+- `request.TaxCategoryId == product.TaxCategoryId` → `UpdateInPlaceAsync`: every other editable field (`Name`, `Description`, `Sku`, `Barcode`, `ProductCategoryId`, `BasePrice`) updates on the same row, single `"Updated"` audit event, 200 OK.
+- Otherwise → `ArchiveAndReplaceAsync`: the current row is archived (`IsArchived = true`, `ArchivedAtUtc` set, `SupersededByProductId` set to the new row's `Id`); a brand-new row is created carrying every requested field value (not just the new `TaxCategoryId`) and the old row's `IsActive` state; two audit events are raised (`"Archived"` on the old row, `"CreatedFromReplace"` on the new one — see `ProductLifecycleDomainEvent`'s doc comment for why two events rather than one combined event); the endpoint returns 201 Created pointing at the new row, with `ProductResponse.PreviousProductId` set so the caller can correlate the id they PATCHed against with the id they got back.
+
+Deactivate/reactivate also reject an already-archived product with 409 Conflict, for the same permanent-historical-record reason.
+
+The documented two-simultaneous-tax-category-edits concurrency race (Risks section, Human Decision #4, approved) is implemented exactly as accepted — no row-locking, no optimistic concurrency token added.
+
+### Tests added
+
+27 new integration tests across 2 files:
+- `ProductCategoryEndpointsTests.cs` — standard CRUD matrix (as Milestone C/D-prior), plus `Create_AllowsDuplicateName_NoUniquenessConstraint` documenting the deliberate no-dedup decision.
+- `ProductEndpointsTests.cs` — standard CRUD matrix, cross-organisation checks for both `ProductCategoryId` and `TaxCategoryId` references independently, `Create_AllowsDuplicateSkuAndBarcode_NoUniquenessConstraint`, and the archive-and-replace battery: `Update_NonTaxAffectingChange_UpdatesInPlace_AndDoesNotArchive`, `Update_TaxCategoryChange_ArchivesOldRow_AndCreatesReplacementWithLink` (asserts the old row's `IsArchived`/`ArchivedAtUtc`/`SupersededByProductId`, the new row's `PreviousProductId`, and that list excludes the old row but includes the new one), `Update_OnAnAlreadyArchivedProduct_IsRejectedWithConflict`, `DeactivateAndReactivate_OnAnArchivedProduct_IsRejectedWithConflict`, and an audit-row test asserting both rows' event types independently.
+- `StaffPinLoginTests`'s extended inventory — proves staff-PIN rejection for both new endpoint groups without per-entity duplication (existing convention).
+
+### Commands run
+
+```
+dotnet build DaxaPos.sln
+dotnet ef migrations add AddProductCatalogueFoundation --project src/DaxaPos.Persistence --startup-project src/DaxaPos.Api
+dotnet ef database update --project src/DaxaPos.Persistence --startup-project src/DaxaPos.Api
+dotnet test tests/DaxaPos.Api.Tests/DaxaPos.Api.Tests.csproj --filter "FullyQualifiedName~ProductCategoryEndpointsTests|FullyQualifiedName~ProductEndpointsTests"
+dotnet test tests/DaxaPos.Api.Tests/DaxaPos.Api.Tests.csproj --filter "FullyQualifiedName~StaffPinLoginTests"
+dotnet test DaxaPos.sln
+docker exec deploy-db-1 psql -U daxapos -d daxapos -c "CREATE DATABASE daxapos_migration_check;"
+dotnet ef database update ... --connection "...daxapos_migration_check..."   (clean-database migration re-verification, all 9)
+docker exec deploy-db-1 psql -U daxapos -d daxapos -c "DROP DATABASE daxapos_migration_check;"
+```
+
+### Build/test result
+
+`dotnet build DaxaPos.sln` — 0 warnings, 0 errors.
+`dotnet test DaxaPos.sln` — **445/445 passed** (92 unit tests + 353 API tests, up from 418 at Milestone C close — 27 new tests, zero regressions), against real Postgres, 0 failed, 0 skipped.
+All 9 migrations verified to apply cleanly in sequence from an empty database.
+
+### Deviations from the written plan (flagged, not silently made)
+
+1. **No uniqueness constraint on `ProductCategory.Name` or `Product.Sku`/`Barcode`.** The plan's field lists don't call either out as a deduplicated business key (unlike `TaxDefinition.Code`/`TaxCategory.Code`, which OI-0007's own precedent and Milestone C treat as unique-per-tenant, or `StaffMember.StaffCode`, unique-per-organisation per PLAN-0003 Decision 10). Treated as following the `Location`/`Organisation` name-only-field precedent (no dedup) rather than inventing a new constraint the plan doesn't ask for. Documented explicitly in `docs/modules/catalog.md` and proven by dedicated tests (`Create_AllowsDuplicateName...`, `Create_AllowsDuplicateSkuAndBarcode...`) so a future milestone doesn't silently change this behaviour without noticing.
+2. **Writes against an already-archived product return 409 Conflict** (update, deactivate, and reactivate all guard on `product.IsArchived`) — not explicitly specified by the plan's Milestone D prose, but a direct, necessary consequence of OI-0007's "the archived product remains available for historical ... records" — a historical record that can still be silently edited isn't actually historical. Flagged as an interpretation filling a gap, not a plan violation.
+3. **Archive-and-replace raises two separate `ProductLifecycleDomainEvent`s** (`"Archived"` on the old row, `"CreatedFromReplace"` on the new row) rather than one combined event — each `AuditEvent` row has a single `EntityId`, and both rows need their own audit trail entry to be independently queryable by id later (e.g. "show me everything that happened to product X"). Matches the file's existing one-event-per-affected-entity convention (see `TaxCategoryDefinitionEndpoints`' create/delete pair) rather than inventing a new multi-entity event shape.
+4. **`ProductResponse.PreviousProductId` is response-only, not a persisted column** — the plan's prose asks for it on the response but the entity field list has no matching column; the old row's `SupersededByProductId` already carries the forward link, so a backward pointer would be redundant to persist. Populated only on the archive-and-replace branch's response; `null` everywhere else.
+5. **Archive-and-replace concurrency race is not filed as an open issue in this milestone** — the plan's Open Issues Required section explicitly reserves this for Milestone H ("New issues expected at Milestone H ... archive-and-replace concurrency race"), so filing it now would pre-empt that milestone's own sweep. Documented in `docs/modules/catalog.md`/this report instead, matching the plan's own sequencing.
+
+None of these required backing out or redoing anything.
+
+### ADR-0016 status re-check (per this session's explicit instruction not to move it silently)
+
+Re-checked: still `docs/adr/proposed/`, not `accepted/`. `Product.Name`/`Description` and `ProductCategory.Name` are the first new translatable-in-future columns since Milestone B — mapped as plain invariant/fallback bounded `varchar` columns per the plan's pre-recorded ADR-0016 constraint, exactly as Milestone B did for tax labels. Nothing in Milestone D depends on ADR-0016's acceptance status. Still not moved.
+
+### Blockers before Milestone E
+
+None. Product catalogue foundation is fully CRUD-manageable via the API, including archive-and-replace; `dotnet build`/`dotnet test` are clean (445/445); migrations verified clean from empty. Milestone E (product variants and modifiers: `ProductVariant`, `ModifierGroup`, `Modifier`, `ProductModifierGroup`) can start on request.
+
+One heads-up for whoever starts Milestone E: `ProductVariant`/`Modifier` price fields are deltas (`+`/`-` on the resolved base price), not absolute prices, per the plan's Domain Assumptions — don't reuse `Product.BasePrice`'s absolute-amount validation style (`>= 0`) for delta fields, which may legitimately be negative (a discount modifier). A valid `ProductId` for variant tests and a valid `ModifierGroupId`-assignment target now come from this milestone's `ProductEndpoints`/`ProductCategoryEndpoints`.

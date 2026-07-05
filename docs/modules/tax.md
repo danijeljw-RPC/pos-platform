@@ -40,6 +40,10 @@ Tax configuration endpoints are implemented; no schema changes were needed (Mile
 - Every write raises a lifecycle domain event (`TaxDefinitionLifecycleDomainEvent`, `TaxCategoryLifecycleDomainEvent`, `TaxCategoryDefinitionChangedDomainEvent`) with a JSON before/after snapshot, audited per OI-0007's explicit requirement.
 - See `docs/plans/active/PLAN-0004-worker-notes.md`'s "Milestone C Report" for full detail and deviations.
 
+## Implementation Status (PLAN-0004 Milestone D, 2026-07-05)
+
+`Product.TaxCategoryId` (see `docs/modules/catalog.md`) is a required, organisation-validated reference to a `TaxCategory` row from Milestone C — a product always has exactly one tax category, unchanged from the original architecture assumption. Changing it is the sole trigger for OI-0007's archive-and-replace on `Product` (see `docs/modules/catalog.md`'s Implementation Status). Resolving a product's `TaxCategoryId` into the actual `TaxComponentSnapshot`s the pure `TaxCalculationEngine` consumes (via `TaxCategoryDefinition`) is still not built — that DB-touching resolution step depends on `Order`/pricing context that doesn't exist until later milestones/PLAN-0005.
+
 ## Related Plans
 
 - [PLAN-0004 — Catalog, Menu, Tax, Pricing](../plans/active/PLAN-0004-catalog-menu-tax-pricing-planning.md)

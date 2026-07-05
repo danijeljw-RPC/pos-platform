@@ -2,7 +2,7 @@
 
 ## Status
 
-In progress — human approved the 7 planning-pass design calls 2026-07-03 (see Human Decisions Needed, all resolved as recommended). Milestone A (permission metadata, closes OI-0015) implemented and committed 2026-07-03. Milestone B (tax foundation entities + pure calculation engine) implemented and committed 2026-07-04; TDD throughout, 383/383 tests passing, all 8 migrations verified clean from empty. Milestone C (tax configuration endpoints) implemented and committed 2026-07-05; no schema changes, 418/418 tests passing (35 new). Milestones D–H not started.
+In progress — human approved the 7 planning-pass design calls 2026-07-03 (see Human Decisions Needed, all resolved as recommended). Milestone A (permission metadata, closes OI-0015) implemented and committed 2026-07-03. Milestone B (tax foundation entities + pure calculation engine) implemented and committed 2026-07-04; TDD throughout, 383/383 tests passing, all 8 migrations verified clean from empty. Milestone C (tax configuration endpoints) implemented and committed 2026-07-05; no schema changes, 418/418 tests passing (35 new). Milestone D (product catalogue foundation) implemented and committed 2026-07-05; 1 migration, 445/445 tests passing (27 new), all 9 migrations verified clean from empty. Milestones E–H not started.
 
 ## Goal
 
@@ -224,6 +224,8 @@ CRUD-lifecycle pattern identical to PLAN-0003 Milestone D (create/read/list/upda
 
 ### Milestone D — Product catalogue foundation
 
+**Status: Done (2026-07-05).** Implemented as planned. `ProductCategory` has no `Code` field, so — matching the `Location`/`Organisation` precedent — duplicate names are not rejected; `Product.Sku`/`Barcode` likewise have no uniqueness constraint (the plan's field list doesn't establish either as a deduplicated business key). Archived products reject all further writes (update, deactivate, reactivate) with 409 Conflict — a detail not spelled out in the prose below but a direct consequence of "the archived row remains available for historical ... records" (OI-0007). See `PLAN-0004-worker-notes.md`'s Milestone D Report for full detail and deviations.
+
 - `ProductCategory` (`TenantId`, `OrganisationId`, `Name`, `DisplayOrder`, `IsActive`, `CreatedAtUtc`).
 - `Product` (`TenantId`, `OrganisationId`, `ProductCategoryId`, `Name`, `Description?`, `Sku?`, `Barcode?`, `TaxCategoryId`, `BasePrice` decimal, `IsActive`, `IsArchived` bool default false, `ArchivedAtUtc?`, `SupersededByProductId?` self-FK, `CreatedAtUtc`).
 - `Product` write endpoint enforces the archive-and-replace rule from Domain Assumptions: `PATCH` with an unchanged `TaxCategoryId` updates in place; `PATCH` with a different `TaxCategoryId` archives the current row and creates a new one, returning the new row's `ProductResponse` (with a `PreviousProductId` field pointing back for the caller's convenience).
@@ -371,6 +373,8 @@ docs: update catalog, tax, menus, pricing, and testing docs for PLAN-0004 closeo
 **Milestone B ADR-0016 check (2026-07-04):** re-checked per this milestone's explicit instruction not to move it silently. Still `docs/adr/proposed/ADR-0016-multi-language-and-localisation-strategy.md`. Milestone B does add the first translatable-in-future columns this plan constrains (`TaxDefinitionTemplate.Name`/`ReceiptMarkerLabel`, `TaxDefinition.Name`/`ReceiptMarkerLabel`, `TaxCategory.Name`) — these were mapped as invariant/fallback bounded `varchar` columns per the plan's own pre-recorded constraint (no `{Entity}Translation` tables, no culture-resolution logic), so nothing in Milestone B's implementation actually depends on ADR-0016's acceptance status either. Still not moved.
 
 **Milestone C ADR-0016 check (2026-07-05):** re-checked per the same instruction. Still `docs/adr/proposed/`. Milestone C added no schema changes at all (endpoints only, over Milestone B's existing columns), so nothing here could depend on ADR-0016's acceptance status. Still not moved.
+
+**Milestone D ADR-0016 check (2026-07-05):** re-checked per the same instruction. Still `docs/adr/proposed/`. `Product.Name`/`Description` and `ProductCategory.Name` are new translatable-in-future columns this milestone adds, mapped as plain invariant/fallback `varchar` per the plan's pre-recorded constraint — no rework anticipated when/if accepted. Still not moved.
 
 Recorded here so implementation can start immediately on approval without re-litigating during a milestone. Presented as the specific, consequential calls this planning pass made that a different reasonable person could make differently:
 

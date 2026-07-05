@@ -4,6 +4,40 @@ Changes are listed in reverse chronological order.
 
 ---
 
+## 2026-07-05 — PLAN-0004 Milestone D (product catalogue foundation)
+
+### Summary
+
+Implemented PLAN-0004 Milestone D only: `ProductCategory` and `Product` entities with CRUD endpoints, including OI-0007's archive-and-replace behaviour for `TaxCategoryId`-changing `Product` updates. `ProductCategoryEndpoints` follows the standard six-endpoint CRUD-sextet shape. `ProductEndpoints` branches its `PATCH` handler: an unchanged `TaxCategoryId` updates in place (200 OK); a changed one archives the current row and creates a replacement (201 Created), linked via `SupersededByProductId`. Archived rows are permanent — no further writes are accepted against them. The documented two-simultaneous-edits concurrency race is accepted as an MVP risk (matching OI-0013), no row-locking added. One migration (`AddProductCatalogueFoundation`). No variants, modifiers, pricing resolver, menus, order integration, or UI.
+
+### Key areas changed
+
+- `src/DaxaPos.Domain/Entities/ProductCategory.cs`, `Product.cs` (new); `src/DaxaPos.Domain/Events/ProductCategoryLifecycleDomainEvent.cs`, `ProductLifecycleDomainEvent.cs` (new).
+- `src/DaxaPos.Api/Endpoints/Catalog/ProductCategoryEndpoints.cs`, `ProductEndpoints.cs` (new).
+- `src/DaxaPos.Persistence/Configurations/ProductCategoryConfiguration.cs`, `ProductConfiguration.cs` (new); `DaxaDbContext.cs` (modified — 2 new `DbSet`s, 2 new fail-closed query filters).
+- `src/DaxaPos.Persistence/Migrations/20260705034151_AddProductCatalogueFoundation.cs` (new).
+- `src/DaxaPos.Api/Audit/DomainEventAuditHandlers.cs` (modified — 2 new handlers); `Program.cs` (modified — DI registrations + endpoint mapping).
+- `tests/DaxaPos.Api.Tests/ProductCategoryEndpointsTests.cs`, `ProductEndpointsTests.cs` (new, 27 tests); `StaffPinLoginTests.cs` (modified — extended the shared staff-PIN-rejection endpoint inventory with the 4 new catalogue endpoints).
+- `docs/modules/catalog.md`, `docs/modules/tax.md` (implementation-status sections), `docs/plans/active/PLAN-0004-catalog-menu-tax-pricing-planning.md`, `docs/plans/active/PLAN-0004-worker-notes.md`.
+
+### Open issues resolved
+
+None. The archive-and-replace concurrency race is flagged for a new open issue at Milestone H (per the plan's Open Issues Required section), not opened this milestone.
+
+### Tests / verification outcome
+
+`dotnet build DaxaPos.sln` — 0 warnings, 0 errors. `dotnet test DaxaPos.sln` — 445/445 passed (92 unit tests + 353 API tests, up from 418 at Milestone C close — 27 new catalogue tests, zero regressions), against real Postgres. All 9 migrations verified to apply cleanly in sequence from an empty database (disposable throwaway database, then dropped).
+
+### ADR-0016
+
+Re-checked per this session's explicit instruction: still `docs/adr/proposed/`, not moved. `Product.Name`/`Description` and `ProductCategory.Name` are new translatable-in-future columns this milestone adds; mapped as plain invariant/fallback `varchar` columns per the plan's pre-recorded ADR-0016 constraint (no `{Entity}Translation` tables, no culture-resolution logic), so nothing here depended on its acceptance status.
+
+### Next
+
+PLAN-0004 Milestone E (product variants and modifiers: `ProductVariant`, `ModifierGroup`, `Modifier`, `ProductModifierGroup`) — see `docs/plans/active/PLAN-0004-worker-notes.md` for the recommended next-session prompt.
+
+---
+
 ## 2026-07-05 — PLAN-0004 Milestone C (tax configuration endpoints)
 
 ### Summary
