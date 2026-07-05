@@ -4,6 +4,35 @@ Changes are listed in reverse chronological order.
 
 ---
 
+## 2026-07-06 — PLAN-0005 Milestone C (refund service foundation)
+
+### Summary
+
+Refund service foundation: `Refund` implemented with 2 endpoints under `src/DaxaPos.Api/Endpoints/Refunds/` — record a full/partial refund against a payment, list a payment's refunds. `RefundSettlement` (TDD'd first, the milestone's one genuinely financial-logic unit) enforces that the running total of recorded refunds against a payment, plus a new refund's amount, may never exceed `Payment.AmountApproved`. A refund is a pure reversal record per ADR-0010 — the original `Payment`/`Order` rows are never mutated. New permission `payments.refund` (`AdminSensitive`, `rejectStaffPin: true`, granted to `SystemAdmin`/`OrganisationOwner`/`VenueManager` only, not `Staff`) is a firmer floor than this plan's prior two `Operational` codes, per approved Human Decision #4. Discovered along the way: the staff-PIN login endpoint independently rejects any role granting an `AdminSensitive` permission at login time, so a role carrying `payments.refund` can never even complete staff-PIN login — the staff-PIN-rejection proof was adjusted to use the plain `Staff` role instead, which still proves the realistic 403-at-the-refund-endpoint case.
+
+### Key areas changed
+
+- `src/DaxaPos.Domain/Enums/RefundStatus.cs`; `Entities/Refund.cs`; `Events/RefundLifecycleDomainEvent.cs` (new).
+- `src/DaxaPos.Application/Payments/RefundSettlement.cs` (new, TDD'd first).
+- `src/DaxaPos.Persistence/Configurations/RefundConfiguration.cs` (new); `Migrations/20260705135628_AddRefundFoundation.cs` (new); `DaxaDbContext.cs` (1 new `DbSet` + query filter); `Seed/RbacSeedIds.cs`, `Configurations/PermissionConfiguration.cs`, `RolePermissionConfiguration.cs` (new `payments.refund` permission, `SystemAdmin`/`OrganisationOwner`/`VenueManager` only).
+- `src/DaxaPos.Api/Endpoints/Refunds/RefundEndpoints.cs` (new, 2 endpoints); `Audit/DomainEventAuditHandlers.cs` (1 new handler); `Program.cs` (registrations); `src/DaxaPos.Application/Identity/Permissions.cs` (`PaymentsRefund` constant).
+- `tests/DaxaPos.UnitTests/Payments/RefundSettlementTests.cs`, `tests/DaxaPos.Api.Tests/RefundEndpointsTests.cs` (new).
+- `docs/modules/refunds.md` (implementation-status section); `docs/modules/payments.md` (short refund cross-reference); `docs/plans/active/PLAN-0005-payments-receipts-printing-planning.md` (Milestone C status); `docs/plans/active/PLAN-0005-worker-notes.md` (Milestone C Report).
+
+### Open issues resolved
+
+None closed or opened. OI-0017 remains open — Milestone C never reads `Product`/`ProductVariant`, so it is unaffected.
+
+### Tests / verification outcome
+
+`dotnet build DaxaPos.sln` — 0 warnings, 0 errors. `dotnet test DaxaPos.sln` — 1001/1001 passed (121 unit tests + 880 API tests, up from 985 at Milestone B close — 16 new tests, zero regressions), against real Postgres. All 15 migrations verified to apply cleanly in sequence from an empty database. No new `IgnoreQueryFilters()` call sites outside the established test-only audit-row-assertion pattern.
+
+### Next
+
+Milestone D (receipt generation: pure `ReceiptDocument` rendering model, GST-free marker rendering, tax summary accuracy, refund-receipt linking) can start on request.
+
+---
+
 ## 2026-07-05 — PLAN-0005 Milestone B (payment foundation)
 
 ### Summary

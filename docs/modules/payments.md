@@ -58,6 +58,10 @@ Payment foundation (cash, manual EFTPOS, ledger, adapter interface) is implement
 - New permission `payments.record` — `Operational` category, staff-PIN-eligible, granted to `SystemAdmin`/`OrganisationOwner`/`VenueManager`/`Staff`, matching `orders.manage`'s exact grant set and reasoning.
 - See `docs/plans/active/PLAN-0005-worker-notes.md`'s "Milestone B Report" for full detail and deviations.
 
+## Refunds (PLAN-0005 Milestone C, 2026-07-06)
+
+A `Payment` may now have one or more `Refund` rows linked against it (see `docs/modules/refunds.md`). Refunds are a pure reversal record per ADR-0010 — recording a refund never mutates the original `Payment` row; `Status`/`AmountApproved` stay exactly as they were at the time the payment was taken. `Refund` is scoped through `PaymentId`, and its own settlement rule (`RefundSettlement`) prevents the running total of refunds against a payment from exceeding `Payment.AmountApproved`.
+
 ## Related Plans
 
 - [PLAN-0005 — Payments, Receipts, Printing](../plans/active/PLAN-0005-payments-receipts-printing-planning.md)

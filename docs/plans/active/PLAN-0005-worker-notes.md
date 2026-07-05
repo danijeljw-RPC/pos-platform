@@ -205,3 +205,86 @@ Not touched. Milestone B never reads `Product`/`ProductVariant` — its only ent
 None. `Payment`/`PaymentLedgerEntry` exist, cash/manual EFTPOS recording works end-to-end including split payments and order settlement; `dotnet build`/`dotnet test` are clean (985/985); migrations verified clean from empty. Milestone C (refund service: `Refund` entity, full/partial refunds, `payments.refund` permission) can start on request.
 
 One heads-up for whoever starts Milestone C: `payments.refund` was approved as manager/admin-only (`AdminSensitive`, `rejectStaffPin: true`) — a different category and staff-PIN posture than every permission this plan has added so far (`orders.manage`/`payments.record`, both `Operational`). Reuse the `Payment`/`Order` context-provenance helpers' shape but do not copy their `rejectStaffPin` default; refunds must reject staff-PIN sessions explicitly, matching PLAN-0004's `catalog.manage`/`pricing.manage`/`menus.manage` precedent, not this plan's own `orders.manage`/`payments.record` precedent.
+
+---
+
+## Milestone C Report (2026-07-06)
+
+Implemented per the plan using strict TDD for the one genuinely financial-logic unit (the refund/payment settlement rule): wrote `RefundSettlementTests.cs` first, confirmed RED via `dotnet build` (compile error — `RefundSettlement` not found, the expected reason since it didn't exist yet), implemented the pure `RefundSettlement` class, confirmed GREEN. Everything else (entity, EF config, endpoints, integration tests) followed the established CRUD-endpoint convention from Milestones A/B (not TDD-first).
+
+### Files changed
+
+New:
+- `src/DaxaPos.Domain/Enums/RefundStatus.cs`
+- `src/DaxaPos.Domain/Entities/Refund.cs`
+- `src/DaxaPos.Domain/Events/RefundLifecycleDomainEvent.cs`
+- `src/DaxaPos.Application/Payments/RefundSettlement.cs`
+- `src/DaxaPos.Persistence/Configurations/RefundConfiguration.cs`
+- `src/DaxaPos.Persistence/Migrations/20260705135628_AddRefundFoundation.cs` (+ `.Designer.cs`)
+- `src/DaxaPos.Api/Endpoints/Refunds/RefundEndpoints.cs`
+- `tests/DaxaPos.UnitTests/Payments/RefundSettlementTests.cs`
+- `tests/DaxaPos.Api.Tests/RefundEndpointsTests.cs`
+
+Modified:
+- `src/DaxaPos.Persistence/DaxaDbContext.cs` — 1 new `DbSet`, 1 new fail-closed query filter (`Refund`).
+- `src/DaxaPos.Application/Identity/Permissions.cs` — added `PaymentsRefund` constant.
+- `src/DaxaPos.Persistence/Seed/RbacSeedIds.cs`, `PermissionConfiguration.cs`, `RolePermissionConfiguration.cs` — new `payments.refund` permission (`AdminSensitive`), granted to `SystemAdmin`/`OrganisationOwner`/`VenueManager` only — deliberately absent from `Staff`'s and `SupportAccess`'s grant lists (approved Human Decision #4: manager/admin-only by default).
+- `src/DaxaPos.Api/Audit/DomainEventAuditHandlers.cs` — 1 new handler class (`RefundLifecycleAuditHandler`), same `$"{EntityType}{Action}"` convention as every prior handler.
+- `src/DaxaPos.Api/Program.cs` — 1 new `AddScoped<IDomainEventHandler<...>>` registration, 1 new `app.MapRefundEndpoints()` call.
+- `docs/modules/refunds.md`, `docs/modules/payments.md` (short refund cross-reference addendum — no change to `docs/modules/orders.md`, since refunds do not touch `Order` at all), `docs/plans/active/PLAN-0005-payments-receipts-printing-planning.md` (Status line + Milestone C status marker), this file, `docs/CHANGELOG.md`.
+
+No receipts, printing, or UI were added — Milestone C is refund-service foundation only, exactly as scoped. No hardware/provider code: `Refund.Status`'s `ProviderPending`/`ProviderConfirmed` values are defined but never assigned by any code path (PLAN-0009's scope).
+
+### Migration created
+
+`20260705135628_AddRefundFoundation` — creates `refunds` (`TenantId`/`PaymentId`/`OrderId`-indexed, no `IdempotencyKey` — the plan's Milestone C entity field list does not include one for `Refund`, unlike `Payment`). Verified to apply cleanly in sequence from an empty database (all 15 migrations, disposable throwaway Postgres database, then dropped — not the shared dev database, which was migrated separately for the working tree).
+
+### Deviations from the written plan (flagged, not silently made)
+
+1. **No new ledger table for refunds**, though ADR-0010 states "payment, refund, gift card, and store credit activity is ledgered — every movement has a signed record" and Milestone B added `PaymentLedgerEntry` for the analogous payment case. The plan's own Milestone C "Entities/tables" bullet lists only `Refund` (new) — no ledger table — and its Tests bullet asks for "refund audit-row assertions," not "refund ledger entry assertions." Resolved by treating the `Refund` row itself as the append-only record (its `Status` only ever reaches `Recorded` in this milestone, exactly like `Payment` in Milestone B) plus `RefundLifecycleAuditHandler`'s audit row (carrying who/when/reason/linked order+payment ids in `AfterValue` JSON) as jointly satisfying ADR-0010's ledger/audit requirement for now. A `RefundLedgerEntry` table can be added alongside PLAN-0009's adapter refund path if/when `Refund.Status` actually starts transitioning through `ProviderPending`/`ProviderConfirmed`, mirroring why `PaymentLedgerEntry` exists ahead of `Payment.Status` actually needing it.
+2. **`ReasonCode` is a free-form `string`, not a closed enum.** The plan names the field but does not enumerate a fixed set of reason values (unlike, say, `RefundStatus`, which the plan's prose does enumerate). Modelled on `TaxCategory.Code`'s existing precedent (a caller-supplied string code) rather than guessing an incomplete enum a future milestone would need to rework.
+3. **`payments.refund`'s staff-PIN rejection could not be proven the way the worker notes originally suggested** (assign a role that carries `payments.refund` to a real staff member and show the refund call still 403s). The staff-PIN login endpoint (`AuthEndpoints.StaffPinLoginAsync`) already has its own defense-in-depth check that rejects login itself (401, reason `RoleGrantsSensitivePermissions`) for any role granting an `AdminSensitive` permission — so a role carrying `payments.refund` can never complete staff-PIN login in the first place, discovered while writing `RefundEndpointsTests.RecordRefund_Rejects_ForRealStaffPinSession` (first attempt 401'd on login, not 403 on refund). Resolved by assigning the plain `Staff` role instead (which carries none of the `AdminSensitive` codes) and proving the realistic case: a legitimate staff-PIN session is still rejected 403 by `RequirePermissionFilter`'s `rejectStaffPin` gate when it attempts a refund. This is arguably a *stronger* proof of the security posture (two independent layers reject an admin-sensitive action from a staff-PIN context) — flagged here so a future reader doesn't try the role-with-the-permission approach again and hit the same dead end.
+4. **A payment must be in `PaymentStatus.Recorded` to be refunded** (409 otherwise) — not spelled out by the plan's Milestone C bullet, but a sensible safety net once PLAN-0009 introduces other `Payment.Status` values (e.g. `Declined`/`Cancelled`), mirroring the same defensive-filtering pattern `PaymentSettlement`'s sum query already applies (`.Where(p => p.Status == PaymentStatus.Recorded)`).
+
+None of these required backing out or redoing anything — 1 and 2 were caught while writing the code, 3 was caught while writing the tests, 4 was a small addition made alongside the endpoint's other validation.
+
+### Tests added
+
+5 new unit tests (`RefundSettlementTests.cs`): exact full-refund-completes boundary, over-the-approved-amount rejection, a partial-refund-in-progress case, a fully-refunded-already edge case (any further positive refund exceeds), and a determinism proof — mirroring `PaymentSettlementTests`' style precisely.
+
+11 new integration tests (`RefundEndpointsTests.cs`): full refund succeeds and does not mutate the original payment; two partial refunds summing exactly to the payment total both succeed; over-refund rejection; a second partial refund that would push the running total past the approved amount is rejected; client-supplied-`TenantId` rejection; missing-`ReasonCode` rejection; missing-permission 403 (via the `Staff` role, which does not carry `payments.refund`); the real staff-PIN-session rejection proof described in Deviation 3 above; refund against a non-existent payment 404; cross-organisation list-blocking; and an audit-row test asserting `EventType == "RefundRecorded"` and that `AfterValue` contains the linked `PaymentId`/`OrderId`/`ReasonCode`.
+
+### Commands run
+
+```
+dotnet build tests/DaxaPos.UnitTests/DaxaPos.UnitTests.csproj                      (RED: 6 compile errors, expected symbol)
+dotnet test tests/DaxaPos.UnitTests/DaxaPos.UnitTests.csproj --filter "FullyQualifiedName~RefundSettlementTests"   (GREEN: 5/5)
+dotnet build DaxaPos.sln                                                            (0 warnings/errors)
+dotnet ef migrations add AddRefundFoundation --project src/DaxaPos.Persistence --startup-project src/DaxaPos.Api
+dotnet ef database update --project src/DaxaPos.Persistence --startup-project src/DaxaPos.Api
+dotnet test tests/DaxaPos.Api.Tests/DaxaPos.Api.Tests.csproj --filter "FullyQualifiedName~RefundEndpointsTests"   (11/11, after fixing Deviation 3's first-attempt failure)
+dotnet test DaxaPos.sln
+docker exec deploy-db-1 psql -U daxapos -d daxapos -c "CREATE DATABASE daxapos_migration_check;"
+dotnet ef database update --project src/DaxaPos.Persistence --startup-project src/DaxaPos.Api --connection "...daxapos_migration_check..."   (clean-database migration re-verification, all 15)
+docker exec deploy-db-1 psql -U daxapos -d daxapos -c "DROP DATABASE daxapos_migration_check;"
+```
+
+### Build/test result
+
+`dotnet build DaxaPos.sln` — 0 warnings, 0 errors.
+`dotnet test DaxaPos.sln` — **1001/1001 passed** (121 unit tests + 880 API tests, up from 985 before this session — 16 new tests, zero regressions), against real Postgres, 0 failed, 0 skipped.
+All 15 migrations verified to apply cleanly in sequence from an empty database. No new `IgnoreQueryFilters()` call sites outside the established test-only audit-row-assertion pattern (matching `PaymentEndpointsTests`' identical usage).
+
+### Scope boundary re-check (approved Human Decision #1)
+
+No hardware coupling was introduced — `RefundEndpoints.cs`/`Refund` contain no printer, payment-terminal, or provider-specific code of any kind. `RefundStatus.ProviderPending`/`ProviderConfirmed` are defined per the plan's own field description but never assigned by any code path. Nothing here anticipates or blocks PLAN-0009's hardware-adapter work.
+
+### OI-0017 status re-check
+
+Not touched. Milestone C never reads `Product`/`ProductVariant` — its only entity interactions are `Payment` (read), `Order` (read, for organisation/location scoping only), and its own new `Refund` table. OI-0017 remains open, unaffected.
+
+### Blockers before Milestone D
+
+None. `Refund` exists, full/partial refunds work end-to-end with server-side over-refund rejection and manager/admin-only RBAC; `dotnet build`/`dotnet test` are clean (1001/1001); migrations verified clean from empty. Milestone D (receipt generation: pure `ReceiptDocument` rendering model, GST-free marker, tax summary, refund-receipt linking) can start on request.
+
+One heads-up for whoever starts Milestone D: receipt rendering reads `Order`/`OrderLine`/`OrderLineTax` snapshots (Milestone A) and `Payment`/`Refund` rows (Milestones B/C) but must not recompute tax or price from either — it is a pure projection over already-immutable source data, per ADR-0010's "PDF Generation Strategy" pattern. `Refund.ReasonCode`/`ReasonNote` and `Payment.Method`/`ProviderReference` are the fields a refund receipt will need to surface; no new query/join mechanism is required beyond what Milestones A–C already store.

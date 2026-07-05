@@ -2,7 +2,7 @@
 
 ## Status
 
-Milestones A and B done (2026-07-05) — see each milestone's status note below. Milestones C–F not yet started.
+Milestones A, B, and C done (2026-07-05, 2026-07-05, 2026-07-06) — see each milestone's status note below. Milestones D–F not yet started.
 
 ## Goal
 
@@ -138,6 +138,8 @@ No payments, refunds, receipts, or printing. Pure order/order-line/tax-snapshot 
 **Docs:** `docs/modules/payments.md` implementation-status section.
 
 ### Milestone C — Refund service
+
+**Status: Done (2026-07-06).** Implemented as planned below. No new ledger table for refunds (deviation, see worker notes) — a `Refund` row is append-only by itself in this milestone, and ADR-0010's refund-audit requirement is satisfied by the row plus `RefundLifecycleAuditHandler`. 1001/1001 tests passing (5 new unit `RefundSettlementTests` + 11 new API `RefundEndpointsTests`), 15 migrations verified clean from empty. See `PLAN-0005-worker-notes.md`'s "Milestone C Report" for full detail and deviations.
 
 - `Refund`: `Id`, `PaymentId`, `OrderId`, `TenantId`, `Amount`, `ReasonCode`, `ReasonNote?`, `RequestedByUserId?`, `RequestedByStaffMemberId?`, `Status` (`Recorded`, later `ProviderPending`/`ProviderConfirmed` once PLAN-0009's adapter refund path exists), `RecordedAtUtc`, `ProviderReference?`.
 - Full and partial refunds — `Amount <= Payment.AmountApproved - Sum(existing refunds against that payment)`, enforced server-side (never client-trusted).
