@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using DaxaPos.Api.Endpoints.Catalog;
 using DaxaPos.Api.Endpoints.Identity;
 using DaxaPos.Api.Endpoints.Tax;
 using DaxaPos.Api.Tests.Support;
@@ -456,6 +457,15 @@ public class StaffPinLoginTests : IClassFixture<WebApplicationFactory<Program>>
             await staffClient.PostAsJsonAsync(
                 "/api/v1/tax-category-definitions",
                 new CreateTaxCategoryDefinitionRequest(Guid.NewGuid(), Guid.NewGuid(), null, 0)),
+            // PLAN-0004 Milestone D: product catalogue configuration is the same OI-0007 surface.
+            await staffClient.GetAsync("/api/v1/product-categories"),
+            await staffClient.PostAsJsonAsync(
+                "/api/v1/product-categories",
+                new CreateProductCategoryRequest("Nope", 0, organisationId)),
+            await staffClient.GetAsync("/api/v1/products"),
+            await staffClient.PostAsJsonAsync(
+                "/api/v1/products",
+                new CreateProductRequest("Nope", organisationId, Guid.NewGuid(), Guid.NewGuid(), null, null, null, 1.00m)),
         };
 
         Assert.All(attempts, response => Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode));
