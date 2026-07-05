@@ -2,7 +2,7 @@
 
 ## Status
 
-Milestones A, B, and C done (2026-07-05, 2026-07-05, 2026-07-06) — see each milestone's status note below. Milestones D–F not yet started.
+Milestones A, B, C, and D done (2026-07-05, 2026-07-05, 2026-07-06, 2026-07-06) — see each milestone's status note below. Milestones E–F not yet started.
 
 ## Goal
 
@@ -154,6 +154,8 @@ No payments, refunds, receipts, or printing. Pure order/order-line/tax-snapshot 
 
 ### Milestone D — Receipt generation
 
+**Status: Done (2026-07-06).** Implemented as planned below. No separate "refund receipt" shape — a `Refund`'s `PaymentId` places it in the same `ReceiptDocument` as the order's own payments, satisfying the linking requirement. `receipts.reprint` finalized as `Operational` (staff-PIN-eligible), matching the plan's own proposed table entry below. 1017/1017 tests passing (9 new unit `ReceiptRendererTests` + 7 new API `ReceiptEndpointsTests`), 16 migrations verified clean from empty. See `PLAN-0005-worker-notes.md`'s "Milestone D Report" for full detail and deviations.
+
 - Pure receipt-rendering model (`DaxaPos.Application.Receipts`, no DB dependency, mirrors `TaxCalculationEngine`'s pure/typed shape): takes an already-loaded `Order` + its lines/tax rows/payments/refunds and a `ReceiptLabelSet` (venue-configured label strings per ADR-0011/ADR-0016), returns a structured `ReceiptDocument` (header, line items with marker codes, tax summary, payment summary, footer) — not a print-ready byte stream yet (that's Milestone E's job).
 - Tax marker resolution reuses the precedence ADR-0011 already defines (item override → tax category marker → tax definition marker → location default) — this plan reads that precedence at receipt-render time from the snapshots Milestone A already stored on `OrderLineTax`, it does not add a second resolution mechanism.
 - Refund receipts link to the original order/payment (`Refund.PaymentId`/`OrderId`), per ADR-0010.
@@ -252,7 +254,7 @@ docs: close PLAN-0005 Milestone F
 | `orders.manage` | Operational | A | Staff-PIN-eligible — order entry is core counter work. |
 | `payments.record` | Operational | B | Staff-PIN-eligible — cash/EFTPOS recording is core counter work. |
 | `payments.refund` | AdminSensitive | C | Manager/admin-only by default, per approved Item 4. |
-| `receipts.reprint` | Operational (proposed) | D | New per approved Item 5 — live-sale receipt viewing/printing stays under `orders.manage`; only the standalone after-the-fact reprint action gets its own code. Category to be confirmed at Milestone D start. |
+| `receipts.reprint` | Operational | D | New per approved Item 5, confirmed at Milestone D start (2026-07-06) — live-sale receipt viewing/printing stays under `orders.manage`; only the standalone after-the-fact reprint action gets its own code, granted to `SystemAdmin`/`OrganisationOwner`/`VenueManager`/`Staff` (same grant set as `orders.manage`/`payments.record`). |
 | `printing.manage` | AdminSensitive (proposed) | E | New per approved Item 5 — print-job retry and print-job administration, never staff-PIN-eligible. |
 
 Recorded here, mirroring PLAN-0004's own planning-pass convention, so implementation can start on approval without re-litigating mid-milestone:

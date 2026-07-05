@@ -288,3 +288,83 @@ Not touched. Milestone C never reads `Product`/`ProductVariant` — its only ent
 None. `Refund` exists, full/partial refunds work end-to-end with server-side over-refund rejection and manager/admin-only RBAC; `dotnet build`/`dotnet test` are clean (1001/1001); migrations verified clean from empty. Milestone D (receipt generation: pure `ReceiptDocument` rendering model, GST-free marker, tax summary, refund-receipt linking) can start on request.
 
 One heads-up for whoever starts Milestone D: receipt rendering reads `Order`/`OrderLine`/`OrderLineTax` snapshots (Milestone A) and `Payment`/`Refund` rows (Milestones B/C) but must not recompute tax or price from either — it is a pure projection over already-immutable source data, per ADR-0010's "PDF Generation Strategy" pattern. `Refund.ReasonCode`/`ReasonNote` and `Payment.Method`/`ProviderReference` are the fields a refund receipt will need to surface; no new query/join mechanism is required beyond what Milestones A–C already store.
+
+---
+
+## Milestone D Report (2026-07-06)
+
+Implemented per the plan using strict TDD for the milestone's one genuinely pure-logic unit (the receipt rendering projection): wrote `ReceiptRendererTests.cs` first (9 tests covering the CLAUDE.md/ADR-0006 AU mixed-basket worked example, tax-summary aggregation, voided-line exclusion, marker-legend dedup/absence, payment/refund summary, label-set configurability, and determinism), confirmed RED via `dotnet build` (2 compile errors — `DaxaPos.Application.Receipts` namespace and `ReceiptOrderInput`/`ReceiptLineInput` types not found, the expected reason since neither existed yet), implemented `ReceiptModels.cs`/`ReceiptRenderer.cs`, confirmed GREEN (9/9). Endpoint code (`ReceiptEndpoints.cs`, permission/RBAC wiring, integration tests) followed the established CRUD-endpoint convention from Milestones A–C (not TDD-first).
+
+### Files changed
+
+New:
+- `src/DaxaPos.Application/Receipts/ReceiptModels.cs` (`ReceiptLineTaxInput`, `ReceiptLineInput`, `ReceiptPaymentInput`, `ReceiptRefundInput`, `ReceiptOrderInput`, `ReceiptLabelSet`, `ReceiptLineItemLine`, `ReceiptTaxSummaryEntry`, `ReceiptPaymentSummaryLine`, `ReceiptRefundSummaryLine`, `ReceiptDocument`), `ReceiptRenderer.cs`.
+- `src/DaxaPos.Domain/Events/ReceiptReprintedDomainEvent.cs`.
+- `src/DaxaPos.Api/Endpoints/Receipts/ReceiptEndpoints.cs`.
+- `src/DaxaPos.Persistence/Migrations/20260705234451_AddReceiptsReprintPermission.cs` (+ `.Designer.cs`) — a pure permission-catalogue seed migration, no new table (mirrors PLAN-0004's OI-0015-era permission-only migrations).
+- `tests/DaxaPos.UnitTests/Receipts/ReceiptRendererTests.cs` (9 tests, TDD'd first).
+- `tests/DaxaPos.Api.Tests/ReceiptEndpointsTests.cs` (7 tests).
+
+Modified:
+- `src/DaxaPos.Application/Identity/Permissions.cs` — added `ReceiptsReprint` constant.
+- `src/DaxaPos.Persistence/Seed/RbacSeedIds.cs`, `Configurations/PermissionConfiguration.cs`, `RolePermissionConfiguration.cs` — new `receipts.reprint` permission (`Operational`), granted to `SystemAdmin`/`OrganisationOwner`/`VenueManager`/`Staff` (same grant set as `orders.manage`/`payments.record` — reprinting is routine counter work, not manager-only like `payments.refund`).
+- `src/DaxaPos.Api/Audit/DomainEventAuditHandlers.cs` — 1 new handler class (`ReceiptReprintedAuditHandler`), `EventType = "ReceiptReprinted"`, `EntityType = "Receipt"` (no dedicated table — the string names the domain event, not a real entity), `EntityId = OrderId`.
+- `src/DaxaPos.Api/Program.cs` — 1 new `AddScoped<IDomainEventHandler<...>>` registration, 1 new `app.MapReceiptEndpoints()` call, 1 new `using` for the `Receipts` endpoint namespace.
+- `docs/modules/receipts.md`, `docs/plans/active/PLAN-0005-payments-receipts-printing-planning.md` (Status line + Milestone D status marker), this file, `docs/CHANGELOG.md`.
+
+No printing, PDF generation, or UI were added — Milestone D is a pure rendering-model and viewing/reprint-endpoint foundation only, exactly as scoped. No hardware/provider code: `ReceiptDocument` carries no ESC/POS, printer, or transport-specific type of any kind (approved Human Decision #1's scope boundary re-checked below).
+
+### Migration created
+
+`20260705234451_AddReceiptsReprintPermission` — inserts the `receipts.reprint` permission row and 4 `role_permissions` rows (`SystemAdmin`/`OrganisationOwner`/`VenueManager`/`Staff`). No new table — receipts are rendered from `Order`/`OrderLine`/`OrderLineTax`/`Payment`/`Refund` at request time, never persisted as their own row, per the plan's own "Entities/tables: none new" scoping and ADR-0010's "PDF Generation Strategy" pattern. Verified to apply cleanly in sequence from an empty database (all 16 migrations, disposable throwaway Postgres database, then dropped — not the shared dev database, which was migrated separately for the working tree).
+
+### Deviations from the written plan (flagged, not silently made)
+
+1. **No separate "refund receipt" shape.** The plan's Milestone D bullet says "Refund receipts link to the original order/payment (`Refund.PaymentId`/`OrderId`), per ADR-0010" without specifying whether that means a distinct rendering path. Resolved by giving `ReceiptDocument` a single `Payments`/`Refunds` section pair covering the whole order — a `Refund`'s `PaymentId` already places it next to the payment it reverses in the same document, satisfying the linking requirement without a second, near-duplicate `ReceiptDocument`-for-refunds type.
+2. **`ReceiptLabelSet` is a plain in-memory record with one hard-coded `Default` instance, not a location-settings-backed lookup.** The plan's Architecture Assumptions require labels to be "read from configuration, not hard-coded... MVP still ships only en-AU defaults" — no location-level receipt-label settings table exists yet (`VenueTaxConfiguration` doesn't carry one). Resolved by making `ReceiptLabelSet` a constructor parameter to `ReceiptRenderer.Render` rather than an internal constant, so the *rendering code* never bakes in a string literal — `ReceiptEndpoints.cs` is the only place `ReceiptLabelSet.Default` is referenced, and swapping in a real per-location lookup later is a one-line change there, not a `ReceiptRenderer` rewrite.
+3. **`receipts.reprint` was finalized as `Operational` (not left open), matching the plan's own "(proposed)" table entry rather than reopening the category question.** The plan's Human Decision #5 approval record already proposed `Operational` for `receipts.reprint` "to be confirmed at Milestone D start" — confirmed as originally proposed since reprinting a receipt is the same class of routine counter work as `orders.manage`/`payments.record`, not a manager-only override like `payments.refund`.
+4. **Live-sale receipt viewing (`GET .../receipt`) reuses `orders.manage` rather than introducing a third receipt-viewing permission code.** The plan's own Milestone D bullet says "No new permission code — receipt viewing/printing during a live sale is part of `orders.manage`/`payments.record`'s existing surface" — implemented exactly as stated; only the standalone reprint action got `receipts.reprint`.
+5. **`GetAsync`/`ReprintAsync` share a private `BuildReceiptDocumentAsync` helper that issues 4 queries (lines, tax rows grouped by line, payments, refunds keyed by payment id) rather than a single joined query.** Not specified by the plan; chosen to keep each query shape simple and mirror `OrderEndpoints`' own multi-query line/modifier/tax loading pattern rather than a novel single mega-join specific to receipts.
+
+None of these required backing out or redoing anything — all were caught while writing the code (2, 5) or while approving the permission category against the plan's own pre-recorded proposal (3, 4).
+
+### Tests added
+
+9 new unit tests (`ReceiptRendererTests.cs`): the AU mixed-basket worked example byte-for-byte ($5.50 + $8.80 + $6.00 → $20.30 total, $1.30 GST, `F = GST-free` legend), tax-summary aggregation across lines sharing a tax name, voided-line exclusion, marker-legend absence when no marker is configured, marker-legend dedup when multiple lines share one marker, payment-summary inclusion, refund-summary linking to its original payment, custom-`ReceiptLabelSet` proof (labels are not hard-coded), and a determinism proof (comparing scalars/sequences explicitly, since `ReceiptDocument`'s list-typed properties use reference equality under record-synthesized `Equals`).
+
+7 new integration tests (`ReceiptEndpointsTests.cs`): the same AU mixed-basket worked example end-to-end through `GET .../receipt`; payment-and-linked-refund summary inclusion; 404 for a non-existent order; cross-organisation 404; a staff-PIN-succeeds proof for reprint (`Reprint_Succeeds_ForStaffPinSession` — the load-bearing proof that `receipts.reprint`'s `Operational` category actually admits a staff session, mirroring `orders.manage`/`payments.record`'s precedent); a missing-permission 403 proof (via `SupportAccess`, which carries neither `orders.manage` nor `receipts.reprint`); and a reprint audit-row test asserting `EventType == "ReceiptReprinted"`/`EntityType == "Receipt"`/`EntityId == order.Id`.
+
+### Commands run
+
+```
+dotnet build tests/DaxaPos.UnitTests/DaxaPos.UnitTests.csproj                        (RED: 2 compile errors, expected symbols)
+dotnet test tests/DaxaPos.UnitTests/DaxaPos.UnitTests.csproj --filter "FullyQualifiedName~ReceiptRendererTests"   (GREEN: 9/9)
+dotnet build DaxaPos.sln                                                              (0 warnings/errors)
+dotnet ef migrations add AddReceiptsReprintPermission --project src/DaxaPos.Persistence --startup-project src/DaxaPos.Api
+dotnet ef database update --project src/DaxaPos.Persistence --startup-project src/DaxaPos.Api
+dotnet test tests/DaxaPos.Api.Tests/DaxaPos.Api.Tests.csproj --filter "FullyQualifiedName~ReceiptEndpointsTests"   (7/7, after fixing a first-attempt staff-PIN role-assignment gap)
+dotnet test DaxaPos.sln
+docker exec deploy-db-1 psql -U daxapos -d daxapos -c "CREATE DATABASE daxapos_migration_check;"
+dotnet ef database update --project src/DaxaPos.Persistence --startup-project src/DaxaPos.Api --connection "...daxapos_migration_check..."   (clean-database migration re-verification, all 16)
+docker exec deploy-db-1 psql -U daxapos -d daxapos -c "DROP DATABASE daxapos_migration_check;"
+```
+
+### Build/test result
+
+`dotnet build DaxaPos.sln` — 0 warnings, 0 errors.
+`dotnet test DaxaPos.sln` — **1017/1017 passed** (130 unit tests + 887 API tests, up from 1001 before this session — 16 new tests, zero regressions), against real Postgres, 0 failed, 0 skipped.
+All 16 migrations verified to apply cleanly in sequence from an empty database. No new `IgnoreQueryFilters()` call sites outside the established test-only audit-row-assertion pattern (`ReceiptEndpointsTests.cs`'s reprint audit-row assertion matches `RefundEndpointsTests`/`PaymentEndpointsTests`' identical usage).
+
+### Scope boundary re-check (approved Human Decision #1)
+
+No hardware coupling was introduced — `ReceiptEndpoints.cs`/`ReceiptDocument`/`ReceiptRenderer` contain no printer, ESC/POS, PDF, or provider-specific code of any kind. The renderer's output is a plain, print-transport-agnostic structured model, exactly the shape Milestone E's ESC/POS generation is expected to consume as input without `ReceiptRenderer` itself changing.
+
+### OI-0017 status re-check
+
+Not touched. Milestone D never reads `Product`/`ProductVariant` — its only entity interactions are `Order`/`OrderLine`/`OrderLineTax` (read), `Payment`/`Refund` (read). OI-0017 remains open, unaffected.
+
+### Blockers before Milestone E
+
+None. `ReceiptRenderer`/`ReceiptDocument` exist and render correctly from immutable order/payment/refund snapshots; `GET`/`POST reprint` endpoints work end-to-end with correct RBAC and reprint auditing; `dotnet build`/`dotnet test` are clean (1017/1017); migrations verified clean from empty. Milestone E (ESC/POS printing and the outbox mechanism) can start on request — **do not start it in this session**, per this session's explicit scope boundary.
+
+One heads-up for whoever starts Milestone E: `ReceiptDocument` (this milestone's output) is the input Milestone E's ESC/POS command generation should consume — it is already print-transport-agnostic (no printer/ESC/POS type anywhere in `DaxaPos.Application.Receipts`). The generic outbox/work-item table and `DaxaPos.Workers` project do not exist yet; per ADR-0014's Handler I/O Rule and this plan's own Architecture Assumptions, sending a receipt to a printer must go through that outbox → worker path, never inline from a request handler — building it is Milestone E's first task, not a prerequisite this milestone already satisfied.

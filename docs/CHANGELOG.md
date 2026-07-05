@@ -4,6 +4,35 @@ Changes are listed in reverse chronological order.
 
 ---
 
+## 2026-07-06 — PLAN-0005 Milestone D (receipt generation foundation)
+
+### Summary
+
+Receipt generation foundation: a pure, DB-independent rendering model — `DaxaPos.Application.Receipts.ReceiptRenderer` (TDD'd first, the milestone's one genuinely pure-logic unit) — projects an already-loaded order's lines/tax snapshots/payments/refunds into a structured `ReceiptDocument`, never recomputing tax or price. Tax markers (ADR-0011) are read verbatim from the `OrderLineTax` snapshots Milestone A already stored; proven byte-for-byte against the CLAUDE.md/ADR-0006 AU mixed-basket worked example (`F = GST-free`, $20.30 total, $1.30 GST). Receipt labels (`ReceiptLabelSet`) are a renderer parameter, not hard-coded strings, per ADR-0011/ADR-0016. Refund-receipt linking is satisfied by a `Refund`'s `PaymentId`/`OrderId` placing it in the same document as the order's own payments — no separate refund-receipt shape needed. Two endpoints added under `src/DaxaPos.Api/Endpoints/Receipts/`: `GET .../receipt` (live-sale viewing, gated the existing `orders.manage`, unaudited) and `POST .../receipt/reprint` (gated the new `receipts.reprint` permission, `Operational`/staff-PIN-eligible, and audited per CLAUDE.md's explicit reprint-audit requirement).
+
+### Key areas changed
+
+- `src/DaxaPos.Application/Receipts/ReceiptModels.cs`, `ReceiptRenderer.cs` (new, TDD'd first).
+- `src/DaxaPos.Domain/Events/ReceiptReprintedDomainEvent.cs` (new).
+- `src/DaxaPos.Persistence/Seed/RbacSeedIds.cs`, `Configurations/PermissionConfiguration.cs`, `RolePermissionConfiguration.cs` (new `receipts.reprint` permission, `SystemAdmin`/`OrganisationOwner`/`VenueManager`/`Staff`); `Migrations/20260705234451_AddReceiptsReprintPermission.cs` (new, permission-catalogue-only, no new table).
+- `src/DaxaPos.Api/Endpoints/Receipts/ReceiptEndpoints.cs` (new, 2 endpoints); `Audit/DomainEventAuditHandlers.cs` (1 new handler); `Program.cs` (registrations); `src/DaxaPos.Application/Identity/Permissions.cs` (`ReceiptsReprint` constant).
+- `tests/DaxaPos.UnitTests/Receipts/ReceiptRendererTests.cs` (new, 9 tests), `tests/DaxaPos.Api.Tests/ReceiptEndpointsTests.cs` (new, 7 tests).
+- `docs/modules/receipts.md` (implementation-status section); `docs/plans/active/PLAN-0005-payments-receipts-printing-planning.md` (Milestone D status, permission catalogue table); `docs/plans/active/PLAN-0005-worker-notes.md` (Milestone D Report).
+
+### Open issues resolved
+
+None closed or opened. OI-0017 remains open — Milestone D never reads `Product`/`ProductVariant`, so it is unaffected.
+
+### Tests / verification outcome
+
+`dotnet build DaxaPos.sln` — 0 warnings, 0 errors. `dotnet test DaxaPos.sln` — 1017/1017 passed (130 unit tests + 887 API tests, up from 1001 at Milestone C close — 16 new tests, zero regressions), against real Postgres. All 16 migrations verified to apply cleanly in sequence from an empty database. No new `IgnoreQueryFilters()` call sites outside the established test-only audit-row-assertion pattern.
+
+### Next
+
+Milestone E (ESC/POS printing and the generic outbox/work-item mechanism, per ADR-0014's Handler I/O Rule) can start on request — not started in this session, per this session's explicit scope boundary.
+
+---
+
 ## 2026-07-06 — PLAN-0005 Milestone C (refund service foundation)
 
 ### Summary
