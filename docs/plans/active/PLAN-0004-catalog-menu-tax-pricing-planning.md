@@ -2,7 +2,7 @@
 
 ## Status
 
-In progress — human approved the 7 planning-pass design calls 2026-07-03 (see Human Decisions Needed, all resolved as recommended). Milestone A (permission metadata, closes OI-0015) implemented and committed 2026-07-03. Milestone B (tax foundation entities + pure calculation engine) implemented and committed 2026-07-04; TDD throughout, 383/383 tests passing, all 8 migrations verified clean from empty. Milestones C–H not started.
+In progress — human approved the 7 planning-pass design calls 2026-07-03 (see Human Decisions Needed, all resolved as recommended). Milestone A (permission metadata, closes OI-0015) implemented and committed 2026-07-03. Milestone B (tax foundation entities + pure calculation engine) implemented and committed 2026-07-04; TDD throughout, 383/383 tests passing, all 8 migrations verified clean from empty. Milestone C (tax configuration endpoints) implemented and committed 2026-07-05; no schema changes, 418/418 tests passing (35 new). Milestones D–H not started.
 
 ## Goal
 
@@ -202,6 +202,8 @@ No product/tax/menu entities. Pure identity-layer follow-up, deliberately sequen
 
 ### Milestone C — Tax configuration endpoints
 
+**Status: Done (2026-07-05).** Implemented exactly as planned below, with one addition not spelled out in the original prose: `TaxCategoryDefinition` creation enforces ADR-0006's per-line 10-component design limit (`TaxCalculationEngine.MaxComponentsPerLine`) at the config layer — rejecting an 11th active mapping for the same `(TaxCategoryId, LocationId)` pair with 400, since that pair is exactly what a future resolution step will look up. No migration — Milestone B's schema already covered every field this milestone needed. See `PLAN-0004-worker-notes.md`'s Milestone C Report for full detail and deviations.
+
 CRUD-lifecycle pattern identical to PLAN-0003 Milestone D (create/read/list/update-limited-fields/deactivate/reactivate, no hard delete for `TaxCategory`/`TaxDefinition` — both are financially meaningful per ADR-0010). `TaxCategoryDefinition` (a pure mapping row, not itself a financial record) supports hard delete/replace.
 
 - `GET /api/v1/tax-definition-templates` — read-only, lists the 5 (or more, future) system templates. `catalog.manage`, `rejectStaffPin: true` (config surface, not sales-floor).
@@ -367,6 +369,8 @@ docs: update catalog, tax, menus, pricing, and testing docs for PLAN-0004 closeo
 **Approval record (2026-07-03):** all 7 items below were approved as recommended, to unblock implementation. None of them are Milestone A concerns (Milestone A adds no catalog/tax/pricing/menu entities or endpoints), so nothing below was actioned by Milestone A's implementation — they apply starting at the milestone that actually builds the affected entity/endpoint. One exception is item 6 (ADR-0016): the approval was conditional — "accept now if not already accepted, otherwise flag rather than move silently." `ADR-0016` was checked during Milestone A and is **still `docs/adr/proposed/`, not `docs/adr/accepted/`** — per the conditional instruction, it was **not moved** in this session (moving an ADR's status is a distinct, human-visible action independent of Milestone A's own scope, and Milestone A does not depend on ADR-0016's acceptance). This is flagged here and in `PLAN-0004-worker-notes.md` for the human to explicitly action (a one-line `git mv` + status edit) whenever convenient — most naturally alongside Milestone B or G, whichever first touches a column ADR-0016 constrains.
 
 **Milestone B ADR-0016 check (2026-07-04):** re-checked per this milestone's explicit instruction not to move it silently. Still `docs/adr/proposed/ADR-0016-multi-language-and-localisation-strategy.md`. Milestone B does add the first translatable-in-future columns this plan constrains (`TaxDefinitionTemplate.Name`/`ReceiptMarkerLabel`, `TaxDefinition.Name`/`ReceiptMarkerLabel`, `TaxCategory.Name`) — these were mapped as invariant/fallback bounded `varchar` columns per the plan's own pre-recorded constraint (no `{Entity}Translation` tables, no culture-resolution logic), so nothing in Milestone B's implementation actually depends on ADR-0016's acceptance status either. Still not moved.
+
+**Milestone C ADR-0016 check (2026-07-05):** re-checked per the same instruction. Still `docs/adr/proposed/`. Milestone C added no schema changes at all (endpoints only, over Milestone B's existing columns), so nothing here could depend on ADR-0016's acceptance status. Still not moved.
 
 Recorded here so implementation can start immediately on approval without re-litigating during a milestone. Presented as the specific, consequential calls this planning pass made that a different reasonable person could make differently:
 

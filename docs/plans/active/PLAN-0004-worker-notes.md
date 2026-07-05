@@ -195,3 +195,78 @@ Re-checked: `ADR-0016` is still `docs/adr/proposed/`, not `accepted/`. Milestone
 None. `TaxDefinitionTemplate`/`TaxDefinition`/`TaxCategory`/`TaxCategoryDefinition` exist, are seeded/query-filtered correctly, and the pure `TaxCalculationEngine` is fully unit-tested. `dotnet build`/`dotnet test` are clean; migrations verified clean from empty. Milestone C (tax configuration endpoints: `TaxDefinitionTemplateEndpoints`, `TaxDefinitionEndpoints`, `TaxCategoryEndpoints`, `TaxCategoryDefinitionEndpoints`, all `catalog.manage` + `rejectStaffPin: true`) can start on request.
 
 One heads-up for whoever starts Milestone C: it's the first milestone to actually exercise `catalog.manage` (seeded in Milestone A but never gated on an endpoint yet) and the first to write a lifecycle domain event + `jsonb` before/after snapshot for a Milestone-B-defined entity — reuse the exact `LocationEndpoints.cs`/Milestone-D CRUD-sextet shape and the Milestone D `jsonb` serialization pitfall note (bare strings/bools must be `JsonSerializer.Serialize`d) already recorded in `PLAN-0003-worker-notes.md`, not re-derived.
+
+---
+
+## Milestone C Report (2026-07-05)
+
+Implemented per the plan's endpoint list exactly (17 endpoints total, matching the plan doc's count: 7 for `TaxDefinition` incl. templates' 1 read, 6 for `TaxCategory`, 3 for `TaxCategoryDefinition`). CRUD-endpoint acceptance-test convention used (not TDD-first) — matching the plan's own "Tests To Run Later" note that TDD is mandated specifically for the financial-logic units (`TaxCalculationEngineTests`/`PriceResolverTests`), not the CRUD endpoint files, and matching how `LocationEndpoints`/`TerminalEndpoints` were built in PLAN-0003 Milestone D.
+
+### Files changed
+
+New:
+- `src/DaxaPos.Domain/Events/TaxDefinitionLifecycleDomainEvent.cs`, `TaxCategoryLifecycleDomainEvent.cs`, `TaxCategoryDefinitionChangedDomainEvent.cs`
+- `src/DaxaPos.Api/Endpoints/Tax/TaxDefinitionTemplateEndpoints.cs`, `TaxDefinitionEndpoints.cs`, `TaxCategoryEndpoints.cs`, `TaxCategoryDefinitionEndpoints.cs`
+- `tests/DaxaPos.Api.Tests/TaxDefinitionEndpointsTests.cs`, `TaxCategoryEndpointsTests.cs`, `TaxCategoryDefinitionEndpointsTests.cs`
+
+Modified:
+- `src/DaxaPos.Api/Audit/DomainEventAuditHandlers.cs` — 3 new handler classes (`TaxDefinitionLifecycleAuditHandler`, `TaxCategoryLifecycleAuditHandler`, `TaxCategoryDefinitionChangedAuditHandler`), same `$"{EntityType}{Action}"` `EventType` convention as Milestone D.
+- `src/DaxaPos.Api/Program.cs` — 3 new `AddScoped<IDomainEventHandler<...>>` registrations, 4 new `app.Map...Endpoints()` calls.
+- `tests/DaxaPos.Api.Tests/StaffPinLoginTests.cs` — extended `AssertAllSensitiveEndpointsForbiddenAsync` (now takes `organisationId` too, needed to build valid request bodies) with 7 tax-endpoint attempts, matching the file's established "one shared inventory, not per-entity duplication" convention (see its own class remarks, and `TaxDefinitionEndpointsTests`' class remarks pointing back at it).
+- `docs/modules/tax.md`, `docs/architecture/tax-engine.md` (implementation-status sections), `docs/plans/active/PLAN-0004-catalog-menu-tax-pricing-planning.md`, `docs/CHANGELOG.md`.
+
+No product/menu/pricing entities, order integration, or UI were added — Milestone C is tax configuration endpoints only, exactly as scoped. No migration — Milestone B's 4 entities already carried every field this milestone's endpoints needed.
+
+### Endpoints implemented
+
+- `GET /api/v1/tax-definition-templates` (list, read-only).
+- `POST /api/v1/tax-definitions`, `POST /api/v1/tax-definitions/from-template`, `GET` (list/by-id), `PATCH`, `POST .../deactivate`, `POST .../reactivate` (7).
+- `POST/GET /api/v1/tax-categories`, `GET/PATCH/{id}`, `.../deactivate`, `.../reactivate` (6).
+- `POST/GET /api/v1/tax-category-definitions`, `DELETE /{id}` (3, hard delete).
+
+All gated `catalog.manage` + `rejectStaffPin: true`, no exceptions (this milestone has no sold-out-toggle-style staff-accessible endpoint — that pattern doesn't appear until Milestone F).
+
+### Tests added
+
+35 new integration tests across 3 files, covering the full matrix from prior milestones (create/read/update/deactivate/reactivate happy path, 400 on client-supplied `TenantId`, 403 without `catalog.manage`, 404 cross-tenant, 404 cross-organisation, audit-row assertions) plus tax-specific additions:
+- `Templates_ListsSeededAuNzRows` — proves the 5 Milestone B seed rows are readable.
+- `CreateFromTemplate_ClonesTemplateFields_AndSetsSourceTemplateCode` / `CreateFromTemplate_Fails_ForUnknownTemplateCode`.
+- `Create_Rejects_DuplicateCodeWithinSameTenant` (both `TaxDefinition` and `TaxCategory`) — proves the `(TenantId, Code)` unique-index precondition check.
+- `Create_Blocked_WhenTaxCategoryBelongsToDifferentOrganisation` / `...WhenTaxDefinitionBelongsToDifferentOrganisation` / `...WhenLocationBelongsToDifferentOrganisation` — `TaxCategoryDefinition` has no `OrganisationId` column of its own, so each of its 3 foreign references needed its own independent cross-organisation proof (mirroring `TerminalEndpoints`' walk-through-`Location` precedent, but with 3 parents instead of 1).
+- `Create_FailsWithBadRequest_WhenExceedingTenComponentLimitForSameCategoryAndLocation` — creates exactly `TaxCalculationEngine.MaxComponentsPerLine` (10) mappings for one `(TaxCategory, null-Location)` pair, then proves the 11th is rejected with 400 — the load-bearing proof that ADR-0006's per-line limit is enforced at the config layer, not just documented.
+- `StaffPinLoginTests`'s extended inventory — proves staff-PIN rejection for all 4 endpoint groups without per-entity duplication (existing convention).
+
+### Commands run
+
+```
+dotnet build DaxaPos.sln
+dotnet test tests/DaxaPos.Api.Tests/DaxaPos.Api.Tests.csproj --filter "FullyQualifiedName~TaxDefinitionEndpointsTests|FullyQualifiedName~TaxCategoryEndpointsTests|FullyQualifiedName~TaxCategoryDefinitionEndpointsTests"
+dotnet test tests/DaxaPos.Api.Tests/DaxaPos.Api.Tests.csproj --filter "FullyQualifiedName~StaffPinLoginTests"
+dotnet test DaxaPos.sln
+```
+
+No `dotnet ef migrations add` — no schema change this milestone, so no clean-database migration re-verification was needed either (the existing 8 migrations were not touched).
+
+### Build/test result
+
+`dotnet build DaxaPos.sln` — 0 warnings, 0 errors.
+`dotnet test DaxaPos.sln` — **418/418 passed** (92 unit tests + 326 API tests, up from 383 at Milestone B close — 35 new tests, zero regressions), against real Postgres, 0 failed, 0 skipped.
+
+### Deviations from the written plan (flagged, not silently made)
+
+1. **`TaxCategoryDefinition` creation enforces ADR-0006's 10-components-per-line limit**, which the plan's Milestone C prose doesn't explicitly call out (it appears only in the plan's "Global Tax Design Constraints" section, written for the engine generally). Enforcing it here — at the one place a `(TaxCategory, Location)` pair's component count is actually assembled — is the natural implementation site; deferring it further (e.g. to a not-yet-built PLAN-0005 resolution step) would let a tenant configure an unenforceable-later state. Not a plan violation, an interpretation filling a gap the plan's endpoint bullet list left open.
+2. **No separate `GET /{id}` endpoint for `TaxCategoryDefinition`**, matching the plan's own endpoint-count arithmetic (17 total only balances if this group is exactly 3: create, list, delete) even though its prose bullet reads "POST/GET ... DELETE /{id}" ambiguously. `List` accepts optional `taxCategoryId`/`locationId` query filters (matching `StaffMemberEndpoints.ListAsync`'s existing `locationId?` convention) as the practical substitute for looking up one mapping directly.
+3. **`Code`/`CountryCode`/`RegionCode` (on `TaxDefinition`) and `Code` (on `TaxCategory`) are not editable via `PATCH`** — the plan's field lists don't specify which fields "update-limited-fields" means, so this follows the `Location`/`Organisation`/`Terminal` precedent of treating the natural-key-like field as fixed after creation, editing only the fields OI-0007 actually calls out (rate, name, rounding, markers, treatment).
+4. **The `CreatedFromTemplate` audit `Action` string is distinct from `Created`** — not specified by the plan, added so OI-0007's audit trail ("old config, new config") can distinguish a from-template clone from a from-scratch definition without inspecting `SourceTemplateCode` separately.
+
+None of these required backing out or redoing anything.
+
+### ADR-0016 status re-check (per this session's explicit instruction not to move it silently)
+
+Re-checked: still `docs/adr/proposed/`, not `accepted/`. Milestone C added no schema changes at all — no new translatable-in-future columns, no columns of any kind — so nothing here could depend on ADR-0016's acceptance status. Still not moved.
+
+### Blockers before Milestone D
+
+None. Tax configuration is fully CRUD-manageable via the API; `dotnet build`/`dotnet test` are clean (418/418). Milestone D (product catalogue foundation: `ProductCategory`, `Product`, archive-and-replace on tax-category-changing updates per OI-0007) can start on request.
+
+One heads-up for whoever starts Milestone D: it's the first milestone to implement OI-0007's archive-and-replace behaviour for real (a `PATCH` that changes `Product.TaxCategoryId` archives the current row and creates a new one) — re-read OI-0007's closed-issue file and this plan's Domain Assumptions section (`Product` bullet) before writing the endpoint, and note the Risks section's already-accepted, already-documented concurrency race (parallel to OI-0013) rather than adding row-locking. `Product.TaxCategoryId` will need to validate against a real `TaxCategory` this milestone builds against — Milestone C's `TaxCategoryEndpoints` is where a valid `TaxCategoryId` for a test now comes from.

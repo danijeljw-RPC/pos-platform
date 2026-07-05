@@ -107,6 +107,10 @@ The `TaxRate`/`TaxCategory` model above was the original architecture-level sket
 
 The calculation engine (`DaxaPos.Application.Tax.TaxCalculationEngine`) is pure and DB-independent, taking `TaxComponentSnapshot` value inputs rather than querying `TaxDefinition` directly — the DB-touching resolution step (product/location → applicable components) is a separate, later concern (Milestone C+). Fully unit-tested against this doc's exact AU mixed-basket example; see `tests/DaxaPos.UnitTests/Tax/TaxCalculationEngineTests.cs`.
 
+## Implementation Status (PLAN-0004 Milestone C, 2026-07-05)
+
+Tax configuration endpoints (`src/DaxaPos.Api/Endpoints/Tax/`) now let a tenant build the schema above through the API — cloning a `TaxDefinitionTemplate`, creating `TaxCategory` labels, and mapping them together via `TaxCategoryDefinition`. This milestone enforces this doc's per-line 10-component design limit at configuration time: creating an 11th active `TaxCategoryDefinition` for the same `(TaxCategoryId, LocationId)` pair is rejected with 400. The DB-touching resolution step (a product/location pair → the actual `TaxComponentSnapshot`s the pure engine consumes) is still not built — it depends on `Product` (Milestone D) and is a distinct concern from configuration CRUD. The per-order 20-component limit remains PLAN-0005's responsibility, unchanged from Milestone B's Architecture Assumptions.
+
 ## Planned: Localised Tax Labels (Deferred)
 
 Tax label text ("GST", "Includes GST", tax-free marker legends) is planned to become translatable, extending the existing configurable-marker mechanism (ADR-0011) rather than replacing it. See [ADR-0016 — Multi-Language and Localisation Strategy](../adr/proposed/ADR-0016-multi-language-and-localisation-strategy.md) (proposed, not yet implemented). AU/NZ wording remains the first concrete example; it is not hard-coded into the architecture.

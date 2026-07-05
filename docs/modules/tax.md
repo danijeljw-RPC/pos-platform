@@ -28,6 +28,18 @@ The data model and calculation engine are implemented; configuration endpoints a
 - Not yet built: tax configuration endpoints (`GET/POST /api/v1/tax-definitions` etc.), the DB-touching resolution step that turns a product+location into a list of `TaxComponentSnapshot`s, and `OrderLineTax` (waits on `Order`, PLAN-0005).
 - See `docs/plans/active/PLAN-0004-worker-notes.md`'s "Milestone B Report" for full detail and deviations.
 
+## Implementation Status (PLAN-0004 Milestone C, 2026-07-05)
+
+Tax configuration endpoints are implemented; no schema changes were needed (Milestone B's entities already covered this milestone's needs).
+
+- `GET /api/v1/tax-definition-templates` — read-only listing of the global template catalogue.
+- `POST /api/v1/tax-definitions` (from-scratch) and `POST /api/v1/tax-definitions/from-template` (clones a `TaxDefinitionTemplate` by `Code`, setting `SourceTemplateCode`), plus `GET` (list/by-id), `PATCH` (rate/name/rounding/marker fields only — `Code`/`CountryCode`/`RegionCode` are the definition's stable identity and are not editable), `POST .../deactivate`, `POST .../reactivate`.
+- `POST/GET /api/v1/tax-categories`, `GET/PATCH/{id}`, `.../deactivate`, `.../reactivate` — `Code` likewise immutable after creation.
+- `POST/GET /api/v1/tax-category-definitions`, `DELETE /{id}` — the only Milestone C entity with hard delete (a pure mapping row, not itself a financial record, ADR-0010). Creation enforces ADR-0006's per-line design limit (max 10 active mappings per `(TaxCategoryId, LocationId)` pair, `LocationId` null = organisation-wide bucket) and validates that the referenced `TaxCategory`/`TaxDefinition`/`Location` all belong to the caller's organisation.
+- Permission: `catalog.manage` on every endpoint, `rejectStaffPin: true` throughout (OI-0007's "manager-level or higher" surface) — proven in `StaffPinLoginTests.AssertAllSensitiveEndpointsForbiddenAsync`, not duplicated per entity (matching the Milestone D convention).
+- Every write raises a lifecycle domain event (`TaxDefinitionLifecycleDomainEvent`, `TaxCategoryLifecycleDomainEvent`, `TaxCategoryDefinitionChangedDomainEvent`) with a JSON before/after snapshot, audited per OI-0007's explicit requirement.
+- See `docs/plans/active/PLAN-0004-worker-notes.md`'s "Milestone C Report" for full detail and deviations.
+
 ## Related Plans
 
 - [PLAN-0004 — Catalog, Menu, Tax, Pricing](../plans/active/PLAN-0004-catalog-menu-tax-pricing-planning.md)

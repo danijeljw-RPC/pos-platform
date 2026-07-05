@@ -4,6 +4,38 @@ Changes are listed in reverse chronological order.
 
 ---
 
+## 2026-07-05 — PLAN-0004 Milestone C (tax configuration endpoints)
+
+### Summary
+
+Implemented PLAN-0004 Milestone C only: tax configuration API endpoints on top of Milestone B's entities. `TaxDefinitionTemplateEndpoints` (read-only template listing), `TaxDefinitionEndpoints` (create from-scratch or from-template, list, get, update, deactivate, reactivate), `TaxCategoryEndpoints` (same six-endpoint shape), `TaxCategoryDefinitionEndpoints` (create, list, hard delete — a pure mapping row, not a financial record). No schema changes, no product/menu/pricing entities, no order integration, no UI. Every endpoint is gated `catalog.manage` + `rejectStaffPin: true` (OI-0007); every write raises a lifecycle domain event audited with a before/after JSON snapshot. The 10-component-per-line design limit (ADR-0006) is enforced at `TaxCategoryDefinition` creation time.
+
+### Key areas changed
+
+- `src/DaxaPos.Domain/Events/TaxDefinitionLifecycleDomainEvent.cs`, `TaxCategoryLifecycleDomainEvent.cs`, `TaxCategoryDefinitionChangedDomainEvent.cs` (new).
+- `src/DaxaPos.Api/Endpoints/Tax/TaxDefinitionTemplateEndpoints.cs`, `TaxDefinitionEndpoints.cs`, `TaxCategoryEndpoints.cs`, `TaxCategoryDefinitionEndpoints.cs` (new).
+- `src/DaxaPos.Api/Audit/DomainEventAuditHandlers.cs` (modified — 3 new handlers); `Program.cs` (modified — DI registrations + endpoint mapping).
+- `tests/DaxaPos.Api.Tests/TaxDefinitionEndpointsTests.cs`, `TaxCategoryEndpointsTests.cs`, `TaxCategoryDefinitionEndpointsTests.cs` (new, 35 tests); `StaffPinLoginTests.cs` (modified — extended the shared staff-PIN-rejection endpoint inventory with the 7 new tax endpoints).
+- `docs/modules/tax.md`, `docs/architecture/tax-engine.md` (implementation-status sections), `docs/plans/active/PLAN-0004-catalog-menu-tax-pricing-planning.md`, `docs/plans/active/PLAN-0004-worker-notes.md`.
+
+### Open issues resolved
+
+None. (OI-0007 was already closed; this milestone directly implements its Decision, per the plan's Open Issues Required section — not reopened or re-litigated.)
+
+### Tests / verification outcome
+
+`dotnet build DaxaPos.sln` — 0 warnings, 0 errors. `dotnet test DaxaPos.sln` — 418/418 passed (92 unit tests + 326 API tests, up from 383 at Milestone B close — 35 new tax-configuration tests, zero regressions), against real Postgres. No migration added (Milestone B's schema already covered this milestone's needs); the existing 8 migrations were not touched.
+
+### ADR-0016
+
+Re-checked per this session's explicit instruction: still `docs/adr/proposed/`, not moved. No new translatable-in-future columns were added this milestone (no schema changes at all), so nothing here depended on its acceptance status.
+
+### Next
+
+PLAN-0004 Milestone D (product catalogue foundation: `ProductCategory`, `Product`, archive-and-replace on tax-category-changing updates per OI-0007) — see `docs/plans/active/PLAN-0004-worker-notes.md` for the recommended next-session prompt.
+
+---
+
 ## 2026-07-04 — PLAN-0004 Milestone B (tax foundation entities and pure calculation engine)
 
 ### Summary
