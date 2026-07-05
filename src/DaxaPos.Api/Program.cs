@@ -96,6 +96,12 @@ builder.Services.AddScoped<IDomainEventHandler<TaxCategoryDefinitionChangedDomai
 builder.Services.AddScoped<IDomainEventHandler<ProductCategoryLifecycleDomainEvent>, ProductCategoryLifecycleAuditHandler>();
 builder.Services.AddScoped<IDomainEventHandler<ProductLifecycleDomainEvent>, ProductLifecycleAuditHandler>();
 
+// PLAN-0004 Milestone E: variant/modifier lifecycle audit handlers.
+builder.Services.AddScoped<IDomainEventHandler<ProductVariantLifecycleDomainEvent>, ProductVariantLifecycleAuditHandler>();
+builder.Services.AddScoped<IDomainEventHandler<ModifierGroupLifecycleDomainEvent>, ModifierGroupLifecycleAuditHandler>();
+builder.Services.AddScoped<IDomainEventHandler<ModifierLifecycleDomainEvent>, ModifierLifecycleAuditHandler>();
+builder.Services.AddScoped<IDomainEventHandler<ProductModifierGroupChangedDomainEvent>, ProductModifierGroupChangedAuditHandler>();
+
 // Health checks cover the API/database path only. Keycloak is scoped to cloud/admin/back-office
 // auth (ADR-0013) and is intentionally not part of this check — the API must start and report
 // healthy whether or not Keycloak is reachable.
@@ -123,6 +129,10 @@ app.MapTaxCategoryEndpoints();
 app.MapTaxCategoryDefinitionEndpoints();
 app.MapProductCategoryEndpoints();
 app.MapProductEndpoints();
+app.MapProductVariantEndpoints();
+app.MapModifierGroupEndpoints();
+app.MapModifierEndpoints();
+app.MapProductModifierGroupEndpoints();
 
 // Dev/local-only bootstrap admin seeding (PLAN-0003 Milestone C) — see BootstrapAdminSeeder for
 // the production-safety rules (requires both env vars, idempotent, never overwrites an existing

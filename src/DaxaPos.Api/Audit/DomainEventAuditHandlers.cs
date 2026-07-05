@@ -545,3 +545,99 @@ public sealed class ProductLifecycleAuditHandler(DaxaDbContext dbContext)
         await dbContext.SaveChangesAsync(cancellationToken);
     }
 }
+
+/// <summary>
+/// PLAN-0004 Milestone E variant/modifier audit handlers, same <c>$"{EntityType}{Action}"</c>
+/// convention as every handler above.
+/// </summary>
+public sealed class ProductVariantLifecycleAuditHandler(DaxaDbContext dbContext)
+    : IDomainEventHandler<ProductVariantLifecycleDomainEvent>
+{
+    public async Task HandleAsync(ProductVariantLifecycleDomainEvent domainEvent, CancellationToken cancellationToken = default)
+    {
+        dbContext.AuditEvents.Add(new AuditEvent
+        {
+            Id = Guid.NewGuid(),
+            TenantId = domainEvent.TenantId,
+            OrganisationId = domainEvent.OrganisationId,
+            UserId = domainEvent.UserId,
+            EventType = $"{nameof(ProductVariant)}{domainEvent.Action}",
+            EntityType = nameof(ProductVariant),
+            EntityId = domainEvent.ProductVariantId,
+            BeforeValue = domainEvent.BeforeValue,
+            AfterValue = domainEvent.AfterValue,
+            OccurredAtUtc = domainEvent.OccurredAtUtc,
+        });
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+}
+
+public sealed class ModifierGroupLifecycleAuditHandler(DaxaDbContext dbContext)
+    : IDomainEventHandler<ModifierGroupLifecycleDomainEvent>
+{
+    public async Task HandleAsync(ModifierGroupLifecycleDomainEvent domainEvent, CancellationToken cancellationToken = default)
+    {
+        dbContext.AuditEvents.Add(new AuditEvent
+        {
+            Id = Guid.NewGuid(),
+            TenantId = domainEvent.TenantId,
+            OrganisationId = domainEvent.OrganisationId,
+            UserId = domainEvent.UserId,
+            EventType = $"{nameof(ModifierGroup)}{domainEvent.Action}",
+            EntityType = nameof(ModifierGroup),
+            EntityId = domainEvent.ModifierGroupId,
+            BeforeValue = domainEvent.BeforeValue,
+            AfterValue = domainEvent.AfterValue,
+            OccurredAtUtc = domainEvent.OccurredAtUtc,
+        });
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+}
+
+public sealed class ModifierLifecycleAuditHandler(DaxaDbContext dbContext)
+    : IDomainEventHandler<ModifierLifecycleDomainEvent>
+{
+    public async Task HandleAsync(ModifierLifecycleDomainEvent domainEvent, CancellationToken cancellationToken = default)
+    {
+        dbContext.AuditEvents.Add(new AuditEvent
+        {
+            Id = Guid.NewGuid(),
+            TenantId = domainEvent.TenantId,
+            OrganisationId = domainEvent.OrganisationId,
+            UserId = domainEvent.UserId,
+            EventType = $"{nameof(Modifier)}{domainEvent.Action}",
+            EntityType = nameof(Modifier),
+            EntityId = domainEvent.ModifierId,
+            BeforeValue = domainEvent.BeforeValue,
+            AfterValue = domainEvent.AfterValue,
+            OccurredAtUtc = domainEvent.OccurredAtUtc,
+        });
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+}
+
+public sealed class ProductModifierGroupChangedAuditHandler(DaxaDbContext dbContext)
+    : IDomainEventHandler<ProductModifierGroupChangedDomainEvent>
+{
+    public async Task HandleAsync(ProductModifierGroupChangedDomainEvent domainEvent, CancellationToken cancellationToken = default)
+    {
+        dbContext.AuditEvents.Add(new AuditEvent
+        {
+            Id = Guid.NewGuid(),
+            TenantId = domainEvent.TenantId,
+            OrganisationId = domainEvent.OrganisationId,
+            UserId = domainEvent.UserId,
+            EventType = $"{nameof(ProductModifierGroup)}{domainEvent.Action}",
+            EntityType = nameof(ProductModifierGroup),
+            EntityId = domainEvent.ProductModifierGroupId,
+            BeforeValue = domainEvent.BeforeValue,
+            AfterValue = domainEvent.AfterValue,
+            OccurredAtUtc = domainEvent.OccurredAtUtc,
+        });
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+}

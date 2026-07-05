@@ -51,6 +51,14 @@ public class DaxaDbContext(DbContextOptions<DaxaDbContext> options, ICurrentTena
 
     public DbSet<Product> Products => Set<Product>();
 
+    public DbSet<ProductVariant> ProductVariants => Set<ProductVariant>();
+
+    public DbSet<ModifierGroup> ModifierGroups => Set<ModifierGroup>();
+
+    public DbSet<Modifier> Modifiers => Set<Modifier>();
+
+    public DbSet<ProductModifierGroup> ProductModifierGroups => Set<ProductModifierGroup>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(DaxaDbContext).Assembly);
@@ -130,5 +138,21 @@ public class DaxaDbContext(DbContextOptions<DaxaDbContext> options, ICurrentTena
 
         modelBuilder.Entity<Product>()
             .HasQueryFilter(p => currentTenantProvider.TenantId != null && p.TenantId == currentTenantProvider.TenantId);
+
+        // Variants and modifiers (PLAN-0004 Milestone E). ProductVariant/Modifier/ProductModifierGroup
+        // carry no OrganisationId of their own — scoped entirely through TenantId (fail-closed here)
+        // plus a Product/ModifierGroup parent walk at the endpoint layer, matching the Terminal
+        // precedent from PLAN-0003 Milestone D.
+        modelBuilder.Entity<ProductVariant>()
+            .HasQueryFilter(v => currentTenantProvider.TenantId != null && v.TenantId == currentTenantProvider.TenantId);
+
+        modelBuilder.Entity<ModifierGroup>()
+            .HasQueryFilter(g => currentTenantProvider.TenantId != null && g.TenantId == currentTenantProvider.TenantId);
+
+        modelBuilder.Entity<Modifier>()
+            .HasQueryFilter(m => currentTenantProvider.TenantId != null && m.TenantId == currentTenantProvider.TenantId);
+
+        modelBuilder.Entity<ProductModifierGroup>()
+            .HasQueryFilter(pmg => currentTenantProvider.TenantId != null && pmg.TenantId == currentTenantProvider.TenantId);
     }
 }
