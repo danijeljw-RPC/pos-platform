@@ -71,6 +71,16 @@ public class DaxaDbContext(DbContextOptions<DaxaDbContext> options, ICurrentTena
 
     public DbSet<MenuAvailabilityRule> MenuAvailabilityRules => Set<MenuAvailabilityRule>();
 
+    public DbSet<Order> Orders => Set<Order>();
+
+    public DbSet<OrderLine> OrderLines => Set<OrderLine>();
+
+    public DbSet<OrderLineModifier> OrderLineModifiers => Set<OrderLineModifier>();
+
+    public DbSet<OrderLineTax> OrderLineTaxes => Set<OrderLineTax>();
+
+    public DbSet<OrderNumberCounter> OrderNumberCounters => Set<OrderNumberCounter>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(DaxaDbContext).Assembly);
@@ -190,5 +200,25 @@ public class DaxaDbContext(DbContextOptions<DaxaDbContext> options, ICurrentTena
 
         modelBuilder.Entity<MenuAvailabilityRule>()
             .HasQueryFilter(r => currentTenantProvider.TenantId != null && r.TenantId == currentTenantProvider.TenantId);
+
+        // Order foundation (PLAN-0005 Milestone A). OrderLine/OrderLineModifier/OrderLineTax carry
+        // no OrganisationId of their own — scoped entirely through TenantId (fail-closed here) plus
+        // an Order parent walk at the endpoint layer, matching the Terminal/ProductVariant/MenuSection
+        // precedent. OrderNumberCounter is filtered too for consistency, though it is only ever
+        // touched via a raw-SQL atomic upsert (see OrderEndpoints), never a filtered LINQ query.
+        modelBuilder.Entity<Order>()
+            .HasQueryFilter(o => currentTenantProvider.TenantId != null && o.TenantId == currentTenantProvider.TenantId);
+
+        modelBuilder.Entity<OrderLine>()
+            .HasQueryFilter(l => currentTenantProvider.TenantId != null && l.TenantId == currentTenantProvider.TenantId);
+
+        modelBuilder.Entity<OrderLineModifier>()
+            .HasQueryFilter(m => currentTenantProvider.TenantId != null && m.TenantId == currentTenantProvider.TenantId);
+
+        modelBuilder.Entity<OrderLineTax>()
+            .HasQueryFilter(t => currentTenantProvider.TenantId != null && t.TenantId == currentTenantProvider.TenantId);
+
+        modelBuilder.Entity<OrderNumberCounter>()
+            .HasQueryFilter(c => currentTenantProvider.TenantId != null && c.TenantId == currentTenantProvider.TenantId);
     }
 }

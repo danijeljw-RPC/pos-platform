@@ -30,4 +30,7 @@ internal static class RbacSeedIds
     public static readonly Guid PricingManagePermissionId = new("00000000-0000-0000-0002-000000000010");
     public static readonly Guid MenusManagePermissionId = new("00000000-0000-0000-0002-000000000011");
     public static readonly Guid CatalogSoldOutTogglePermissionId = new("00000000-0000-0000-0002-000000000012");
+
+    // PLAN-0005 Milestone A.
+    public static readonly Guid OrdersManagePermissionId = new("00000000-0000-0000-0002-000000000013");
 }

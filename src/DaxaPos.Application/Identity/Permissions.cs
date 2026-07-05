@@ -35,4 +35,10 @@ public static class Permissions
     /// (not a hard-coded list) decides staff-PIN eligibility.
     /// </summary>
     public const string CatalogSoldOutToggle = "catalog.sold-out-toggle";
+
+    /// <summary>
+    /// PLAN-0005 Milestone A. Operational — order entry is core POS counter work, the same
+    /// reasoning PLAN-0004 used for <see cref="CatalogSoldOutToggle"/>.
+    /// </summary>
+    public const string OrdersManage = "orders.manage";
 }

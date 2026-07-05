@@ -789,3 +789,57 @@ public sealed class MenuAvailabilityRuleChangedAuditHandler(DaxaDbContext dbCont
         await dbContext.SaveChangesAsync(cancellationToken);
     }
 }
+
+/// <summary>
+/// PLAN-0005 Milestone A order audit handlers — the plan's first staff-PIN-accessible write
+/// endpoints from day one, so both <c>UserId</c> and <c>StaffMemberId</c> are always carried
+/// (only one populated per event), matching <see cref="ProductLocationOverrideChangedAuditHandler"/>'s
+/// dual-identity precedent.
+/// </summary>
+public sealed class OrderLifecycleAuditHandler(DaxaDbContext dbContext)
+    : IDomainEventHandler<OrderLifecycleDomainEvent>
+{
+    public async Task HandleAsync(OrderLifecycleDomainEvent domainEvent, CancellationToken cancellationToken = default)
+    {
+        dbContext.AuditEvents.Add(new AuditEvent
+        {
+            Id = Guid.NewGuid(),
+            TenantId = domainEvent.TenantId,
+            OrganisationId = domainEvent.OrganisationId,
+            UserId = domainEvent.UserId,
+            StaffMemberId = domainEvent.StaffMemberId,
+            EventType = $"{nameof(Order)}{domainEvent.Action}",
+            EntityType = nameof(Order),
+            EntityId = domainEvent.OrderId,
+            BeforeValue = domainEvent.BeforeValue,
+            AfterValue = domainEvent.AfterValue,
+            OccurredAtUtc = domainEvent.OccurredAtUtc,
+        });
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+}
+
+public sealed class OrderLineChangedAuditHandler(DaxaDbContext dbContext)
+    : IDomainEventHandler<OrderLineChangedDomainEvent>
+{
+    public async Task HandleAsync(OrderLineChangedDomainEvent domainEvent, CancellationToken cancellationToken = default)
+    {
+        dbContext.AuditEvents.Add(new AuditEvent
+        {
+            Id = Guid.NewGuid(),
+            TenantId = domainEvent.TenantId,
+            OrganisationId = domainEvent.OrganisationId,
+            UserId = domainEvent.UserId,
+            StaffMemberId = domainEvent.StaffMemberId,
+            EventType = $"{nameof(OrderLine)}{domainEvent.Action}",
+            EntityType = nameof(OrderLine),
+            EntityId = domainEvent.OrderLineId,
+            BeforeValue = domainEvent.BeforeValue,
+            AfterValue = domainEvent.AfterValue,
+            OccurredAtUtc = domainEvent.OccurredAtUtc,
+        });
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+}

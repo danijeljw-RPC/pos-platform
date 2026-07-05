@@ -33,6 +33,7 @@ public class PermissionConfiguration : IEntityTypeConfiguration<Permission>
             new Permission { Id = RbacSeedIds.CatalogManagePermissionId, Code = "catalog.manage", Description = "Create/update product categories, products, variants, and modifiers; assign product tax categories (OI-0007).", Category = PermissionCategory.AdminSensitive },
             new Permission { Id = RbacSeedIds.PricingManagePermissionId, Code = "pricing.manage", Description = "Create/update location price overrides and venue tax configuration.", Category = PermissionCategory.AdminSensitive },
             new Permission { Id = RbacSeedIds.MenusManagePermissionId, Code = "menus.manage", Description = "Create/update menus, sections, and availability rules.", Category = PermissionCategory.AdminSensitive },
-            new Permission { Id = RbacSeedIds.CatalogSoldOutTogglePermissionId, Code = "catalog.sold-out-toggle", Description = "Toggle a product's sold-out state at a location.", Category = PermissionCategory.Operational });
+            new Permission { Id = RbacSeedIds.CatalogSoldOutTogglePermissionId, Code = "catalog.sold-out-toggle", Description = "Toggle a product's sold-out state at a location.", Category = PermissionCategory.Operational },
+            new Permission { Id = RbacSeedIds.OrdersManagePermissionId, Code = "orders.manage", Description = "Open orders, add/void lines, hold/resume/void/cancel orders.", Category = PermissionCategory.Operational });
     }
 }
