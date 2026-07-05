@@ -2,7 +2,7 @@
 
 ## Status
 
-Draft — planning-only placeholder. **Not started. Blocked on [ADR-0016](../../adr/proposed/ADR-0016-multi-language-and-localisation-strategy.md) acceptance.**
+Draft — planning-only placeholder. **Not started.** [ADR-0016](../../adr/accepted/ADR-0016-multi-language-and-localisation-strategy.md) was accepted 2026-07-05 (PLAN-0004 Milestone H closeout) — this plan is no longer blocked on acceptance, but still requires a worker to be assigned before implementation begins.
 
 This document exists so a future worker has somewhere to start from — it is not an active implementation plan yet, and no code, schema, or migration work should begin from it without first re-reading ADR-0016's current status and refreshing this plan's Context Read / Files Likely To Change against whatever has been built in the meantime (most likely PLAN-0004's catalog/menu/tax schema).
 
@@ -41,7 +41,7 @@ To be re-read in full before any implementation step is taken, since this plan m
 - `CLAUDE.md`
 - `docs/README.md`
 - `docs/adr/index.md`
-- `docs/adr/proposed/ADR-0016-multi-language-and-localisation-strategy.md` (or `docs/adr/accepted/...` if accepted by the time this starts — update this plan's links accordingly)
+- `docs/adr/accepted/ADR-0016-multi-language-and-localisation-strategy.md` (accepted 2026-07-05)
 - `docs/adr/accepted/ADR-0006-tax-line-based-tax-engine.md`
 - `docs/adr/accepted/ADR-0011-receipt-tax-marker-strategy.md`
 - `docs/adr/accepted/ADR-0003-multi-location-by-default.md`
@@ -83,7 +83,7 @@ Not yet defined — this plan is intentionally a placeholder, not an implementat
 ## Documentation To Update
 
 - Whichever of `docs/architecture/*`, `docs/modules/*` this plan actually touches, at the time it's implemented.
-- `docs/adr/proposed/ADR-0016-...md` → move to `docs/adr/accepted/` if not already accepted by the time this plan starts (or update this plan if ADR-0016 was amended/superseded first).
+- `docs/adr/accepted/ADR-0016-multi-language-and-localisation-strategy.md` — already accepted 2026-07-05; re-check it hasn't been amended/superseded since before starting.
 
 ## ADRs Required
 

@@ -75,4 +75,4 @@ Multi-currency
 Multi-language
 ```
 
-Multi-language strategy is planned (not yet implemented) — see [ADR-0016 — Multi-Language and Localisation Strategy](adr/proposed/ADR-0016-multi-language-and-localisation-strategy.md) (proposed) and the [Multi-Language and Localisation follow-up plan](plans/active/PLAN-localisation-multi-language.md) (planning-only placeholder, blocked on ADR-0016 acceptance).
+Multi-language strategy is planned and accepted, but not yet implemented — see [ADR-0016 — Multi-Language and Localisation Strategy](adr/accepted/ADR-0016-multi-language-and-localisation-strategy.md) (accepted 2026-07-05) and the [Multi-Language and Localisation follow-up plan](plans/active/PLAN-localisation-multi-language.md) (planning-only placeholder, not yet started).

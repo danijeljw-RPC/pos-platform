@@ -22,14 +22,13 @@ Architecture Decision Records for Daxa POS.
 | [ADR-0013](accepted/ADR-0013-cloud-identity-and-local-pos-authentication-strategy.md) | Cloud Identity and Local POS Authentication Strategy | Identity / Security |
 | [ADR-0014](accepted/ADR-0014-inter-module-communication.md) | Inter-Module Communication Pattern | Architecture |
 | [ADR-0015](accepted/ADR-0015-tenant-isolation-and-session-token-mechanism.md) | Tenant Isolation Mechanism and POS Session Token Format | Architecture / Identity / Security |
+| [ADR-0016](accepted/ADR-0016-multi-language-and-localisation-strategy.md) | Multi-Language and Localisation Strategy | Architecture / Internationalisation |
 
 ---
 
 ## Proposed
 
-| ADR | Title | Area |
-|-----|-------|------|
-| [ADR-0016](proposed/ADR-0016-multi-language-and-localisation-strategy.md) | Multi-Language and Localisation Strategy | Architecture / Internationalisation |
+None.
 
 ---
 

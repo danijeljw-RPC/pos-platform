@@ -35,4 +35,4 @@ Footer: Thank you, receipt options
 
 - [PLAN-0005 — Payments, Receipts, Printing](../plans/active/PLAN-0005-payments-receipts-printing-planning.md)
 - [ADR-0011 — Receipt Tax Marker Strategy](../adr/accepted/ADR-0011-receipt-tax-marker-strategy.md)
-- [ADR-0016 — Multi-Language and Localisation Strategy](../adr/proposed/ADR-0016-multi-language-and-localisation-strategy.md) (proposed) — receipt text localisation is planned but deferred; receipt labels must remain configurable/localisable rather than hard-coded, per that ADR.
+- [ADR-0016 — Multi-Language and Localisation Strategy](../adr/accepted/ADR-0016-multi-language-and-localisation-strategy.md) (accepted 2026-07-05) — receipt text localisation is planned but deferred; receipt labels must remain configurable/localisable rather than hard-coded, per that ADR.

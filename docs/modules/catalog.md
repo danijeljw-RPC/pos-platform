@@ -73,4 +73,4 @@ The resolved-menu read endpoint (`docs/modules/menus.md`) is the first real cons
 ## Related Plans
 
 - [PLAN-0004 — Catalog, Menu, Tax, Pricing](../plans/active/PLAN-0004-catalog-menu-tax-pricing-planning.md)
-- [ADR-0016 — Multi-Language and Localisation Strategy](../adr/proposed/ADR-0016-multi-language-and-localisation-strategy.md) (proposed) — business data translations (e.g. `ProductTranslation`, `CategoryTranslation`, `ModifierTranslation`) are planned but deferred. PLAN-0004 should read this ADR before finalising the catalogue schema so the design doesn't block adding translations later.
+- [ADR-0016 — Multi-Language and Localisation Strategy](../adr/accepted/ADR-0016-multi-language-and-localisation-strategy.md) (accepted 2026-07-05) — business data translations (e.g. `ProductTranslation`, `CategoryTranslation`, `ModifierTranslation`) are planned but deferred. PLAN-0004's `Product`/`ProductCategory`/`Modifier`/`Menu` schema already honours this ADR's constraint (invariant/fallback `Name` columns, no string-matching business logic on them), confirmed at each milestone's closeout — no rework is anticipated when translations are eventually implemented.

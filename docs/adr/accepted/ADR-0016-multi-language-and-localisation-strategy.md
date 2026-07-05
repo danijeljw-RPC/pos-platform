@@ -2,11 +2,11 @@
 
 ## Status
 
-Proposed
+Accepted
 
 ## Date
 
-2026-07-02
+2026-07-02 (proposed); accepted 2026-07-05 as part of PLAN-0004 Milestone H closeout — formalizes the constraints Milestones A–G already honoured, no implementation follows from acceptance itself (see Follow-Up Work).
 
 ## Context
 
@@ -32,7 +32,7 @@ Daxa POS adopts a **deferred-but-non-blocking** multi-language strategy: plan an
 Multi-language is not one problem — it is five, and they must not be conflated into one generic "translation" mechanism:
 
 | Type | What it covers | Who controls the content | Mechanism |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | **Application UI localisation** | Menus, buttons, screen labels, validation messages, system labels in admin/back-office, POS, KDS, customer display | Daxa (ships with the product) | Standard .NET localisation (`IStringLocalizer`, `.resx`) |
 | **Business/customer-configured data translations** | Product names, category names, modifier names, menu section names, surcharge names | Tenant/venue staff | Per-entity translation records keyed by culture code |
 | **Receipt/print text localisation** | Receipt headers, "Total", "Refund", tax summary labels, footer text | Daxa (defaults) + tenant override | Configurable label set per location, culture-keyed, extending ADR-0011's existing configurable-marker pattern |
@@ -168,10 +168,10 @@ This ADR's acceptance is paired with:
 
 ## Related Documents
 
-- [ADR-0003 — Multi-Location by Default](../accepted/ADR-0003-multi-location-by-default.md)
-- [ADR-0006 — Tax-Line Based Tax Engine](../accepted/ADR-0006-tax-line-based-tax-engine.md)
-- [ADR-0011 — Receipt Tax Marker Strategy](../accepted/ADR-0011-receipt-tax-marker-strategy.md)
-- [ADR-0015 — Tenant Isolation Mechanism and POS Session Token Format](../accepted/ADR-0015-tenant-isolation-and-session-token-mechanism.md)
+- [ADR-0003 — Multi-Location by Default](ADR-0003-multi-location-by-default.md)
+- [ADR-0006 — Tax-Line Based Tax Engine](ADR-0006-tax-line-based-tax-engine.md)
+- [ADR-0011 — Receipt Tax Marker Strategy](ADR-0011-receipt-tax-marker-strategy.md)
+- [ADR-0015 — Tenant Isolation Mechanism and POS Session Token Format](ADR-0015-tenant-isolation-and-session-token-mechanism.md)
 - [Architecture: Overview](../../architecture/overview.md)
 - [Architecture: Tax Engine](../../architecture/tax-engine.md)
 - [Module: Tax](../../modules/tax.md)

@@ -117,7 +117,7 @@ Tax configuration endpoints (`src/DaxaPos.Api/Endpoints/Tax/`) now let a tenant 
 
 ## Planned: Localised Tax Labels (Deferred)
 
-Tax label text ("GST", "Includes GST", tax-free marker legends) is planned to become translatable, extending the existing configurable-marker mechanism (ADR-0011) rather than replacing it. See [ADR-0016 — Multi-Language and Localisation Strategy](../adr/proposed/ADR-0016-multi-language-and-localisation-strategy.md) (proposed, not yet implemented). AU/NZ wording remains the first concrete example; it is not hard-coded into the architecture.
+Tax label text ("GST", "Includes GST", tax-free marker legends) is planned to become translatable, extending the existing configurable-marker mechanism (ADR-0011) rather than replacing it. See [ADR-0016 — Multi-Language and Localisation Strategy](../adr/accepted/ADR-0016-multi-language-and-localisation-strategy.md) (accepted 2026-07-05, not yet implemented). AU/NZ wording remains the first concrete example; it is not hard-coded into the architecture.
 
 ## Related Documents
 
