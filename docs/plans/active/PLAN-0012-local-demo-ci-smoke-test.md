@@ -28,7 +28,8 @@ Bash, `curl`, and `jq`.
 
 ## Status
 
-Active.
+Complete and locally verified (2026-07-07). GitHub-hosted execution remains pending until the
+commits are pushed and the workflow runs.
 
 ## Scope
 
@@ -114,7 +115,7 @@ docs/issues/index.md
   PostgreSQL on `127.0.0.1:5432`.
 - Produces: a `Local Demo Smoke Test` status check with first-run and rerun verification.
 
-- [ ] **Step 1: Verify the workflow is absent**
+- [x] **Step 1: Verify the workflow is absent**
 
 Run:
 
@@ -124,7 +125,7 @@ test -f .github/workflows/local-demo-smoke-ci.yml
 
 Expected: exit status `1`, proving the new check does not exist yet.
 
-- [ ] **Step 2: Create the workflow**
+- [x] **Step 2: Create the workflow**
 
 Create `.github/workflows/local-demo-smoke-ci.yml` with:
 
@@ -252,7 +253,7 @@ jobs:
           fi
 ```
 
-- [ ] **Step 3: Validate structure and shell syntax**
+- [x] **Step 3: Validate structure and shell syntax**
 
 Run:
 
@@ -265,7 +266,7 @@ bash -n scripts/setup-local-demo.sh
 Expected: the file exists, every required workflow fragment is found, and Bash reports no syntax
 error.
 
-- [ ] **Step 4: Run the live two-pass smoke sequence**
+- [x] **Step 4: Run the live two-pass smoke sequence**
 
 Run the workflow-equivalent migration, API startup, bounded health check, and two helper
 invocations against an available PostgreSQL database. Use the exact environment values from the
@@ -274,7 +275,7 @@ workflow.
 Expected: the first run prints `Daxa POS local demo environment is ready`; the second additionally
 prints `Reusing existing active location` and `Reusing existing active staff member`.
 
-- [ ] **Step 5: Commit the workflow**
+- [x] **Step 5: Commit the workflow**
 
 ```bash
 git add -- .github/workflows/local-demo-smoke-ci.yml
@@ -295,7 +296,7 @@ git commit -m "ci: test local demo setup helper"
 - Consumes: verified workflow behavior from Task 1.
 - Produces: durable CI usage, verification evidence, and handoff documentation.
 
-- [ ] **Step 1: Add the automated-CI section**
+- [x] **Step 1: Add the automated-CI section**
 
 Add this after the fast-path section in `docs/testing/local-smoke-test.md`:
 
@@ -307,18 +308,18 @@ service container and live API. The first run confirms setup succeeds; the secon
 location and staff records are reused. Keycloak, Workers, and the PWA are intentionally absent.
 ```
 
-- [ ] **Step 2: Record verification evidence**
+- [x] **Step 2: Record verification evidence**
 
 Update this plan to `Complete` and add the exact validation commands and outcomes. Update
 `PLAN-0012-worker-notes.md` with files changed, assumptions, commands, results, and any
 GitHub-hosted verification still pending.
 
-- [ ] **Step 3: Record the issue-index review**
+- [x] **Step 3: Record the issue-index review**
 
 Update the introduction of `docs/issues/index.md` to state PLAN-0012 reviewed the index and
 introduced no unresolved product or architecture question.
 
-- [ ] **Step 4: Run final checks**
+- [x] **Step 4: Run final checks**
 
 Run:
 
@@ -331,7 +332,7 @@ git status --short
 Expected: Bash syntax passes, no whitespace errors are reported, and only the intended PLAN-0012
 files plus pre-existing unrelated working-tree changes are listed.
 
-- [ ] **Step 5: Commit documentation**
+- [x] **Step 5: Commit documentation**
 
 ```bash
 git add -- docs/testing/local-smoke-test.md docs/plans/active/PLAN-0012-local-demo-ci-smoke-test.md docs/plans/active/PLAN-0012-worker-notes.md docs/issues/index.md
@@ -382,3 +383,25 @@ data, schema, or runtime behavior is changed.
 GitHub-hosted execution is the definitive validation of Actions orchestration. Local verification
 can prove the same migrations/API/script data path but cannot fully emulate the hosted runner's
 service-container lifecycle.
+
+## Verification Results (2026-07-07)
+
+- The pre-implementation `test -f .github/workflows/local-demo-smoke-ci.yml` check exited `1`,
+  confirming the workflow was absent.
+- Structural checks found PostgreSQL 16, .NET 10, unpinned `dotnet-ef` installation, explicit
+  `curl`/`jq` installation, and both helper invocations in the completed workflow.
+- `bash -n scripts/setup-local-demo.sh` passed.
+- `rhysd/actionlint:latest` reported no errors with only the new workflow mounted read-only.
+- Local runtime versions were .NET SDK `10.0.300` and the latest installed `dotnet-ef`, `10.0.9`.
+- A separate ephemeral `postgres:16-alpine` container used database `daxapos_ci` on host port
+  `55432`. It did not modify or stop the repository's already-running root Compose stack.
+- `dotnet ef database update` applied all 17 migrations to the fresh test database and exited
+  successfully.
+- A separate API process started in the `CI` environment on `http://127.0.0.1:5119`, created the
+  CI bootstrap administrator, and reported healthy.
+- First helper run with `CI901` / `Local Demo CI Verification Venue` created one location and one
+  staff member and printed `Daxa POS local demo environment is ready`.
+- Second helper run reused the same location and staff IDs, reset the staff PIN, issued a fresh
+  registration PIN, and printed all three workflow assertion fragments.
+- The isolated API process and PostgreSQL container were stopped after verification.
+- GitHub-hosted verification is not claimed; it will occur after these commits are pushed.

@@ -31,6 +31,14 @@ Keycloak-stopped offline confirmation.
 
 ---
 
+## Automated CI smoke test (PLAN-0012)
+
+`.github/workflows/local-demo-smoke-ci.yml` runs the fast path twice against a fresh PostgreSQL
+service container and live API. The first run confirms setup succeeds; the second confirms the
+location and staff records are reused. Keycloak, Workers, and the PWA are intentionally absent.
+
+---
+
 ## Important quirk
 
 Every location, PIN, and staff operation is cross-checked against the caller's session `OrganisationId`.

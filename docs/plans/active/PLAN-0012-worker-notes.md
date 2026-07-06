@@ -2,7 +2,8 @@
 
 ## Current Status
 
-Planning complete; implementation pending.
+Implemented and locally verified (2026-07-07). GitHub-hosted execution remains pending until the
+commits are pushed.
 
 ## Human Decisions
 
@@ -29,7 +30,7 @@ Planning complete; implementation pending.
 - GitHub-hosted Ubuntu allows `apt-get` installation and provides Docker for the PostgreSQL
   service container.
 
-## Intended Files
+## Files Changed
 
 ```text
 .github/workflows/local-demo-smoke-ci.yml
@@ -41,16 +42,23 @@ docs/issues/index.md
 
 ## Verification To Record
 
-- Workflow structural validation.
-- Bash syntax validation.
-- Migration result.
-- API health result.
-- First helper run result.
-- Second helper run reuse result.
-- Whitespace check.
-- GitHub Actions run URL or explicit note that hosted verification remains pending.
+- `test -f .github/workflows/local-demo-smoke-ci.yml` failed before creation as expected.
+- `rhysd/actionlint:latest` reported no workflow errors; only the workflow file was mounted
+  read-only into the validator container.
+- `bash -n scripts/setup-local-demo.sh` passed.
+- Local verification used .NET SDK `10.0.300` and `dotnet-ef` `10.0.9`.
+- All 17 migrations applied to a fresh, isolated PostgreSQL 16 database on host port `55432`.
+- The isolated API became healthy on host port `5119`.
+- The first helper run created the workflow-specific location and staff member.
+- The second helper run reused both IDs, reset the staff PIN, created a fresh registration PIN,
+  and emitted every output fragment asserted by the workflow.
+- The isolated API and PostgreSQL container were stopped. The pre-existing root Compose stack was
+  not modified or stopped.
+- GitHub-hosted execution has not occurred in this local session and is not claimed.
 
 ## Handoff
 
-Follow `PLAN-0012-local-demo-ci-smoke-test.md`. Do not modify the existing
-`.github/workflows/ci.yml`; it already has unrelated working-tree changes.
+Push the three PLAN-0012 commits and confirm `Local Demo Smoke Test / local-demo-smoke` passes on
+GitHub. If hosted execution differs from local verification, inspect the workflow's failure-only
+API log before changing the helper. The existing `.github/workflows/ci.yml` and all unrelated
+working-tree changes were preserved.
