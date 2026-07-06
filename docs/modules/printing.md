@@ -80,3 +80,28 @@ Human Decision #1).
   whichever future milestone adds one.
 - See `docs/plans/active/PLAN-0005-worker-notes.md`'s "Milestone E Report" for full detail and
   deviations.
+
+## Deferred: Location-Scoped Production Printer Routing (required for production, not yet built)
+
+Tracked as [OI-0018](../issues/open/OI-0018-location-scoped-production-printer-routing.md), opened
+at PLAN-0005 Milestone F closeout (2026-07-06). Today's single-network-printer behaviour (above) is
+correct for a single-counter MVP demo, but production venues need each `Location` to route order
+components to its own printers independently:
+
+- Printer routing must be scoped by `Location` — each location's mapping is independent of every
+  other location, even within the same tenant/organisation.
+- Each order line/component resolves to a production route (e.g. `drinks`, `kitchen`,
+  `kitchen-deep-fried`, `dessert`, `coffee`, `bar`).
+- Each location maps those routes to its own physical printers as data, not code — e.g. Location A
+  might route `drinks` to a bar printer and `kitchen-deep-fried` to a dedicated fryer printer, while
+  Location B routes both `kitchen` and `kitchen-deep-fried` to one shared kitchen printer.
+- A production docket must contain only the components relevant to that printer/station — a
+  materially different document from the whole-order customer receipt (`ReceiptDocument`), which
+  remains unchanged and is not filtered client-side to produce dockets.
+- Missing/disabled route handling is explicitly undecided — left for whichever plan implements this.
+
+This was deliberately not built in PLAN-0005 (per approved Human Decision #1's hardware/device
+scope boundary and Milestone F's own explicit instruction not to add printer routing tables in a
+consolidation milestone) — see OI-0018 for the full requirement, options, and open decisions. Admin
+UI for configuring routes, printer discovery, USB transport, MAUI, and hardware/provider adapters
+remain PLAN-0006/PLAN-0009/a later hardware-integration plan's scope, not this OI's.

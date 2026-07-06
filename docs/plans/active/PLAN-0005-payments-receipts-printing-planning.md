@@ -2,7 +2,7 @@
 
 ## Status
 
-Milestones A, B, C, D, and E done (2026-07-05, 2026-07-05, 2026-07-06, 2026-07-06, 2026-07-06) — see each milestone's status note below. Milestone F not yet started.
+**PLAN-0005 is complete.** Milestones A, B, C, D, E, and F done (2026-07-05, 2026-07-05, 2026-07-06, 2026-07-06, 2026-07-06, 2026-07-06) — see each milestone's status note below. Not relocated to `docs/plans/completed/` (matching PLAN-0002/PLAN-0003/PLAN-0004's own precedent — OI-0016, defining a completed-plan archival convention, remains open).
 
 ### Milestone E kickoff scope note (2026-07-06)
 
@@ -206,7 +206,28 @@ full detail and deviations.
 
 ### Milestone F — Consolidation, RBAC sweep, and documentation closeout
 
-Test-and-documentation-only, mirroring PLAN-0004 Milestone H exactly: extend `RbacTests.cs`'s endpoint inventory with every Milestone A–E `rejectStaffPin: true` route, extend `StaffPinLoginTests`'s shared inventory, re-verify all migrations from an empty database, confirm zero new `IgnoreQueryFilters()` call sites, review whether OI-0017 (see Human Decisions Needed #3) needs filing as touched-by-this-plan or remains tracked separately, update `docs/CHANGELOG.md`/`docs/issues/index.md`/`docs/adr/index.md` as needed.
+**Status: Done (2026-07-06).** Test-and-documentation-only, exactly as scoped and mirroring
+PLAN-0004 Milestone H's own consolidation shape — no entities, no migration, no endpoints, no
+production behaviour change. `RbacTests.cs`'s `PermissionGatedEndpoints()` inventory and
+`StaffPinLoginTests.cs`'s shared `AssertAllSensitiveEndpointsForbiddenAsync` inventory are both
+extended with PLAN-0005's only `rejectStaffPin: true` surface — the 2 refund endpoints
+(`payments.refund`). `orders.manage`/`payments.record`/`receipts.reprint` are deliberately excluded
+from those two inventories (all three are staff-PIN-eligible, so a staff session legitimately
+succeeds against them — adding them would make those inventories' own staff-session-403 theories
+wrong); instead, each of `OrderEndpointsTests.cs`/`PaymentEndpointsTests.cs`/
+`ReceiptEndpointsTests.cs` gained its own no-permission-403 and device-token-403 sweep covering
+every endpoint in its group not already individually tested. A new
+`PermissionCatalogue_ClassifiesPLAN0005Permissions_ByCategory` test re-confirms all four PLAN-0005
+permission codes' categories against the approved table below. All 17 migrations re-verified clean
+from empty (no new migration this milestone). `IgnoreQueryFiltersUsageTests` re-run — zero new call
+sites. Both Milestone E follow-ups were disposed, not silently dropped: the `deploy/docker-compose.yml`
+worker service entry stays explicitly deferred (the compose file has no `api` service either yet —
+adding a lone `worker` entry without it would be inconsistent, unstarted infra work for a future
+plan); per-location/per-terminal printer routing was filed as
+[OI-0018](../issues/open/OI-0018-location-scoped-production-printer-routing.md) and stays open, not
+implemented. OI-0017 remains open, untouched (no direct blocker surfaced). 1052/1052 tests passing
+(17 new: 10 from the extended `RbacTests` inventory + 1 permission-category test + 2 each from
+Orders/Payments/Receipts). See `PLAN-0005-worker-notes.md`'s "Milestone F Report" for full detail.
 
 ## Permission Catalogue Additions (Summary)
 

@@ -541,3 +541,167 @@ milestone to add to either inventory. Milestone F should also decide (or explici
 follow-up items this milestone flagged but did not resolve: a `worker` service entry in
 `deploy/docker-compose.yml`, and per-location/per-terminal printer routing (today there is exactly
 one configured network printer endpoint for the whole deployment).
+
+---
+
+## Milestone F Report (2026-07-06)
+
+Test-and-documentation-only, exactly as scoped and mirroring PLAN-0004 Milestone H's own
+consolidation shape: no entities, no migration, no endpoints, no production behaviour change. HEAD
+before this session was `0aa9999` (docs: close PLAN-0005 Milestone E).
+
+### RBAC/Staff-PIN inventory work
+
+`RbacTests.cs`'s `PermissionGatedEndpoints()` inventory (the `rejectStaffPin: true` sweep) is
+extended with PLAN-0005's only surface that belongs there: the 2 refund endpoints
+(`POST`/`GET /api/v1/payments/{id}/refunds`, `payments.refund`, `AdminSensitive`). Multiplied
+across the inventory's 5 existing theories (401/garbage-token/no-permission-403/device-token-403/
+staff-session-403), this adds 10 new test cases automatically. `orders.manage`, `payments.record`,
+and `receipts.reprint`/the receipt `GET` are **not** added to this inventory — all three are
+`Operational`/staff-PIN-eligible (a staff session legitimately succeeds against them), so adding
+them would make the inventory's own `StaffPinSession_Returns403_OnEveryRejectStaffPinEndpoint`
+theory actively wrong for those rows. This is the same exclusion the inventory's own doc comment
+already established for PLAN-0004's `catalog.sold-out-toggle`/resolved-menu read — extended here to
+PLAN-0005's three analogous staff-accessible surfaces rather than re-litigated.
+
+`StaffPinLoginTests.cs`'s `AssertAllSensitiveEndpointsForbiddenAsync` shared inventory (exercised by
+both `StaffSession_Receives403_FromEveryRejectStaffPinEndpoint` and
+`StaffSession_MisconfiguredWithSensitivePermissions_IsStillRejectedByRejectStaffPinEndpoints`) is
+extended with the same 2 refund endpoints, for the same reason — it is PLAN-0005's only
+`rejectStaffPin: true` surface.
+
+For PLAN-0005's three staff-accessible endpoint groups (`orders.manage`'s 9 endpoints,
+`payments.record`'s 2, `receipts.reprint`/the receipt-`GET`'s 2), each Milestone's own test file
+already had a staff-succeeds proof and *some* no-permission-403 coverage, but not full coverage of
+every endpoint in the group, and no device-token-403 coverage at all (device tokens carry empty
+roles/permissions per ADR-0008 and must never satisfy any of these codes either). Added, per file,
+following each file's own established per-test style rather than a new shared abstraction:
+
+- `OrderEndpointsTests.cs`: `RemainingEndpoints_Return403_WithoutOrdersManage` (the 8
+  `orders.manage` endpoints `Create_Fails_WithoutPermission` didn't already cover) and
+  `AllEndpoints_Return403_ForDeviceToken` (all 9).
+- `PaymentEndpointsTests.cs`: `ListPayments_Fails_WithoutPermission` (the list endpoint
+  `Create_Fails_WithoutPermission` didn't already cover) and `AllEndpoints_Return403_ForDeviceToken`
+  (both).
+- `ReceiptEndpointsTests.cs`: `GetReceipt_Fails_WithoutPermission` (the `GET` endpoint
+  `Reprint_Fails_WithoutPermission` didn't already cover) and `AllEndpoints_Return403_ForDeviceToken`
+  (both).
+
+`StaffPinLoginTests.cs` also gains `PermissionCatalogue_ClassifiesPLAN0005Permissions_ByCategory`,
+mirroring the existing PLAN-0004 equivalent — a direct DB-query proof that `orders.manage`/
+`payments.record`/`receipts.reprint` are `Operational` and `payments.refund` is `AdminSensitive`,
+exactly as approved and never silently drifted since. Role-grant correctness (`Staff` carries
+`orders.manage`/`payments.record`/`receipts.reprint` but not `payments.refund`; `SystemAdmin`/
+`OrganisationOwner`/`VenueManager` carry all four) was re-verified by reading
+`RolePermissionConfiguration.cs` directly (matches the plan's approved table exactly, no drift) and
+is also already exercised behaviourally by each Milestone's own staff-succeeds/staff-rejected tests
+— no new DB-query-based role-grant test was added on top of that, since it would duplicate coverage
+that already exists end-to-end.
+
+17 new tests total (10 from the extended `RbacTests` inventory + 1 permission-category test + 2
+each from Orders/Payments/Receipts), zero regressions.
+
+### Migration verification
+
+All 17 migrations re-verified to apply cleanly in sequence against a disposable throwaway Postgres
+database (`daxapos_migration_check`, created and dropped, not the shared dev database) — no new
+migration this milestone, so the sequence is unchanged from Milestone E's own verification.
+
+### `IgnoreQueryFilters()` guard
+
+`IgnoreQueryFiltersUsageTests.IgnoreQueryFilters_AppearsOnly_InTheDocumentedBootstrapLocations`
+re-run in isolation — still passes against the same 6-file approved list Milestone E already
+established (`DeviceTokenAuthenticationHandler.cs`, `SessionAuthenticationHandler.cs`,
+`BootstrapAdminSeeder.cs`, `AuthEndpoints.cs`, `DeviceRegistrationEndpoints.cs`,
+`OutboxProcessorWorker.cs`). Zero new call sites introduced by this milestone's test-only changes.
+
+### Milestone E follow-ups: disposed
+
+1. **`deploy/docker-compose.yml` worker service entry — explicitly deferred, not added.** Read the
+   file: it defines only `db` and `keycloak` today — there is no `api` service either, despite
+   `DaxaPos.Api` being the actual host every test in this repository runs against via
+   `WebApplicationFactory`. Adding a lone `worker` entry without its `api` sibling would be
+   inconsistent scaffolding, not a real fix, and building both (Dockerfiles, build contexts,
+   connection-string/environment wiring for two hosts) is deployment/infrastructure work outside
+   this test-and-documentation-only milestone's scope. ADR-0012's eventual `api`/`worker`/`db`/
+   `keycloak`/`sync` stack remains the target; this is unstarted infrastructure work for a future
+   infra-focused milestone or plan, not a Milestone F loose end to quietly patch over.
+2. **Per-location/per-terminal printer routing — explicitly deferred, filed as
+   [OI-0018](../../issues/open/OI-0018-location-scoped-production-printer-routing.md).** Per the
+   session's explicit human decision: required for production, but must not be implemented in this
+   milestone. OI-0018 records the full requirement (location-scoped routes, per-location printer
+   mapping as data, production dockets as a distinct document from the customer receipt, missing/
+   disabled-route handling left undecided) and stays open — not resolved, not pre-empted by a
+   half-built table. `docs/modules/printing.md` gained a "Deferred" section pointing at it.
+
+### OI-0017 status re-check
+
+Not touched. Milestone F never reads `Product`/`ProductVariant` — its only work is test additions
+across `Order`/`Payment`/`Refund`/`Receipt`/permission-catalogue surfaces already built by
+Milestones A–D, plus documentation. OI-0017 remains open, unaffected, exactly per this session's
+explicit instruction not to close it absent a direct blocker (there was none).
+
+### Scope boundary re-check (approved Human Decision #1)
+
+No hardware coupling, no PLAN-0006 UI, no PLAN-0009 hardware/provider/device-orchestration code, no
+printer discovery, no MAUI, no USB transport, no production printer routing table, and no print
+admin/retry endpoint were added — all explicitly out of this session's scope and confirmed absent
+by inspection of the diff (test files and documentation only).
+
+### Commands run
+
+```
+dotnet build DaxaPos.sln                                                              (0 warnings/errors)
+dotnet test DaxaPos.sln                                                                (1052/1052)
+dotnet test tests/DaxaPos.UnitTests/DaxaPos.UnitTests.csproj --filter "FullyQualifiedName~IgnoreQueryFiltersUsageTests"   (1/1)
+docker exec deploy-db-1 psql -U daxapos -d daxapos -c "CREATE DATABASE daxapos_migration_check;"
+dotnet ef database update --project src/DaxaPos.Persistence --startup-project src/DaxaPos.Api --connection "...daxapos_migration_check..."   (clean-database migration re-verification, all 17)
+docker exec deploy-db-1 psql -U daxapos -d daxapos -c "DROP DATABASE daxapos_migration_check;"
+```
+
+### Build/test result
+
+`dotnet build DaxaPos.sln` — 0 warnings, 0 errors.
+`dotnet test DaxaPos.sln` — **1052/1052 passed** (144 unit tests + 908 API tests, up from 1035
+before this session — 17 new tests, zero regressions), against real Postgres, 0 failed, 0 skipped.
+All 17 migrations verified to apply cleanly in sequence from an empty database (no new migration
+this milestone). No new `IgnoreQueryFilters()` call sites.
+
+### Files changed
+
+Modified (tests):
+- `tests/DaxaPos.Api.Tests/RbacTests.cs` — extended `PermissionGatedEndpoints()` with the 2 refund
+  endpoints; updated class doc comment.
+- `tests/DaxaPos.Api.Tests/StaffPinLoginTests.cs` — extended
+  `AssertAllSensitiveEndpointsForbiddenAsync` with the 2 refund endpoints; added
+  `PermissionCatalogue_ClassifiesPLAN0005Permissions_ByCategory`; new `using
+  DaxaPos.Api.Endpoints.Refunds;`.
+- `tests/DaxaPos.Api.Tests/OrderEndpointsTests.cs` — added
+  `RemainingEndpoints_Return403_WithoutOrdersManage`, `AllEndpoints_Return403_ForDeviceToken`.
+- `tests/DaxaPos.Api.Tests/PaymentEndpointsTests.cs` — added `ListPayments_Fails_WithoutPermission`,
+  `AllEndpoints_Return403_ForDeviceToken`.
+- `tests/DaxaPos.Api.Tests/ReceiptEndpointsTests.cs` — added `GetReceipt_Fails_WithoutPermission`,
+  `AllEndpoints_Return403_ForDeviceToken`.
+
+New (docs):
+- `docs/issues/open/OI-0018-location-scoped-production-printer-routing.md`.
+
+Modified (docs):
+- `docs/issues/index.md` — OI-0018 added to the open-issues table and summary paragraph.
+- `docs/modules/printing.md` — new "Deferred: Location-Scoped Production Printer Routing" section.
+- `docs/plans/active/PLAN-0005-payments-receipts-printing-planning.md` — Status line, Milestone F
+  status marker, plan closure.
+- `docs/plans/active/PLAN-0005-worker-notes.md` — this Milestone F Report.
+- `docs/CHANGELOG.md` — new entry.
+
+No production source under `src/` was touched — confirmed by this list containing only `tests/`
+and `docs/` paths.
+
+### Blockers before PLAN-0006
+
+None. PLAN-0005 is complete: Orders, Payments, Refunds, Receipts, and Printing all exist,
+RBAC-swept, migration-verified, and documented. `docs/plans/active/PLAN-0005-payments-receipts-printing-planning.md`
+records PLAN-0005 as closed. OI-0017 (Product archive-and-replace concurrency) and OI-0018
+(location-scoped production printer routing) remain open, tracked, and unaffected by this
+milestone's own scope. PLAN-0006 (Terminal, Display, PWA) is the next parallel track named in this
+plan's own Handoff Notes.

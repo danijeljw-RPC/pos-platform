@@ -4,6 +4,59 @@ Changes are listed in reverse chronological order.
 
 ---
 
+## 2026-07-06 — PLAN-0005 Milestone F (consolidation, RBAC sweep, and documentation closeout) — PLAN-0005 complete
+
+### Summary
+
+Test-and-documentation-only consolidation closing out PLAN-0005. `RbacTests.cs`'s
+`PermissionGatedEndpoints()` inventory and `StaffPinLoginTests.cs`'s shared
+`AssertAllSensitiveEndpointsForbiddenAsync` inventory are extended with PLAN-0005's only
+`rejectStaffPin: true` surface (the 2 refund endpoints, `payments.refund`). `orders.manage`/
+`payments.record`/`receipts.reprint` — all three staff-PIN-eligible — are deliberately excluded
+from those shared inventories (a staff session legitimately succeeds against them); instead each of
+`OrderEndpointsTests.cs`/`PaymentEndpointsTests.cs`/`ReceiptEndpointsTests.cs` gained its own
+no-permission-403 and device-token-403 sweep for every endpoint in its group not already
+individually tested. A new permission-category classification test re-confirms `orders.manage`/
+`payments.record`/`receipts.reprint` are `Operational` and `payments.refund` is `AdminSensitive`,
+exactly as approved. Both of Milestone E's flagged follow-ups were resolved (deferred, not
+silently dropped): the `deploy/docker-compose.yml` worker service entry stays explicitly deferred
+(the compose file has no `api` service either yet), and per-location/per-terminal production
+printer routing was filed as
+[OI-0018](issues/open/OI-0018-location-scoped-production-printer-routing.md) — required for
+production, intentionally not implemented in this milestone. No production source under `src/` was
+changed; no new migration.
+
+### Key areas changed
+
+- `tests/DaxaPos.Api.Tests/RbacTests.cs` (extended inventory + doc comment).
+- `tests/DaxaPos.Api.Tests/StaffPinLoginTests.cs` (extended inventory; new permission-category test).
+- `tests/DaxaPos.Api.Tests/OrderEndpointsTests.cs`, `PaymentEndpointsTests.cs`,
+  `ReceiptEndpointsTests.cs` (new no-permission/device-token sweep tests).
+- `docs/issues/open/OI-0018-location-scoped-production-printer-routing.md` (new); `docs/issues/index.md`.
+- `docs/modules/printing.md` (new "Deferred: Location-Scoped Production Printer Routing" section).
+- `docs/plans/active/PLAN-0005-payments-receipts-printing-planning.md` (Status line, Milestone F
+  closure — PLAN-0005 now complete); `docs/plans/active/PLAN-0005-worker-notes.md` (Milestone F
+  Report).
+
+### Open issues resolved
+
+OI-0018 opened (location-scoped production printer routing, deferred from Milestone E). OI-0017
+remains open, untouched — no direct blocker surfaced during this milestone.
+
+### Tests / verification outcome
+
+`dotnet build DaxaPos.sln` — 0 warnings, 0 errors. `dotnet test DaxaPos.sln` — 1052/1052 passed
+(144 unit tests + 908 API tests, up from 1035 at Milestone E close — 17 new tests, zero
+regressions), against real Postgres. All 17 migrations verified to apply cleanly in sequence from
+an empty database (no new migration this milestone). No new `IgnoreQueryFilters()` call sites.
+
+### Next
+
+PLAN-0005 is complete. PLAN-0006 (Terminal, Display, PWA) is the next parallel track named in this
+plan's own Handoff Notes.
+
+---
+
 ## 2026-07-06 — PLAN-0005 Milestone E (ESC/POS printing and the generic outbox mechanism)
 
 ### Summary
