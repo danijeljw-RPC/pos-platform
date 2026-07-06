@@ -2,6 +2,8 @@
 
 All Open Issues that require human decision before closing are listed here.
 Issues that have been decided are moved to `issues/closed/` and listed under Closed Issues below.
+Reviewed during PLAN-0011 planning on 2026-07-07; the local demo setup helper introduced no new
+unresolved product or architecture issue.
 
 ---
 
