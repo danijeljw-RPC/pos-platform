@@ -99,7 +99,7 @@ docker compose
 ## Services
 
 | Service | Purpose |
-|---|---|
+| --- | --- |
 | `db` | PostgreSQL database |
 | `api` | ASP.NET Core API |
 | `worker` | Background jobs, sync, print queue, scheduled tasks |
@@ -121,7 +121,7 @@ docker compose
 ## Services
 
 | Service | Image | Port | Purpose |
-|---|---|---:|---|
+| --- | --- | ---: | --- |
 | `db` | `postgres:16-alpine` or newer | `127.0.0.1:5432` dev only | PostgreSQL database |
 | `api` | built from `src/DaxaPos.Api/Dockerfile` | internal `8080` | ASP.NET Core API |
 | `worker` | built from `src/DaxaPos.Workers/Dockerfile` | internal | Background jobs |
@@ -131,7 +131,7 @@ docker compose
 ## Optional future services
 
 | Service | Purpose |
-|---|---|
+| --- | --- |
 | `seq` | Local structured log viewing |
 | `prometheus` | Metrics |
 | `grafana` | Dashboards |
@@ -268,7 +268,7 @@ Expected:
 Recommended volumes:
 
 | Volume | Purpose |
-|---|---|
+| --- | --- |
 | `db_data` | PostgreSQL data |
 | `api_logs` | API logs if file logging is used |
 | `worker_logs` | Worker logs if file logging is used |
@@ -285,7 +285,7 @@ Database volume must be persistent across restarts.
 Development example:
 
 | Port | Purpose |
-|---:|---|
+| ---: | --- |
 | `80` | HTTP reverse proxy |
 | `443` | HTTPS reverse proxy |
 | `5432` | PostgreSQL dev-only local binding |
@@ -343,7 +343,7 @@ The actual hostname must be configurable.
 Required health checks:
 
 | Health check | Purpose |
-|---|---|
+| --- | --- |
 | API health | API is alive |
 | Database health | DB connection works |
 | Migration health | DB schema current |
