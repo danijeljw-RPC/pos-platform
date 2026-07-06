@@ -36,7 +36,7 @@ Stand up a working but empty Daxa POS platform skeleton. This includes the .NET 
 
 ## Files Likely To Change
 
-```
+```text
 DaxaPos.sln
 Directory.Build.props
 src/DaxaPos.Api/
@@ -113,7 +113,7 @@ deploy/.env.example
 
 Not yet committed — no commit has been made for this work; it remains in the working tree pending an explicit commit instruction. Recommended sequence once approved:
 
-```
+```text
 chore: scaffold Daxa POS .NET solution and project skeleton
 feat(application,infrastructure): add minimal domain event dispatcher (ADR-0014)
 feat(persistence): add Tenant/Organisation/Location/Device/Terminal entities and initial migration

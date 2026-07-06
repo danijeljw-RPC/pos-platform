@@ -45,6 +45,7 @@ Recommended: MSIX package + Daxa-hosted AppInstaller feed.
 ## Kiosk / Assigned Access (Optional)
 
 For venues that want the POS to lock down to Daxa Terminal only:
+
 - Use Windows Assigned Access (single-app kiosk mode) via Group Policy or Intune.
 - This is an OS-level configuration, not a Daxa application feature.
 

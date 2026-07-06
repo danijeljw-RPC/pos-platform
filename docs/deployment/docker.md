@@ -74,7 +74,7 @@ docker compose logs -f worker
 curl http://localhost:5118/health
 ```
 
-Open the PWA at **http://localhost:8080/**. It calls the API at `http://localhost:5118/` — this
+Open the PWA at **<http://localhost:8080/>**. It calls the API at `http://localhost:5118/` — this
 is baked into the `web` image via `deploy/web/appsettings.docker.json` at build time, since the
 Blazor WebAssembly app runs in the *browser*, which cannot resolve Compose service names. The
 `api`/`worker`/`migrations` services, by contrast, talk to Postgres over the Compose network
@@ -145,7 +145,7 @@ curl http://localhost:5118/health
 
 Set the deployment mode via environment variable:
 
-```
+```text
 DAXA_DEPLOYMENT_MODE=Cloud
 DAXA_DEPLOYMENT_MODE=Local
 DAXA_DEPLOYMENT_MODE=Hybrid

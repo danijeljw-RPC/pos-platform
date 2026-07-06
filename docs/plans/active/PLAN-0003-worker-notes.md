@@ -42,6 +42,7 @@ Human approved the plan and ADR-0015 with five recorded decisions (see the plan'
 ### Files changed
 
 New:
+
 - `src/DaxaPos.Domain/Enums/AuthMethod.cs`
 - `src/DaxaPos.Domain/Tenancy/ICurrentTenantProvider.cs`
 - `src/DaxaPos.Application/Identity/AuthContext.cs`, `IAuthContextAccessor.cs`, `IPinHasher.cs`, `IDeviceCredentialHasher.cs`, `ISessionTokenService.cs`, `Permissions.cs`
@@ -53,6 +54,7 @@ New:
 - `docs/adr/accepted/ADR-0015-tenant-isolation-and-session-token-mechanism.md` (moved from `proposed/`, content updated)
 
 Modified:
+
 - `src/DaxaPos.Infrastructure/DependencyInjection.cs` — registers `IAuthContextAccessor`, `ICurrentTenantProvider`, `IPinHasher`, `IDeviceCredentialHasher`, `ISessionTokenService`, plus `AddHttpContextAccessor()`.
 - `src/DaxaPos.Infrastructure/DaxaPos.Infrastructure.csproj` — added `FrameworkReference` to `Microsoft.AspNetCore.App` (see Deviations below).
 - `DaxaPos.sln` — added `DaxaPos.UnitTests` under the `tests` solution folder.
@@ -68,6 +70,7 @@ None — Milestone A is schema-free by design. The first migration (`AddTenantIs
 ### Tests added
 
 18 new tests in `tests/DaxaPos.UnitTests` (all TDD'd — RED confirmed via compile failure, then GREEN):
+
 - `Pbkdf2PinHasherTests` (4): correct-PIN verify, wrong-PIN rejection, distinct salts per hash call, hash never contains the raw PIN.
 - `HmacDeviceCredentialHasherTests` (4): same shape, for device credential secrets.
 - `RandomSessionTokenServiceTests` (5): non-empty/high-entropy token, distinct tokens per call, deterministic hash for the same token (needed for DB lookup), distinct hashes for distinct tokens, hash is never equal to the raw token.
@@ -77,7 +80,7 @@ Existing `HealthCheckTests` (1, from PLAN-0002) re-run as a regression check —
 
 ### Commands run
 
-```
+```text
 dotnet sln add tests/DaxaPos.UnitTests/DaxaPos.UnitTests.csproj --solution-folder tests
 dotnet test tests/DaxaPos.UnitTests/DaxaPos.UnitTests.csproj   (run repeatedly through the RED/GREEN cycle)
 dotnet build DaxaPos.sln
@@ -116,11 +119,13 @@ Human approved Milestone B scope (tenant isolation columns, fail-closed EF Core 
 ### Files changed
 
 New:
+
 - `tests/DaxaPos.Api.Tests/Support/FakeCurrentTenantProvider.cs` — test double for `ICurrentTenantProvider`.
 - `tests/DaxaPos.Api.Tests/TenantIsolationTests.cs` — 6 tests (see below).
 - `src/DaxaPos.Persistence/Migrations/20260701102312_AddTenantIsolationColumns.cs` (+ `.Designer.cs`, + updated `DaxaDbContextModelSnapshot.cs`).
 
 Modified:
+
 - `src/DaxaPos.Domain/Entities/Location.cs`, `Device.cs`, `Terminal.cs` — added `TenantId` property to each.
 - `src/DaxaPos.Persistence/Configurations/LocationConfiguration.cs`, `DeviceConfiguration.cs`, `TerminalConfiguration.cs` — `TenantId` required, indexed, FK to `Tenant` (`OnDelete: Restrict`).
 - `src/DaxaPos.Persistence/DaxaDbContext.cs` — constructor now takes `ICurrentTenantProvider` (from `DaxaPos.Domain.Tenancy`, no new project reference needed); added fail-closed `HasQueryFilter` for `Organisation`, `Location`, `Device`, `Terminal`.
@@ -136,6 +141,7 @@ Modified:
 ### Tests added
 
 `tests/DaxaPos.Api.Tests/TenantIsolationTests.cs` (6):
+
 - `Location_IsVisible_ToItsOwnTenant`
 - `Location_IsNotVisible_ToADifferentTenant`
 - `Location_IsNotVisible_WhenTenantContextIsMissing`
@@ -147,7 +153,7 @@ Each test seeds fresh, randomly-GUID'd `Tenant`/`Organisation`/`Location` rows d
 
 ### Commands run
 
-```
+```text
 dotnet build tests/DaxaPos.Api.Tests/DaxaPos.Api.Tests.csproj    (RED)
 dotnet build DaxaPos.sln                                          (GREEN, after implementation)
 dotnet ef migrations add AddTenantIsolationColumns \
@@ -190,6 +196,7 @@ TDD used throughout: `LoginLockoutPolicyTests`/`SessionExpiryPolicyTests` (pure 
 ### Files changed
 
 New (selected — see git diff for the full list):
+
 - `src/DaxaPos.Domain/Entities/Role.cs`, `Permission.cs`, `RolePermission.cs`, `User.cs`, `UserRole.cs`, `AuthSession.cs`, `AuditEvent.cs`.
 - `src/DaxaPos.Domain/Events/LocalUserLoginSucceededDomainEvent.cs`, `LocalUserLoginFailedDomainEvent.cs`, `AuthSessionRevokedDomainEvent.cs`.
 - `src/DaxaPos.Application/Identity/LoginLockoutPolicy.cs`, `SessionExpiryPolicy.cs`.
@@ -200,6 +207,7 @@ New (selected — see git diff for the full list):
 - `tests/DaxaPos.Api.Tests/RequirePermissionFilterTests.cs`, `LocalUserLoginTests.cs`.
 
 Modified:
+
 - `src/DaxaPos.Persistence/DaxaDbContext.cs` — new `DbSet`s, fail-closed filters for `User`/`UserRole`/`AuthSession`/`AuditEvent`.
 - `src/DaxaPos.Api/Program.cs` — authentication/authorization wiring, audit handler registration, `MapAuthEndpoints()`, `BootstrapAdminSeeder.SeedAsync()` call before `app.Run()`.
 - `deploy/.env.example` — documented `DAXA_BOOTSTRAP_ADMIN_EMAIL`/`PASSWORD` as dev/local-only.
@@ -225,7 +233,7 @@ Modified:
 
 ### Commands run
 
-```
+```text
 dotnet test tests/DaxaPos.UnitTests/DaxaPos.UnitTests.csproj      (RED then GREEN, policy classes)
 dotnet build tests/DaxaPos.Api.Tests/DaxaPos.Api.Tests.csproj      (RED then GREEN, RequirePermissionFilter)
 dotnet build src/DaxaPos.Persistence/DaxaPos.Persistence.csproj
@@ -287,7 +295,8 @@ Yes — one small additive migration, `AddIsActiveToOrganisationLocationTerminal
 ### Endpoints to add (18 total — see the plan's Milestone D steps 25–27 for full detail)
 
 Flat routes, six per entity (create, list, get-by-id, rename, deactivate, reactivate):
-```
+
+```text
 POST/GET   /api/v1/organisations            GET/PATCH  /api/v1/organisations/{organisationId}
 POST       /api/v1/organisations/{organisationId}/deactivate | /reactivate
 
@@ -317,6 +326,7 @@ A `bool rejectStaffPin = false` parameter added to both `RequirePermissionFilter
 ### How route/body IDs are validated against server-side tenant context
 
 Three layers, all already-established patterns applied consistently, not new mechanisms:
+
 1. `TenantId` is never accepted as an override — present-and-non-null in a request body is a hard 400, not a soft ignore.
 2. Every entity fetch uses the tenant-filtered `DbSet`, so a foreign tenant's row is invisible before any application code runs.
 3. Parent-scoping ids that survive the tenant filter (an `OrganisationId` on a location-create body, a resolved location's `OrganisationId` on any location/terminal operation) are explicitly compared against `AuthContext.OrganisationId`, sourced only from the caller's validated session — never trusted as-is from the request.
@@ -352,6 +362,7 @@ Human approved the Milestone D plan with four clarifications not fully spelled o
 ### Files changed
 
 New:
+
 - `src/DaxaPos.Domain/Events/OrganisationLifecycleDomainEvent.cs`, `LocationLifecycleDomainEvent.cs`, `TerminalLifecycleDomainEvent.cs`.
 - `src/DaxaPos.Api/Endpoints/Identity/OrganisationEndpoints.cs`, `LocationEndpoints.cs`, `TerminalEndpoints.cs`.
 - `src/DaxaPos.Persistence/Migrations/20260701171012_AddIsActiveToOrganisationLocationTerminal.cs` (+ `.Designer.cs`, + updated `DaxaDbContextModelSnapshot.cs`).
@@ -359,6 +370,7 @@ New:
 - `tests/DaxaPos.Api.Tests/OrganisationEndpointsTests.cs` (12 tests), `LocationEndpointsTests.cs` (12 tests), `TerminalEndpointsTests.cs` (12 tests).
 
 Modified:
+
 - `src/DaxaPos.Domain/Entities/Organisation.cs`, `Location.cs`, `Terminal.cs` — added `IsActive` (bool, default `true`).
 - `src/DaxaPos.Persistence/Configurations/OrganisationConfiguration.cs`, `LocationConfiguration.cs`, `TerminalConfiguration.cs` — `IsActive` column (`HasDefaultValue(true)`), explicitly **not** referenced by any query filter (that lives only in `DaxaDbContext`, and remains `TenantId`-only).
 - `src/DaxaPos.Api/Authorization/RequirePermissionFilter.cs` — added `rejectStaffPin` parameter (default `false`) to the filter constructor and the `RequirePermission` extension method.
@@ -374,7 +386,7 @@ Modified:
 
 ### Endpoints implemented (18)
 
-```
+```text
 POST/GET /api/v1/organisations · GET/PATCH /api/v1/organisations/{id} · POST .../deactivate | /reactivate
 POST/GET /api/v1/locations     · GET/PATCH /api/v1/locations/{id}     · POST .../deactivate | /reactivate
 POST/GET /api/v1/terminals     · GET/PATCH /api/v1/terminals/{id}     · POST .../deactivate | /reactivate
@@ -392,7 +404,7 @@ The first test run failed every write endpoint with a 500. Root cause: `AuditEve
 
 ### Commands run
 
-```
+```text
 dotnet build tests/DaxaPos.Api.Tests/DaxaPos.Api.Tests.csproj      (RED, rejectStaffPin constructor param didn't exist)
 dotnet build src/DaxaPos.Api/DaxaPos.Api.csproj                     (GREEN, after RequirePermissionFilter change)
 dotnet ef migrations add AddIsActiveToOrganisationLocationTerminal \
@@ -476,6 +488,7 @@ TDD used for the pure-logic piece (`DeviceRegistrationPinPolicy` — test writte
 ### Files changed
 
 New:
+
 - `src/DaxaPos.Domain/Entities/DeviceCredential.cs`, `DeviceCredentialStatus.cs`, `DeviceRegistrationPin.cs`.
 - `src/DaxaPos.Domain/Events/DeviceRegistrationPinCreatedDomainEvent.cs`, `DeviceRegistrationPinRevokedDomainEvent.cs`, `DeviceRegisteredDomainEvent.cs`, `DeviceRegistrationFailedDomainEvent.cs`, `DeviceCredentialRotatedDomainEvent.cs`, `DeviceRevokedDomainEvent.cs`.
 - `src/DaxaPos.Application/Identity/DeviceRegistrationPinPolicy.cs`.
@@ -487,6 +500,7 @@ New:
 - `tests/DaxaPos.Api.Tests/Support/DeviceTestHelper.cs`; `DeviceRegistrationPinEndpointsTests.cs` (13 tests), `DeviceRegistrationTests.cs` (10), `DeviceEndpointsTests.cs` (11), `DeviceRegistrationRateLimitTests.cs` (1).
 
 Modified:
+
 - `src/DaxaPos.Persistence/DaxaDbContext.cs` — two new `DbSet`s, two new fail-closed filters, bootstrap-callers comment updated.
 - `src/DaxaPos.Api/Audit/DomainEventAuditHandlers.cs` — six new handlers (JSON-serializing snapshots for the `jsonb` columns, per the Milestone D bug note).
 - `src/DaxaPos.Api/Program.cs` — default authentication is now a policy scheme forwarding by Authorization-header prefix (`Bearer` → `Session`, `Device` → `DeviceToken`); built-in rate limiter wired (`UseRateLimiter` + a fixed-window per-remote-IP policy on the registration endpoint only, permit limit configuration-overridable via `DeviceRegistration:RateLimitPermitLimit` for tests); six audit-handler registrations; three endpoint maps.
@@ -509,7 +523,7 @@ Modified:
 
 ### Commands run
 
-```
+```text
 dotnet build tests/DaxaPos.UnitTests/DaxaPos.UnitTests.csproj          (RED — policy class didn't exist)
 dotnet test tests/DaxaPos.UnitTests/... --filter DeviceRegistrationPinPolicyTests   (GREEN, 13/13)
 dotnet build DaxaPos.sln                                                (0 warnings, 0 errors)
@@ -585,6 +599,7 @@ TDD used for the pure-logic pieces (`StaffCodePolicy`/`StaffPinPolicy`/`StaffSes
 ### Files changed
 
 New:
+
 - `src/DaxaPos.Application/Identity/StaffCodePolicy.cs`, `StaffPinPolicy.cs`, `StaffSessionExpiryPolicy.cs`.
 - `src/DaxaPos.Domain/Entities/StaffMember.cs`, `StaffMemberRole.cs`.
 - `src/DaxaPos.Domain/Events/StaffMemberLifecycleDomainEvent.cs`, `StaffPinLoginSucceededDomainEvent.cs`, `StaffPinLoginFailedDomainEvent.cs`, `StaffMemberDisabledDomainEvent.cs`.
@@ -595,6 +610,7 @@ New:
 - `tests/DaxaPos.Api.Tests/Support/StaffTestHelper.cs`; `StaffMemberEndpointsTests.cs` (21 test cases incl. theories), `StaffPinLoginTests.cs` (17).
 
 Modified:
+
 - `src/DaxaPos.Application/Identity/Permissions.cs` — added `Permissions.AdminSensitive` (all eight current codes) with the Decision 8 follow-up note in its doc comment.
 - `src/DaxaPos.Domain/Entities/AuthSession.cs` — `StaffMemberId` comment updated (FK now exists).
 - `src/DaxaPos.Persistence/Configurations/AuthSessionConfiguration.cs` — `StaffMember` FK added.
@@ -623,7 +639,7 @@ Modified:
 
 ### Commands run
 
-```
+```text
 dotnet build tests/DaxaPos.UnitTests/DaxaPos.UnitTests.csproj                 (RED — policy classes didn't exist)
 dotnet test tests/DaxaPos.UnitTests/... --filter "Staff*PolicyTests"          (GREEN, 37/37)
 dotnet ef migrations add AddStaffMembers --project src/DaxaPos.Persistence/... --startup-project src/DaxaPos.Api/...
@@ -718,12 +734,14 @@ These are verification tests of already-committed behaviour (the deliverable *is
 ### Files changed
 
 New:
+
 - `tests/DaxaPos.Api.Tests/HybridOfflineLoginTests.cs` (2 chain tests — plan step 39).
 - `tests/DaxaPos.Api.Tests/RbacTests.cs` (+ `RbacScenarioFixture`; 153 test cases — plan step 40).
 - `tests/DaxaPos.UnitTests/Architecture/IgnoreQueryFiltersUsageTests.cs` (1 guard test — plan step 41).
 - `docs/issues/open/OI-0011-user-management-endpoints.md`, `OI-0012-inactive-parent-lifecycle-vs-device-staff-authentication.md`, `OI-0013-device-registration-pin-maxuses-concurrency.md`, `OI-0014-tenantless-security-event-auditing.md`, `OI-0015-permission-metadata-for-staff-pin-eligibility.md`.
 
 Modified:
+
 - `docs/issues/index.md` — Open Issues section rebuilt (grouped by area: Identity/Security, Devices, Audit), five entries.
 - `docs/testing/security-tests.md`, `docs/testing/testing-strategy.md` — implementation-status sections mapping this document's requirements to the actual test files.
 - Plan doc (Status, Milestone G steps revised to approved shape with step 41 inserted and Milestone H renumbered 42–44, Human Decisions entry #9) and this notes file.
@@ -742,7 +760,7 @@ Modified:
 
 ### Commands run
 
-```
+```text
 docker compose ps                                                       (db only; keycloak not running throughout)
 dotnet build DaxaPos.sln                                                (0 warnings, 0 errors)
 dotnet test tests/DaxaPos.UnitTests/... --filter IgnoreQueryFiltersUsageTests        (1/1)
@@ -810,6 +828,7 @@ Both this file's Milestone G report ("Working tree status: **Not committed**") a
 ### Worker notes final summary required
 
 Append (not rewrite) a closing "Milestone H Report" once the docs work is committed, plus a dedicated **"PLAN-0003 → PLAN-0004 Handoff"** section distinct from the existing 2026-07-01 "Handoff Notes" (which is now stale — written before Milestones B–G existed). Draft content for that handoff section:
+
 - Identity/tenancy/device foundation is complete: tenant isolation, RBAC, local username/password login, device registration/credentials, staff PIN login, offline verification, consolidated RBAC test matrix — all committed.
 - Reusable patterns for PLAN-0004 to extend rather than reinvent: `Permissions` catalogue + `RequirePermissionFilter(rejectStaffPin:)`, `RbacTestSeeder`/`DeviceTestHelper`/`StaffTestHelper`, the `IgnoreQueryFilters()` five-file allowlist + its guard test, the one-domain-event-per-entity-with-`Action` pattern for lifecycle audit events.
 - First permission PLAN-0004 adds (`tax.manage`, per already-closed OI-0007) is the natural trigger point for OI-0015 (permission metadata for staff-PIN eligibility) — flagged, not required.
@@ -851,9 +870,11 @@ Human approved the Milestone H closeout plan with amendments (recorded above): d
 ### Files changed
 
 New:
+
 - `docs/issues/open/OI-0016-define-completed-plan-archival-convention.md`.
 
 Modified:
+
 - `docs/issues/index.md` — added OI-0016 under a new "Documentation / Process" area group; open-issue count note updated to six.
 - `docs/plans/active/PLAN-0003-identity-tenancy-locations-devices.md` — corrected Milestone G's stale "not yet committed" wording to record the real commit hashes (`fb8a8b8`/`cca09b5`); checked off Milestone H (steps 42–44) with actual-vs-planned notes; added a top-of-Status summary line marking PLAN-0003 complete in place under `active/`; updated "Open Issues Required" to list OI-0011–OI-0016 instead of "None new."
 - `docs/plans/active/PLAN-0003-worker-notes.md` (this file) — corrected the Milestone G report's "Not committed" wording (working-tree-status subsection and closing italic line) and the two Milestone G/H forward-references that still said "move the plan to `docs/plans/completed/`"; this Milestone H Report and the handoff section below.
@@ -873,7 +894,7 @@ None — Milestone H is documentation-only; no test file was added or modified.
 
 ### Commands run
 
-```
+```text
 git status                 (before and after edits)
 git diff --stat            (confirm only docs/ files changed)
 ```

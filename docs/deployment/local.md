@@ -58,6 +58,7 @@ Raspberry Pi / ARM hardware is not supported for production Daxa Local deploymen
 ## Backup
 
 Daxa Local supports:
+
 - Automated daily backup to a local storage path.
 - Optional sync to Daxa Cloud (Hybrid mode).
 - Optional export to S3-compatible storage.

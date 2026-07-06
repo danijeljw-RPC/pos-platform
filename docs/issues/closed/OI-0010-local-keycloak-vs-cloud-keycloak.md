@@ -17,6 +17,7 @@ Should Daxa Local (on-premises) deployments run their own local Keycloak instanc
 ADR-0009 proposes Keycloak as the identity provider. However, for Daxa Local deployments, there is a question of whether Keycloak runs locally (enabling offline authentication) or relies on the Daxa Cloud Keycloak (requiring internet access for authentication).
 
 This is a significant architectural question because:
+
 - If Keycloak is local, staff can log in even when internet is down.
 - If Keycloak is cloud-only, internet loss could prevent staff from starting the POS (unacceptable for local deployments).
 - Running Keycloak locally on small hardware adds memory and resource pressure.

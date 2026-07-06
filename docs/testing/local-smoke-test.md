@@ -64,7 +64,7 @@ You have:
 - `jq`
 - Docker Compose
 
-The projects target `net9.0` with `RollForward=LatestMajor` in `Directory.Build.props`, so they run on the .NET 10 runtime.
+The projects target `net10.0` directly; no `RollForward` accommodation is needed anymore.
 
 ```bash
 export REPO=~/Developer/pos-platform
@@ -590,7 +590,7 @@ audit_events
 
 ---
 
-# What cannot be tested yet
+## What cannot be tested yet
 
 Nothing outside identity, tenancy, and devices exists yet.
 

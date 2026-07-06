@@ -23,12 +23,14 @@ Device identity and user identity are **separate concerns** in Daxa POS.
 ## Consequences
 
 **Positive:**
+
 - Terminal configuration is stable regardless of staff changes.
 - Audit trail captures both device and user context.
 - Fast staff handover via PIN without disrupting device state.
 - Correct attribution of orders, voids, refunds, and overrides to users.
 
 **Negative:**
+
 - Two identity concepts must be managed (device registration + user login).
 - Device registration flow adds onboarding steps.
 

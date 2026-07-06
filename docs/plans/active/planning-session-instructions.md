@@ -12,7 +12,7 @@ Do not begin product implementation unless explicitly instructed after human rev
 
 ---
 
-# Operating Mode
+## Operating Mode
 
 The current Claude Code session is running in plan mode with permissions skipped.
 
@@ -20,7 +20,7 @@ You may inspect, create, edit, move, and update documentation files as needed.
 
 You must still operate safely and deliberately.
 
-## Core behaviour
+### Core behaviour
 
 You must:
 
@@ -40,7 +40,7 @@ You must:
 
 ---
 
-# Product Context
+## Product Context
 
 The project is **Daxa POS**.
 
@@ -61,7 +61,7 @@ Daxa POS is a configurable point-of-sale platform for:
 - Multi-location chains
 - Franchise-style organisations
 
-## Product line
+### Product line
 
 ```text
 Daxa POS
@@ -79,7 +79,7 @@ Daxa POS
 └─ Daxa Retail
 ```
 
-## Product principle
+### Product principle
 
 Daxa POS must be built as one configurable platform, not separate disconnected products.
 
@@ -89,11 +89,11 @@ Hospitality and retail are configuration/module sets, not separate codebases.
 
 ---
 
-# Established Direction
+## Established Direction
 
 Do not re-litigate these unless you create a proposed ADR explaining why the decision should change.
 
-## Core decisions
+### Core decisions
 
 1. Daxa POS uses a single codebase.
 2. Daxa Cloud, Daxa Local, and Daxa Hybrid are deployment modes.
@@ -120,7 +120,7 @@ Do not re-litigate these unless you create a proposed ADR explaining why the dec
 
 ---
 
-# Required First Step — Repository Review
+## Required First Step — Repository Review
 
 Before changing files, inspect the repository.
 
@@ -156,7 +156,7 @@ If files or folders do not exist, create the missing structure during the docs c
 
 ---
 
-# Required Documentation Structure
+## Required Documentation Structure
 
 Ensure `./docs` follows this structure.
 
@@ -249,11 +249,11 @@ Do not create empty placeholder documents unless they contain useful planning co
 
 ---
 
-# Documentation Cleanup Rules
+## Documentation Cleanup Rules
 
 When cleaning `./docs`:
 
-## Preserve useful content
+### Preserve useful content
 
 Do not delete useful documentation.
 
@@ -264,7 +264,7 @@ If content is outdated but useful:
 - Add notes if it is superseded.
 - Link it from an index if still relevant.
 
-## Remove or quarantine stale content
+### Remove or quarantine stale content
 
 If old project references remain, replace them.
 
@@ -286,7 +286,7 @@ Update these to Daxa POS direction.
 
 If a document is obsolete but should not be deleted, move or mark it clearly.
 
-## Standardise naming
+### Standardise naming
 
 Use Daxa names consistently:
 
@@ -306,7 +306,7 @@ Daxa Hospitality
 Daxa Retail
 ```
 
-## Standardise deployment language
+### Standardise deployment language
 
 Use:
 
@@ -322,7 +322,7 @@ Daxa Local can be local-first for that deployment mode, but the whole product is
 
 ---
 
-# ADR Work
+## ADR Work
 
 Create proposed ADRs under:
 
@@ -332,7 +332,7 @@ docs/adr/accepted/
 
 Do not mark ADRs as accepted unless explicitly instructed by the human.
 
-## Required proposed ADRs
+### Required proposed ADRs
 
 Create or update proposed ADRs for:
 
@@ -351,7 +351,7 @@ ADR-0011-receipt-tax-marker-strategy.md
 ADR-0012-docker-local-deployment-strategy.md
 ```
 
-## ADR format
+### ADR format
 
 Each ADR must include:
 
@@ -375,7 +375,7 @@ Proposed
 ## Related Documents
 ```
 
-## ADR index
+### ADR index
 
 Update:
 
@@ -391,7 +391,7 @@ The index must group ADRs by status:
 
 ---
 
-# Planning Documents
+## Planning Documents
 
 Create or update active plans under:
 
@@ -399,7 +399,7 @@ Create or update active plans under:
 docs/plans/active/
 ```
 
-## Required active plan files
+### Required active plan files
 
 ```text
 PLAN-0000-repository-documentation-cleanup.md
@@ -413,7 +413,7 @@ PLAN-0007-sync-local-hybrid-planning.md
 PLAN-0008-testing-security-deployment-planning.md
 ```
 
-## Plan format
+### Plan format
 
 Each plan must include:
 
@@ -457,7 +457,7 @@ Active / Draft / Blocked / Complete
 
 ---
 
-# Issue Tracking
+## Issue Tracking
 
 Create issues under:
 
@@ -471,7 +471,7 @@ Use this format:
 OI-xxxx-title.md
 ```
 
-## Create issues for unresolved decisions
+### Create issues for unresolved decisions
 
 At minimum, create issues for:
 
@@ -488,7 +488,7 @@ OI-0009-maui-app-update-delivery.md
 OI-0010-local-keycloak-vs-cloud-keycloak.md
 ```
 
-## Issue format
+### Issue format
 
 Each issue must include:
 
@@ -518,7 +518,7 @@ Open
 ## Related Documents
 ```
 
-## Issue index
+### Issue index
 
 Update:
 
@@ -540,7 +540,7 @@ Group issues by area:
 
 ---
 
-# Changelog
+## Changelog
 
 Create or update:
 
@@ -576,7 +576,7 @@ Do not over-log tiny formatting changes, but record meaningful structure/content
 
 ---
 
-# Sub-Tasks
+## Sub-Tasks
 
 Spawn sub-tasks as needed.
 
@@ -632,7 +632,7 @@ Use this file to track:
 
 ---
 
-# Recursion and Continuation
+## Recursion and Continuation
 
 Continue recursively through the documentation until:
 
@@ -661,7 +661,7 @@ find docs -type f | sort
 
 ---
 
-# Do Not Do Yet
+## Do Not Do Yet
 
 Do not implement product code yet unless explicitly instructed.
 
@@ -681,7 +681,7 @@ This session is for planning and documentation preparation.
 
 ---
 
-# Git Behaviour
+## Git Behaviour
 
 Use Git deliberately.
 
@@ -712,7 +712,7 @@ If committing, include the summary of files changed in the worker notes.
 
 ---
 
-# Final Output Required
+## Final Output Required
 
 At the end of the planning session, provide a final summary with:
 
@@ -758,7 +758,7 @@ with the same final handoff.
 
 ---
 
-# Quality Bar
+## Quality Bar
 
 The result should be good enough that the human can review the proposed ADRs, accept/reject decisions, and then start implementation planning without needing to reconstruct product direction from chat history.
 

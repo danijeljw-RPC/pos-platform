@@ -93,7 +93,7 @@ All 10 open issues created in this session.
 
 ## Commit Sequence
 
-```
+```text
 docs: build Daxa POS documentation structure and README
 docs: add proposed ADRs for core architecture decisions
 docs: add active planning documents
@@ -105,6 +105,7 @@ docs: update changelog for planning session
 ## Handoff Notes
 
 After human review:
+
 - Accept or reject each proposed ADR and move to `adr/accepted/` or `adr/superseded/`.
 - Review open issues and make decisions where possible.
 - Pick the first implementation plan to execute (recommend PLAN-0001 or PLAN-0002).

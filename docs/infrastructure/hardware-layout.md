@@ -22,9 +22,9 @@ The system should treat client devices as replaceable. If a device fails, anothe
 
 ---
 
-# Hardware Principles
+## Hardware Principles
 
-## 1. Clients are disposable
+### 1. Clients are disposable
 
 A POS terminal, KDS screen, tablet, or customer display should not be the source of truth.
 
@@ -38,7 +38,7 @@ Register/login device
 Recover state from server
 ```
 
-## 2. Server state is authoritative
+### 2. Server state is authoritative
 
 For Daxa Cloud, server state is in the cloud.
 
@@ -46,7 +46,7 @@ For Daxa Local, server state is on the local server.
 
 For Daxa Hybrid, the local server is authoritative during local trading and syncs to cloud.
 
-## 3. Device identity and user identity are separate
+### 3. Device identity and user identity are separate
 
 A physical terminal has a device registration.
 
@@ -54,13 +54,13 @@ A staff member has a user/staff login.
 
 Do not combine these concepts.
 
-## 4. Hardware should be configurable
+### 4. Hardware should be configurable
 
 Printers, payment terminals, cash drawers, customer displays, and KDS stations must be configured server-side.
 
 ---
 
-# Typical Small Venue — Cloud Only
+## Typical Small Venue — Cloud Only
 
 Suitable for:
 
@@ -70,7 +70,7 @@ Suitable for:
 - Cake counter
 - Simple service business
 
-## Layout
+### Layout
 
 ```text
 Internet
@@ -86,7 +86,7 @@ Venue network
 └─ Back Office browser/PWA device
 ```
 
-## Notes
+### Notes
 
 - No local server required.
 - Works best with reliable internet.
@@ -95,7 +95,7 @@ Venue network
 
 ---
 
-# Typical Small Venue — Local or Hybrid
+## Typical Small Venue — Local or Hybrid
 
 Suitable for:
 
@@ -106,7 +106,7 @@ Suitable for:
 - Food truck with local mini PC
 - Remote venue with unreliable internet
 
-## Layout
+### Layout
 
 ```text
 Venue network
@@ -126,7 +126,7 @@ Optional:
 Daxa Cloud sync/backup/reporting
 ```
 
-## Notes
+### Notes
 
 - Local server should be wired.
 - POS LAN should be separate from guest Wi-Fi.
@@ -136,7 +136,7 @@ Daxa Cloud sync/backup/reporting
 
 ---
 
-# Typical Hospitality Venue
+## Typical Hospitality Venue
 
 Suitable for:
 
@@ -146,7 +146,7 @@ Suitable for:
 - Cafe with kitchen
 - Bakery with prep area
 
-## Hardware kit
+### Hardware kit
 
 - 1 local POS server / mini PC for local or hybrid deployments
 - 1 router/firewall
@@ -160,7 +160,7 @@ Suitable for:
 - Optional barcode/QR scanners
 - Optional customer displays
 
-## Layout
+### Layout
 
 ```text
 Daxa Local Server / Cloud API
@@ -188,7 +188,7 @@ Venue network
 
 ---
 
-# Typical Retail Store
+## Typical Retail Store
 
 Suitable for:
 
@@ -198,7 +198,7 @@ Suitable for:
 - Gift shop
 - Computer store
 
-## Hardware kit
+### Hardware kit
 
 - 1–3 POS terminals
 - Barcode scanners
@@ -209,7 +209,7 @@ Suitable for:
 - Optional customer display
 - Optional local server for hybrid/local mode
 
-## Layout
+### Layout
 
 ```text
 Daxa Cloud or Daxa Local Server
@@ -230,7 +230,7 @@ Store network
 
 ---
 
-# Typical Food Truck
+## Typical Food Truck
 
 Suitable for:
 
@@ -239,7 +239,7 @@ Suitable for:
 - Festival stall
 - Event pop-up
 
-## Hardware kit
+### Hardware kit
 
 - Windows POS tablet/terminal or tablet PWA
 - Optional local mini PC/server
@@ -249,7 +249,7 @@ Suitable for:
 - Optional kitchen/prep screen
 - Optional battery/UPS
 
-## Layout — Cloud only
+### Layout — Cloud only
 
 ```text
 Mobile internet/hotspot
@@ -261,7 +261,7 @@ POS tablet/terminal
 └─ Portable printer
 ```
 
-## Layout — Local/hybrid
+### Layout — Local/hybrid
 
 ```text
 Food truck local network
@@ -274,7 +274,7 @@ Food truck local network
 Sync to Daxa Cloud when internet available
 ```
 
-## Notes
+### Notes
 
 - Offline/local resilience is important.
 - Event/location tagging should be supported.
@@ -283,9 +283,9 @@ Sync to Daxa Cloud when internet available
 
 ---
 
-# Device Recommendations
+## Device Recommendations
 
-## POS Terminals
+### POS Terminals
 
 Recommended options:
 
@@ -302,7 +302,7 @@ Daxa Terminal = .NET MAUI
 Daxa Display = second MAUI window on customer-facing monitor
 ```
 
-## Customer Display
+### Customer Display
 
 Options:
 
@@ -322,7 +322,7 @@ Daxa Display should show:
 - Loyalty prompt later.
 - Idle branding/promos.
 
-## KDS
+### KDS
 
 Options:
 
@@ -336,7 +336,7 @@ iPads are acceptable for small-to-medium KDS deployments, especially drinks, cof
 
 Industrial/commercial displays are preferred for hot, greasy, steam-heavy, high-abuse kitchen areas.
 
-## Printers
+### Printers
 
 Prefer Ethernet ESC/POS printers.
 
@@ -350,7 +350,7 @@ Printer types:
 
 Avoid exposing printers to guest Wi-Fi.
 
-## Cash Drawers
+### Cash Drawers
 
 Prefer drawers connected to receipt printers.
 
@@ -370,7 +370,7 @@ Cash drawer kick
 
 Cash drawer openings must be audited.
 
-## Payment Terminals
+### Payment Terminals
 
 Supported providers should be configurable.
 
@@ -399,7 +399,7 @@ Payment Provider: Zeller
 Payment Terminal: Zeller terminal FRONT-01
 ```
 
-## Barcode/QR Scanners
+### Barcode/QR Scanners
 
 First implementation should support keyboard-wedge scanners.
 
@@ -413,9 +413,9 @@ Use cases:
 
 ---
 
-# Network Recommendations
+## Network Recommendations
 
-## POS LAN
+### POS LAN
 
 Recommended:
 
@@ -427,7 +427,7 @@ Recommended:
 - Router/firewall controlled.
 - UPS for server/network switch where possible.
 
-## Guest Wi-Fi
+### Guest Wi-Fi
 
 Guest Wi-Fi must not access:
 
@@ -439,7 +439,7 @@ Guest Wi-Fi must not access:
 
 ---
 
-# Device Registration
+## Device Registration
 
 Every device should be registered in Daxa.
 
@@ -473,9 +473,9 @@ Device types:
 
 ---
 
-# Cloud, Local, and Hybrid Hardware
+## Cloud, Local, and Hybrid Hardware
 
-## Cloud only
+### Cloud only
 
 Requires:
 
@@ -489,7 +489,7 @@ Does not require:
 
 - Local server.
 
-## Local
+### Local
 
 Requires:
 
@@ -506,7 +506,7 @@ Optional:
 - Cloud reporting.
 - Remote support.
 
-## Hybrid
+### Hybrid
 
 Requires:
 
@@ -528,7 +528,7 @@ Provides:
 
 ---
 
-# Replacement and Recovery Rule
+## Replacement and Recovery Rule
 
 Clients are disposable.
 
@@ -550,7 +550,7 @@ Do not rely on unrecoverable client-local state.
 
 ---
 
-# Hardware Open Questions
+## Hardware Open Questions
 
 Create open issues for unresolved questions such as:
 

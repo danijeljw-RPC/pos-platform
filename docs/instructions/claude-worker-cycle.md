@@ -10,7 +10,7 @@ Each worker must operate within a defined scope and leave enough documentation f
 
 ---
 
-# Core Rule
+## Core Rule
 
 Use focused workers sequentially.
 
@@ -18,7 +18,7 @@ Do not run multiple broad workers trying to alter the same area at the same time
 
 ---
 
-# Worker Cycle
+## Worker Cycle
 
 Each worker must:
 
@@ -32,7 +32,7 @@ Each worker must:
 
 ---
 
-# Required Context Review
+## Required Context Review
 
 Before changing code, every worker must read:
 
@@ -51,7 +51,7 @@ If a required context file is missing, the worker must document the gap and eith
 
 ---
 
-# Meaningful Change Limit
+## Meaningful Change Limit
 
 Claude Code must not make more than three meaningful changes without updating the active plan.
 
@@ -78,9 +78,9 @@ A meaningful change includes:
 
 ---
 
-# Worker Types
+## Worker Types
 
-## Architecture Worker
+### Architecture Worker
 
 Owns:
 
@@ -95,7 +95,7 @@ Owns:
 
 Must not implement large features unless explicitly scoped.
 
-## Database Worker
+### Database Worker
 
 Owns:
 
@@ -113,7 +113,7 @@ Owns:
 
 Must include migration tests where possible.
 
-## API Worker
+### API Worker
 
 Owns:
 
@@ -126,7 +126,7 @@ Owns:
 - Error responses.
 - Idempotency endpoints where relevant.
 
-## MAUI POS Worker
+### MAUI POS Worker
 
 Owns Daxa Terminal.
 
@@ -143,7 +143,7 @@ Responsible for:
 - Barcode scanner keyboard-wedge input.
 - Connection state display.
 
-## Customer Display Worker
+### Customer Display Worker
 
 Owns Daxa Display.
 
@@ -158,7 +158,7 @@ Responsible for:
 - Display assignment/config.
 - Ensuring Daxa Display is separate from KDS.
 
-## PWA Admin Worker
+### PWA Admin Worker
 
 Owns Daxa Back Office.
 
@@ -173,7 +173,7 @@ Responsible for:
 - Reporting views.
 - Audit log views.
 
-## PWA KDS Worker
+### PWA KDS Worker
 
 Owns Daxa KDS.
 
@@ -187,7 +187,7 @@ Responsible for:
 - Reconnect full-state reload.
 - KDS PWA UI.
 
-## Tax Worker
+### Tax Worker
 
 Owns:
 
@@ -203,7 +203,7 @@ Owns:
 
 Must preserve the `F = GST-free` receipt marker model.
 
-## Pricing and Surcharge Worker
+### Pricing and Surcharge Worker
 
 Owns:
 
@@ -218,7 +218,7 @@ Owns:
 - Discount rules.
 - Promotion rules later.
 
-## Payments Worker
+### Payments Worker
 
 Owns:
 
@@ -231,7 +231,7 @@ Owns:
 - Provider status handling.
 - Payment idempotency.
 
-## Payment Provider Worker
+### Payment Provider Worker
 
 Owns provider-specific integrations:
 
@@ -246,7 +246,7 @@ Owns provider-specific integrations:
 
 Must not hard-code provider assumptions into the core order/payment model.
 
-## Printing Worker
+### Printing Worker
 
 Owns:
 
@@ -259,7 +259,7 @@ Owns:
 - Label printing later.
 - Reprint audit.
 
-## Inventory Worker
+### Inventory Worker
 
 Owns:
 
@@ -273,7 +273,7 @@ Owns:
 - Stocktake.
 - Supplier records later.
 
-## Sync / Offline Worker
+### Sync / Offline Worker
 
 Owns:
 
@@ -286,7 +286,7 @@ Owns:
 - Sync status.
 - Backup/export hooks.
 
-## Infrastructure Worker
+### Infrastructure Worker
 
 Owns:
 
@@ -301,7 +301,7 @@ Owns:
 - Cloud deployment.
 - Hybrid deployment.
 
-## Testing Worker
+### Testing Worker
 
 Owns:
 
@@ -315,7 +315,7 @@ Owns:
 - Sync tests.
 - Receipt tests.
 
-## Documentation Worker
+### Documentation Worker
 
 Owns:
 
@@ -327,7 +327,7 @@ Owns:
 - Worker backlog updates.
 - Cross-doc consistency.
 
-## Security Worker
+### Security Worker
 
 Owns:
 
@@ -343,7 +343,7 @@ Owns:
 
 ---
 
-# Handoff Note Template
+## Handoff Note Template
 
 At the end of work, leave a handoff note in the active plan or worker notes.
 
@@ -377,7 +377,7 @@ Open questions:
 
 ---
 
-# Plan File Requirements
+## Plan File Requirements
 
 Each worker must create or update:
 
@@ -402,7 +402,7 @@ The plan must include:
 
 ---
 
-# Issue Handling
+## Issue Handling
 
 If the worker discovers unresolved questions, create an issue:
 
@@ -428,7 +428,7 @@ Issues must include:
 
 ---
 
-# ADR Handling
+## ADR Handling
 
 If the worker makes or proposes an architectural decision, create an ADR.
 
@@ -454,7 +454,7 @@ Do not rewrite accepted ADR history. Create a new ADR and supersede the old one.
 
 ---
 
-# Commit Rules
+## Commit Rules
 
 Each completed logical change must be committed.
 
@@ -473,7 +473,7 @@ Do not batch unrelated changes.
 
 ---
 
-# Pull Request Notes
+## Pull Request Notes
 
 When creating a PR, include:
 
@@ -489,7 +489,7 @@ When creating a PR, include:
 
 ---
 
-# Worker Stop Conditions
+## Worker Stop Conditions
 
 A worker may stop for human input only when:
 
@@ -503,7 +503,7 @@ Otherwise, the worker should proceed with reasonable assumptions and document th
 
 ---
 
-# Worker Completion Criteria
+## Worker Completion Criteria
 
 A worker is complete only when:
 

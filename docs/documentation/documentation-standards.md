@@ -20,9 +20,9 @@ Documentation must remain clear, direct, current, and useful to Claude Code work
 
 ---
 
-# General Documentation Rules
+## General Documentation Rules
 
-## Documentation should be
+### Documentation should be
 
 - Clear.
 - Direct.
@@ -33,7 +33,7 @@ Documentation must remain clear, direct, current, and useful to Claude Code work
 - Honest about unresolved questions.
 - Structured for future Claude Code workers.
 
-## Documentation should avoid
+### Documentation should avoid
 
 - Speculative claims presented as fact.
 - Outdated phase status.
@@ -45,7 +45,7 @@ Documentation must remain clear, direct, current, and useful to Claude Code work
 
 ---
 
-# Required Documentation Updates
+## Required Documentation Updates
 
 Update documentation when changing:
 
@@ -81,7 +81,7 @@ Update documentation when changing:
 
 ---
 
-# Documentation Folder Structure
+## Documentation Folder Structure
 
 Recommended structure:
 
@@ -164,11 +164,11 @@ docs/
 
 ---
 
-# ADR Standards
+## ADR Standards
 
 Use ADRs for significant decisions.
 
-## ADR locations
+### ADR locations
 
 Proposed:
 
@@ -188,7 +188,7 @@ Superseded:
 docs/adr/superseded/ADR-xxxx-title.md
 ```
 
-## ADR rules
+### ADR rules
 
 - Do not edit accepted ADRs to change history.
 - Create a new ADR when a decision changes.
@@ -199,7 +199,7 @@ docs/adr/superseded/ADR-xxxx-title.md
 - Include alternatives considered where useful.
 - Accepted ADRs require human approval.
 
-## Decisions requiring ADRs
+### Decisions requiring ADRs
 
 - Single codebase.
 - Cloud/local/hybrid deployment.
@@ -217,7 +217,7 @@ docs/adr/superseded/ADR-xxxx-title.md
 
 ---
 
-# Issue Standards
+## Issue Standards
 
 Create open issues for unresolved questions.
 
@@ -239,7 +239,7 @@ Update:
 docs/issues/index.md
 ```
 
-## Issue file should include
+### Issue file should include
 
 ```text
 # OI-xxxx — Title
@@ -271,7 +271,7 @@ Architecture / Payments / Tax / Sync / Devices / etc.
 ## Related GitHub Issue
 ```
 
-## Issues should be created for
+### Issues should be created for
 
 - Unresolved architecture decisions.
 - Payment provider uncertainty.
@@ -284,7 +284,7 @@ Architecture / Payments / Tax / Sync / Devices / etc.
 
 ---
 
-# Plan Standards
+## Plan Standards
 
 Use plans for implementation tasks.
 
@@ -300,7 +300,7 @@ Move completed plans to:
 docs/plans/completed/
 ```
 
-## Plan file should include
+### Plan file should include
 
 ```text
 # PLAN-xxxx — Title
@@ -340,7 +340,7 @@ Active / Complete / Blocked
 
 ---
 
-# Module Documentation Standards
+## Module Documentation Standards
 
 Module documentation should explain:
 
@@ -369,11 +369,11 @@ docs/modules/sync.md
 
 ---
 
-# Deployment Documentation Standards
+## Deployment Documentation Standards
 
 Deployment docs must be split by deployment mode.
 
-## Required deployment docs
+### Required deployment docs
 
 ```text
 docs/deployment/cloud.md
@@ -384,7 +384,7 @@ docs/deployment/windows-terminal.md
 docs/deployment/linux-kiosk-pwa.md
 ```
 
-## Deployment docs should include
+### Deployment docs should include
 
 - Purpose.
 - Target environment.
@@ -404,7 +404,7 @@ docs/deployment/linux-kiosk-pwa.md
 
 ---
 
-# Testing Documentation Standards
+## Testing Documentation Standards
 
 Testing docs should include:
 
@@ -429,11 +429,11 @@ Testing docs must be updated when adding:
 
 ---
 
-# Integration Documentation Standards
+## Integration Documentation Standards
 
 Each external integration should have its own document.
 
-## Payment provider docs should include
+### Payment provider docs should include
 
 - Provider overview.
 - Supported countries.
@@ -451,7 +451,7 @@ Each external integration should have its own document.
 - Known limitations.
 - Open questions.
 
-## Printer integration docs should include
+### Printer integration docs should include
 
 - Printer type.
 - Protocol.
@@ -464,7 +464,7 @@ Each external integration should have its own document.
 
 ---
 
-# Changelog Standards
+## Changelog Standards
 
 Maintain a changelog.
 
@@ -483,7 +483,7 @@ Do not use the changelog as a substitute for ADRs or module docs.
 
 ---
 
-# Cross-Document Consistency
+## Cross-Document Consistency
 
 When changing product direction, update all affected docs.
 
@@ -517,7 +517,7 @@ If changing deployment strategy, update:
 
 ---
 
-# Claude Code Documentation Rule
+## Claude Code Documentation Rule
 
 Claude Code must not treat documentation as optional.
 

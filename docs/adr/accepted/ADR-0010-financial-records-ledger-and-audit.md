@@ -23,6 +23,7 @@ Daxa POS treats financially meaningful records as **append-only or reversal-base
 - Discount overrides and manual price changes are audited with reason capture.
 
 **Prohibited patterns:**
+
 - `UPDATE orders SET total = X` (without a correction record).
 - Silent deletion of order lines after payment.
 - Payment amount changes without a reversal + new payment.
@@ -30,6 +31,7 @@ Daxa POS treats financially meaningful records as **append-only or reversal-base
 ## Consequences
 
 **Positive:**
+
 - Full audit trail for every financial transaction.
 - Reconstructable order and payment history.
 - Compliant with AU/NZ tax record-keeping requirements.
@@ -37,6 +39,7 @@ Daxa POS treats financially meaningful records as **append-only or reversal-base
 - Clear basis for dispute resolution.
 
 **Negative:**
+
 - More complex than simple CRUD.
 - Storage grows as reversal/adjustment records accumulate.
 - UI must expose void/refund flows rather than simple edit.
@@ -262,7 +265,7 @@ StoreGeneratedPdfWhenDeliveredExternally = false
 
 Exact names may change during implementation, but the behaviour must remain configuration-driven.
 
-## Consequences
+## Consequences of the Accepted Addendum
 
 This decision keeps the financial record model consistent across jurisdictions and deployment modes.
 

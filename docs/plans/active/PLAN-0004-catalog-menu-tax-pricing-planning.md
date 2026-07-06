@@ -58,7 +58,7 @@ Full list read before writing this plan (see `PLAN-0004-worker-notes.md` for wha
 
 No new projects (see Non-goals). All new code lands in the existing five projects, same as PLAN-0003:
 
-```
+```text
 src/DaxaPos.Domain/Entities/            (new: TaxDefinitionTemplate, TaxDefinition, TaxCategory,
                                           TaxCategoryDefinition, ProductCategory, Product,
                                           ProductVariant, ModifierGroup, Modifier,
@@ -358,7 +358,7 @@ See each milestone's "Docs" line; consolidated list: `docs/modules/catalog.md`, 
 
 ## Commit Sequence
 
-```
+```text
 docs: close OI-0015 and add permission category metadata
 feat(identity): add permission category and catalog/pricing/menus permission codes
 feat(tax): add tax definition template, tax definition, and tax category entities

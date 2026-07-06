@@ -69,7 +69,7 @@ List any open issues that need to be created or resolved.
 
 ## Commit Sequence
 
-```
+```text
 feat(module): description
 docs: update relevant docs
 test(module): add tests

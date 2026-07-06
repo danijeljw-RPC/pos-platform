@@ -25,7 +25,7 @@ Security must be designed into the platform early. Do not treat security as a la
 
 ---
 
-# Security Goals
+## Security Goals
 
 Daxa POS must ensure:
 
@@ -48,9 +48,9 @@ Daxa POS must ensure:
 
 ---
 
-# Threat Model Summary
+## Threat Model Summary
 
-## Main threats
+### Main threats
 
 | Threat | Control |
 |---|---|
@@ -70,13 +70,13 @@ Daxa POS must ensure:
 
 ---
 
-# Tenant and Location Isolation
+## Tenant and Location Isolation
 
 Daxa POS is multi-tenant.
 
 Every request that accesses tenant data must be scoped to the authenticated tenant and authorised location set.
 
-## Rules
+### Rules
 
 - Tenant ID must not be trusted from client input alone.
 - Location access must be checked server-side.
@@ -87,7 +87,7 @@ Every request that accesses tenant data must be scoped to the authenticated tena
 - Cross-tenant access must be blocked and tested.
 - Cross-location access must be blocked and tested unless explicitly permitted.
 
-## Required tests
+### Required tests
 
 - User from Tenant A cannot access Tenant B.
 - User from Location A cannot access Location B unless permitted.
@@ -97,9 +97,9 @@ Every request that accesses tenant data must be scoped to the authenticated tena
 
 ---
 
-# Identity and Authentication
+## Identity and Authentication
 
-## Identity options
+### Identity options
 
 Daxa POS may use Keycloak or similar identity management.
 
@@ -116,7 +116,7 @@ The identity design must support:
 - Sync identities.
 - Support identities.
 
-## Authentication types
+### Authentication types
 
 | Type | Purpose |
 |---|---|
@@ -128,7 +128,7 @@ The identity design must support:
 | Service token | Workers/sync/background services |
 | Support access | Audited support/admin access |
 
-## Staff PINs
+### Staff PINs
 
 Staff PINs are for fast terminal workflows.
 
@@ -144,11 +144,11 @@ Rules:
 
 ---
 
-# Authorization
+## Authorization
 
 Daxa POS must support role-based and permission-based authorization.
 
-## Example roles
+### Example roles
 
 - Owner
 - Admin
@@ -162,7 +162,7 @@ Daxa POS must support role-based and permission-based authorization.
 - Franchise manager
 - Service/worker
 
-## Example permissions
+### Example permissions
 
 ```text
 CanAccessBackOffice
@@ -186,7 +186,7 @@ CanViewAuditLog
 CanRunEndOfDay
 ```
 
-## High-risk permissions
+### High-risk permissions
 
 These must always be audited:
 
@@ -206,11 +206,11 @@ These must always be audited:
 
 ---
 
-# Device Security
+## Device Security
 
 Device identity and user identity must be separate.
 
-## Device registration
+### Device registration
 
 A device registration should capture:
 
@@ -232,7 +232,7 @@ AssignedPaymentTerminals
 AssignedCustomerDisplay
 ```
 
-## Device rules
+### Device rules
 
 - Device token should be stored locally on the client/device.
 - Device token must be revocable.
@@ -243,7 +243,7 @@ AssignedCustomerDisplay
 - Device tokens should be rotated where appropriate.
 - Device activity should be logged.
 
-## Device types
+### Device types
 
 - Daxa Terminal
 - Daxa Display
@@ -255,9 +255,9 @@ AssignedCustomerDisplay
 
 ---
 
-# Network Security
+## Network Security
 
-## Venue network
+### Venue network
 
 Recommended:
 
@@ -270,7 +270,7 @@ Recommended:
 - UPS for local server and network switch where possible.
 - No printer exposure to guest/public networks.
 
-## Local server
+### Local server
 
 Local server should:
 
@@ -284,7 +284,7 @@ Local server should:
 - Have health monitoring.
 - Have update/rollback procedure.
 
-## Cloud access
+### Cloud access
 
 Cloud connections should:
 
@@ -296,9 +296,9 @@ Cloud connections should:
 
 ---
 
-# Cloud, Local, and Hybrid Security
+## Cloud, Local, and Hybrid Security
 
-## Daxa Cloud
+### Daxa Cloud
 
 Security concerns:
 
@@ -312,7 +312,7 @@ Security concerns:
 - API rate limiting.
 - Regional data hosting later.
 
-## Daxa Local
+### Daxa Local
 
 Security concerns:
 
@@ -325,7 +325,7 @@ Security concerns:
 - Local secret storage.
 - Local update process.
 
-## Daxa Hybrid
+### Daxa Hybrid
 
 Security concerns:
 
@@ -339,7 +339,7 @@ Security concerns:
 
 ---
 
-# Payment Security
+## Payment Security
 
 Daxa POS should not store card numbers, CVV, magnetic stripe data, or PINs.
 
@@ -347,7 +347,7 @@ Payment providers handle card processing.
 
 Daxa stores payment references and transaction metadata required for order history, refund, audit, and reconciliation.
 
-## Store
+### Store
 
 - Provider name.
 - Provider payment ID.
@@ -363,7 +363,7 @@ Daxa stores payment references and transaction metadata required for order histo
 - Refund references.
 - Settlement/reconciliation references where available.
 
-## Do not store
+### Do not store
 
 - Full card number.
 - CVV.
@@ -372,7 +372,7 @@ Daxa stores payment references and transaction metadata required for order histo
 - Raw card-present payloads.
 - Sensitive provider secrets in plaintext.
 
-## Provider credentials
+### Provider credentials
 
 Provider credentials must be:
 
@@ -386,11 +386,11 @@ Provider credentials must be:
 
 ---
 
-# Gift Card and Store Credit Security
+## Gift Card and Store Credit Security
 
 Gift cards and store credit may be implemented later, but the security model must be planned early.
 
-## Gift card rules
+### Gift card rules
 
 - Use random high-entropy tokens.
 - Do not use sequential codes.
@@ -403,7 +403,7 @@ Gift cards and store credit may be implemented later, but the security model mus
 - Public balance checks must be rate-limited.
 - Gift card balance cannot go negative unless explicitly allowed by configured rule.
 
-## Store credit rules
+### Store credit rules
 
 - Store credit must be ledgered.
 - Store credit adjustments require permission.
@@ -412,11 +412,11 @@ Gift cards and store credit may be implemented later, but the security model mus
 
 ---
 
-# Audit Logging
+## Audit Logging
 
 Audit logging is mandatory.
 
-## Audit events
+### Audit events
 
 ```text
 Login/logout
@@ -448,7 +448,7 @@ Support access started
 Support access ended
 ```
 
-## Audit fields
+### Audit fields
 
 ```text
 AuditEventId
@@ -474,9 +474,9 @@ Audit logs must be append-only. Do not silently edit audit history.
 
 ---
 
-# Data Protection
+## Data Protection
 
-## Customer data
+### Customer data
 
 Customer data may include:
 
@@ -501,7 +501,7 @@ Rules:
 
 ---
 
-# Secrets and Configuration
+## Secrets and Configuration
 
 Never commit secrets.
 
@@ -526,9 +526,9 @@ Secrets should be stored in:
 
 ---
 
-# iPad, Android, Linux, and Windows Lockdown
+## iPad, Android, Linux, and Windows Lockdown
 
-## Windows
+### Windows
 
 For Daxa Terminal:
 
@@ -538,7 +538,7 @@ For Daxa Terminal:
 - Auto-start can be configured for POS terminals.
 - Device should be dedicated where possible.
 
-## iPad/iPhone
+### iPad/iPhone
 
 Use:
 
@@ -554,14 +554,14 @@ Restrict:
 - Device changes.
 - Leaving the PWA.
 
-## Android
+### Android
 
 Use:
 
 - Android kiosk/lock task mode for managed devices.
 - MDM for commercial deployments.
 
-## Linux kiosk
+### Linux kiosk
 
 Use:
 
@@ -573,7 +573,7 @@ Use:
 
 ---
 
-# Required Security Tests
+## Required Security Tests
 
 Claude Code must add or maintain tests for:
 
@@ -597,7 +597,7 @@ Claude Code must add or maintain tests for:
 
 ---
 
-# Production Readiness Security Checklist
+## Production Readiness Security Checklist
 
 Before production use, verify:
 

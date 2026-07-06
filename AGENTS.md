@@ -51,21 +51,21 @@ The system must not become separate disconnected products for cloud, local, hosp
 
 ---
 
-# Product Identity
+## Product Identity
 
-## Product name
+### Product name
 
 ```text
 Daxa POS
 ```
 
-## Domain
+### Domain
 
 ```text
 daxapos.com
 ```
 
-## Product positioning
+### Product positioning
 
 ```text
 Daxa POS
@@ -79,7 +79,7 @@ Daxa POS
 One platform. Cloud, local, or hybrid.
 ```
 
-## Product principle
+### Product principle
 
 Daxa POS is not a narrow restaurant POS.
 
@@ -87,9 +87,9 @@ Daxa POS is a configurable commerce platform for counter-based operations, hospi
 
 ---
 
-# Product Line
+## Product Line
 
-## Daxa POS
+### Daxa POS
 
 Daxa POS is the umbrella product and core platform.
 
@@ -111,31 +111,31 @@ It includes:
 - Multi-location support
 - Cloud, local, and hybrid deployment modes
 
-## Daxa Cloud
+### Daxa Cloud
 
 Daxa Cloud is the fully cloud-hosted deployment option.
 
 The master application, API, database, reporting, tenant configuration, backups, and admin portal run in Daxa-managed cloud infrastructure.
 
-## Daxa Local
+### Daxa Local
 
 Daxa Local is the local/on-premises deployment option.
 
 The customer runs a local Daxa server onsite inside their own network. The local server can operate as the authoritative runtime system for that site during trading.
 
-## Daxa Hybrid
+### Daxa Hybrid
 
 Daxa Hybrid combines Daxa Cloud and Daxa Local.
 
 The cloud provides central management, reporting, backups, updates, and multi-location visibility. The local server provides operational continuity, local device control, local printing, local payment routing, and resilience if internet access fails.
 
-## Daxa Terminal
+### Daxa Terminal
 
 Daxa Terminal is the staff-facing POS application.
 
 For Windows POS devices, Daxa Terminal should be a .NET MAUI application.
 
-## Daxa Display
+### Daxa Display
 
 Daxa Display is the customer-facing second screen attached to the POS terminal.
 
@@ -143,13 +143,13 @@ It is used at the counter to show order items, totals, discounts, surcharges, pa
 
 Daxa Display is not the KDS.
 
-## Daxa Back Office
+### Daxa Back Office
 
 Daxa Back Office is the admin and management portal.
 
 It should normally be a web application/PWA.
 
-## Daxa Payments
+### Daxa Payments
 
 Daxa Payments is the provider-agnostic payment integration layer.
 
@@ -157,11 +157,11 @@ It is not necessarily a payment processor itself.
 
 It allows venues to connect their own payment-provider account and terminal.
 
-## Daxa Inventory
+### Daxa Inventory
 
 Daxa Inventory manages stock, product availability, stock movements, waste, purchase orders later, serial numbers later, and inventory reporting.
 
-## Daxa KDS
+### Daxa KDS
 
 Daxa KDS is the kitchen/bar/prep display system.
 
@@ -169,19 +169,19 @@ It should be separate from the customer-facing second display.
 
 Daxa KDS should usually run as a PWA on separate devices.
 
-## Daxa Sync
+### Daxa Sync
 
 Daxa Sync is the local-to-cloud synchronisation layer.
 
 It supports local-to-cloud and cloud-to-local data movement for Daxa Local and Daxa Hybrid deployments.
 
-## Daxa Hospitality
+### Daxa Hospitality
 
 Daxa Hospitality is a configuration/template set for hospitality workflows.
 
 It is not a separate codebase.
 
-## Daxa Retail
+### Daxa Retail
 
 Daxa Retail is a configuration/template set for retail and service workflows.
 
@@ -189,7 +189,7 @@ It is not a separate codebase.
 
 ---
 
-# Current Product Direction
+## Current Product Direction
 
 Daxa POS is a full-stack, configurable POS platform with:
 
@@ -219,11 +219,11 @@ Daxa POS is a full-stack, configurable POS platform with:
 
 ---
 
-# Important Product Decisions Already Made
+## Important Product Decisions Already Made
 
 The following decisions are established and must not be re-litigated without creating a new ADR.
 
-## Platform and deployment
+### Platform and deployment
 
 1. Daxa POS must use a single codebase.
 2. Daxa Cloud, Daxa Local, and Daxa Hybrid are deployment modes, not separate codebases.
@@ -239,54 +239,54 @@ The following decisions are established and must not be re-litigated without cre
 12. Internet loss must not automatically stop trading for properly configured local/hybrid venues.
 13. The system must be built so cloud, local, and hybrid deployments use the same domain model and API concepts.
 
-## Device strategy
+### Device strategy
 
-14. Windows POS terminals should use .NET MAUI.
-15. Windows customer-facing second display should use .NET MAUI, normally as a second window from the POS terminal app.
-16. Linux devices should use PWA, not MAUI.
-17. Android tablets should use PWA.
-18. iPad devices should use PWA.
-19. KDS screens should normally use PWA.
-20. Admin/back-office should normally be web/PWA.
-21. Self-ordering kiosks should normally use PWA with OS kiosk lockdown.
-22. A Windows POS terminal can run in borderless full-screen mode.
-23. True kiosk/lockdown behaviour is an operating system deployment concern, not only an app display concern.
-24. Daxa Display is not a KDS.
-25. Daxa Display is the customer-facing display at the point of sale.
-26. KDS screens are separate devices/sessions.
-27. Device identity and user identity must be separate.
-28. Device registration must determine terminal role, mode, printer mapping, payment terminal mapping, and display configuration.
+1. Windows POS terminals should use .NET MAUI.
+2. Windows customer-facing second display should use .NET MAUI, normally as a second window from the POS terminal app.
+3. Linux devices should use PWA, not MAUI.
+4. Android tablets should use PWA.
+5. iPad devices should use PWA.
+6. KDS screens should normally use PWA.
+7. Admin/back-office should normally be web/PWA.
+8. Self-ordering kiosks should normally use PWA with OS kiosk lockdown.
+9. A Windows POS terminal can run in borderless full-screen mode.
+10. True kiosk/lockdown behaviour is an operating system deployment concern, not only an app display concern.
+11. Daxa Display is not a KDS.
+12. Daxa Display is the customer-facing display at the point of sale.
+13. KDS screens are separate devices/sessions.
+14. Device identity and user identity must be separate.
+15. Device registration must determine terminal role, mode, printer mapping, payment terminal mapping, and display configuration.
 
-## Multi-tenancy and multi-location
+### Multi-tenancy and multi-location
 
-29. The platform must be multi-tenant.
-30. Every tenant should support multi-location by default.
-31. A single-location customer is simply a tenant/organisation with one location.
-32. Do not create special single-location business logic that conflicts with multi-location architecture.
-33. Tenant isolation must be designed early.
-34. Location isolation must be designed early.
-35. Organisation, country, region, venue, and terminal hierarchy must be explicit.
-36. Products, prices, taxes, payments, devices, and reports may need organisation-level defaults and location-level overrides.
+1. The platform must be multi-tenant.
+2. Every tenant should support multi-location by default.
+3. A single-location customer is simply a tenant/organisation with one location.
+4. Do not create special single-location business logic that conflicts with multi-location architecture.
+5. Tenant isolation must be designed early.
+6. Location isolation must be designed early.
+7. Organisation, country, region, venue, and terminal hierarchy must be explicit.
+8. Products, prices, taxes, payments, devices, and reports may need organisation-level defaults and location-level overrides.
 
-## Industry scope
+### Industry scope
 
-37. Daxa POS must not be hard-coded as a restaurant POS.
-38. Daxa POS must support hospitality, retail, food, and service workflows through configuration/modules.
-39. Industry templates are preferred over separate products.
-40. Daxa Hospitality and Daxa Retail are configuration/module groupings, not separate codebases.
-41. Food truck mode must consider offline/local resilience and event/location tagging.
-42. Bakery/cake shop mode must support production counts, GST-free markers, pre-orders, deposits, and pickup workflows over time.
-43. Retail mode must support SKU/barcode flows, variants, returns, and inventory.
-44. Electronics/service mode must eventually support serial numbers, warranties, repair jobs, deposits, and service lifecycle.
+1. Daxa POS must not be hard-coded as a restaurant POS.
+2. Daxa POS must support hospitality, retail, food, and service workflows through configuration/modules.
+3. Industry templates are preferred over separate products.
+4. Daxa Hospitality and Daxa Retail are configuration/module groupings, not separate codebases.
+5. Food truck mode must consider offline/local resilience and event/location tagging.
+6. Bakery/cake shop mode must support production counts, GST-free markers, pre-orders, deposits, and pickup workflows over time.
+7. Retail mode must support SKU/barcode flows, variants, returns, and inventory.
+8. Electronics/service mode must eventually support serial numbers, warranties, repair jobs, deposits, and service lifecycle.
 
-## Tax
+### Tax
 
-45. Tax must be calculated per order line.
-46. Tax must support mixed baskets, including taxable and GST-free items in the same order.
-47. Tax treatment is metadata, not a product name.
-48. Receipts must show actual product names.
-49. GST-free items may be marked with a code such as `F`.
-50. Example receipt display:
+1. Tax must be calculated per order line.
+2. Tax must support mixed baskets, including taxable and GST-free items in the same order.
+3. Tax treatment is metadata, not a product name.
+4. Receipts must show actual product names.
+5. GST-free items may be marked with a code such as `F`.
+6. Example receipt display:
 
 ```text
 Flat white                    $5.50
@@ -299,83 +299,83 @@ Includes GST                  $1.30
 F = GST-free
 ```
 
-51. Do not display generic item names like `GST-free item`.
-52. AU/NZ tax support must be implemented first.
-53. AU should support GST 10% and GST-free categories.
-54. NZ should support GST 15%, zero-rated, and exempt supply concepts.
-55. The global tax model must support multiple tax components per order line.
-56. The system must not use a single `Order.TaxRate` model.
-57. The system should support tax-inclusive and tax-exclusive pricing.
-58. The system should support 10 tax components per item line and 20 tax components per order as safe design limits.
-59. Tax snapshots must be stored on order lines at sale time.
+1. Do not display generic item names like `GST-free item`.
+2. AU/NZ tax support must be implemented first.
+3. AU should support GST 10% and GST-free categories.
+4. NZ should support GST 15%, zero-rated, and exempt supply concepts.
+5. The global tax model must support multiple tax components per order line.
+6. The system must not use a single `Order.TaxRate` model.
+7. The system should support tax-inclusive and tax-exclusive pricing.
+8. The system should support 10 tax components per item line and 20 tax components per order as safe design limits.
+9. Tax snapshots must be stored on order lines at sale time.
 
-## Payments
+### Payments
 
-60. Daxa Payments must use a provider-agnostic adapter architecture.
-61. The POS must be able to initiate payment amounts on integrated terminals.
-62. Staff should not manually type payment amounts into terminals when integrated payment is configured.
-63. Customers/venues should be able to connect their own payment-provider account.
-64. Payment provider configuration is per tenant/organisation/location/terminal as appropriate.
-65. Manual external EFTPOS must be supported.
-66. Cash payments must be supported.
-67. Split payments must support multiple payment records against one order.
-68. Refunds must be linked to original payments where possible.
-69. Payment, refund, gift card, and store credit activity must be ledgered.
-70. Payment terminal mappings must support multiple payment terminals per venue.
-71. AU/NZ first payment-provider targets include Tyro, Zeller, Square, Stripe Terminal, and Windcave.
-72. Later provider targets include Adyen, Worldline, and Global Payments.
-73. Square can be integrated behind Daxa POS using Square Terminal API so the amount is sent from Daxa POS to Square Terminal.
-74. Square POS app must not become the main POS.
-75. Stripe Terminal should be considered as a global SaaS-style baseline provider where supported.
-76. Tyro and Zeller are strong AU-specific providers.
-77. Windcave is useful for AU/NZ and regional payment depth.
-78. Adyen is likely more suitable for enterprise/global expansion.
+1. Daxa Payments must use a provider-agnostic adapter architecture.
+2. The POS must be able to initiate payment amounts on integrated terminals.
+3. Staff should not manually type payment amounts into terminals when integrated payment is configured.
+4. Customers/venues should be able to connect their own payment-provider account.
+5. Payment provider configuration is per tenant/organisation/location/terminal as appropriate.
+6. Manual external EFTPOS must be supported.
+7. Cash payments must be supported.
+8. Split payments must support multiple payment records against one order.
+9. Refunds must be linked to original payments where possible.
+10. Payment, refund, gift card, and store credit activity must be ledgered.
+11. Payment terminal mappings must support multiple payment terminals per venue.
+12. AU/NZ first payment-provider targets include Tyro, Zeller, Square, Stripe Terminal, and Windcave.
+13. Later provider targets include Adyen, Worldline, and Global Payments.
+14. Square can be integrated behind Daxa POS using Square Terminal API so the amount is sent from Daxa POS to Square Terminal.
+15. Square POS app must not become the main POS.
+16. Stripe Terminal should be considered as a global SaaS-style baseline provider where supported.
+17. Tyro and Zeller are strong AU-specific providers.
+18. Windcave is useful for AU/NZ and regional payment depth.
+19. Adyen is likely more suitable for enterprise/global expansion.
 
-## Pricing, discounts, surcharges
+### Pricing, discounts, surcharges
 
-79. Pricing must be data-driven.
-80. Surcharges must be configurable.
-81. Card surcharge, Sunday surcharge, public holiday surcharge, service charge, delivery fee, packaging fee, bottle deposit, and environmental levy should be representable.
-82. Surcharges need taxability rules.
-83. Discounts must support line-level and order-level application.
-84. Discounts and overrides should be permissioned and audited.
-85. Tips/gratuity must be supported later for US/CA markets.
-86. AU/NZ surcharge workflows must be supported.
+1. Pricing must be data-driven.
+2. Surcharges must be configurable.
+3. Card surcharge, Sunday surcharge, public holiday surcharge, service charge, delivery fee, packaging fee, bottle deposit, and environmental levy should be representable.
+4. Surcharges need taxability rules.
+5. Discounts must support line-level and order-level application.
+6. Discounts and overrides should be permissioned and audited.
+7. Tips/gratuity must be supported later for US/CA markets.
+8. AU/NZ surcharge workflows must be supported.
 
-## Orders and receipts
+### Orders and receipts
 
-87. Financially meaningful records must not be silently edited.
-88. Use reversals, voids, refunds, or adjustment records.
-89. Order state must be reconstructable from the server/database.
-90. Receipts must support thermal printing.
-91. Receipts must support tax summaries.
-92. Receipt reprints must be audited.
-93. Refund receipts must link to original orders/refunds.
-94. Customer display state must reflect current order and payment state.
+1. Financially meaningful records must not be silently edited.
+2. Use reversals, voids, refunds, or adjustment records.
+3. Order state must be reconstructable from the server/database.
+4. Receipts must support thermal printing.
+5. Receipts must support tax summaries.
+6. Receipt reprints must be audited.
+7. Refund receipts must link to original orders/refunds.
+8. Customer display state must reflect current order and payment state.
 
-## Realtime and sync
+### Realtime and sync
 
-95. Realtime updates may use SignalR/WebSockets or equivalent.
-96. Missed realtime messages must not break correctness.
-97. Server state must remain authoritative.
-98. Pushed events are convenience notifications, not the source of truth.
-99. KDS screens must be able to rebuild current state from the server after reconnect.
-100. Local sync must use idempotency keys.
-101. Local-to-cloud and cloud-to-local sync must be resilient and auditable.
-102. Sync conflicts must be explicit and recoverable.
+1. Realtime updates may use SignalR/WebSockets or equivalent.
+2. Missed realtime messages must not break correctness.
+3. Server state must remain authoritative.
+4. Pushed events are convenience notifications, not the source of truth.
+5. KDS screens must be able to rebuild current state from the server after reconnect.
+6. Local sync must use idempotency keys.
+7. Local-to-cloud and cloud-to-local sync must be resilient and auditable.
+8. Sync conflicts must be explicit and recoverable.
 
-## Documentation
+### Documentation
 
-103. Every meaningful change must update documentation.
-104. Every architectural decision must be captured in an ADR.
-105. Every unresolved question must be captured as an open issue.
-106. Every worker must leave notes so future workers can continue without rediscovery.
+1. Every meaningful change must update documentation.
+2. Every architectural decision must be captured in an ADR.
+3. Every unresolved question must be captured as an open issue.
+4. Every worker must leave notes so future workers can continue without rediscovery.
 
 ---
 
-# Target Deployment Models
+## Target Deployment Models
 
-## Daxa Cloud
+### Daxa Cloud
 
 Daxa Cloud is the fully cloud-hosted model.
 
@@ -414,7 +414,7 @@ Pushes events to cloud
 Receives updated menu/pricing/tax/device config
 ```
 
-## Daxa Local
+### Daxa Local
 
 Daxa Local is the local/on-prem model.
 
@@ -452,7 +452,7 @@ Stores operational data locally
 Optionally syncs/backs up to Daxa Cloud or external storage
 ```
 
-## Daxa Hybrid
+### Daxa Hybrid
 
 Daxa Hybrid combines Daxa Cloud and Daxa Local.
 
@@ -505,13 +505,13 @@ Cloud provides reporting, backup, monitoring, and central management
 
 ---
 
-# Multi-Tenant and Multi-Location Model
+## Multi-Tenant and Multi-Location Model
 
 Every tenant must support multiple locations by default.
 
 A single location is simply one location record.
 
-## Recommended hierarchy
+### Recommended hierarchy
 
 ```text
 Tenant
@@ -522,7 +522,7 @@ Tenant
             └─ Terminal
 ```
 
-## Single-location example
+### Single-location example
 
 ```text
 Tenant: Main Street Bakery
@@ -532,7 +532,7 @@ Location: Main Street Bakery
 Terminal: Front Counter 1
 ```
 
-## Multi-location example
+### Multi-location example
 
 ```text
 Tenant: Example Hospitality Group
@@ -551,7 +551,7 @@ Terminals:
 - Parramatta / Restaurant POS
 ```
 
-## Multi-location requirements
+### Multi-location requirements
 
 The platform must support:
 
@@ -574,11 +574,11 @@ The platform must support:
 
 ---
 
-# Technology Direction
+## Technology Direction
 
 Initial preferred direction:
 
-## Backend
+### Backend
 
 - ASP.NET Core Web API.
 - .NET 9 or newer unless explicitly changed.
@@ -590,7 +590,7 @@ Initial preferred direction:
 - SignalR/WebSockets for live updates where needed.
 - Full-state reload APIs must exist for correctness after reconnect.
 
-## Frontend
+### Frontend
 
 - Windows POS terminal: .NET MAUI.
 - Windows customer display: .NET MAUI second window.
@@ -601,14 +601,14 @@ Initial preferred direction:
 - Android/iPad: PWA.
 - Self-order kiosk later: PWA.
 
-## Database
+### Database
 
 - PostgreSQL.
 - Database schema must support tenant, organisation, location, terminal, order, payment, tax, inventory, audit, and sync requirements.
 - Migrations must be tested.
 - Financial records must be append-only or reversal-based where appropriate.
 
-## Infrastructure
+### Infrastructure
 
 - Docker and Docker Compose for local/dev deployment.
 - Cloud deployment must be planned but does not need to be fully implemented in early MVP.
@@ -617,7 +617,7 @@ Initial preferred direction:
 - Secrets must not be committed.
 - Payment provider credentials must be stored securely.
 
-## Identity and access
+### Identity and access
 
 - Keycloak or similar identity management may be used.
 - Identity architecture must support cloud, local, and hybrid deployments.
@@ -627,7 +627,7 @@ Initial preferred direction:
 - Tenant and location boundaries must be enforced.
 - Support/admin access must be auditable.
 
-## Printing and hardware
+### Printing and hardware
 
 - ESC/POS support should be planned.
 - Network printers should be supported.
@@ -638,7 +638,7 @@ Initial preferred direction:
 
 ---
 
-# Core Domain Primitives
+## Core Domain Primitives
 
 Build around these primitives:
 
@@ -688,9 +688,9 @@ SyncEvent
 
 ---
 
-# Core Modules
+## Core Modules
 
-## Identity / tenancy
+### Identity / tenancy
 
 Responsible for:
 
@@ -705,7 +705,7 @@ Responsible for:
 - Device registration identity.
 - Audit-linked identities.
 
-## Venue/location management
+### Venue/location management
 
 Responsible for:
 
@@ -722,7 +722,7 @@ Responsible for:
 - Printer profile.
 - Menu availability.
 
-## Product catalogue
+### Product catalogue
 
 Responsible for:
 
@@ -739,7 +739,7 @@ Responsible for:
 - Cost price later.
 - Product templates.
 
-## Menu service
+### Menu service
 
 Responsible for:
 
@@ -753,7 +753,7 @@ Responsible for:
 - Sold-out visibility.
 - POS tile configuration.
 
-## Pricing engine
+### Pricing engine
 
 Responsible for:
 
@@ -770,7 +770,7 @@ Responsible for:
 - Price overrides.
 - Tax-inclusive/exclusive mode.
 
-## Tax engine
+### Tax engine
 
 Responsible for:
 
@@ -788,7 +788,7 @@ Responsible for:
 - Rounding rules.
 - Country/regional tax configuration.
 
-## Order service
+### Order service
 
 Responsible for:
 
@@ -806,7 +806,7 @@ Responsible for:
 - Order lifecycle.
 - State rebuild.
 
-## Payment service
+### Payment service
 
 Responsible for:
 
@@ -824,7 +824,7 @@ Responsible for:
 - Payment ledger.
 - Idempotency.
 
-## Refund service
+### Refund service
 
 Responsible for:
 
@@ -838,7 +838,7 @@ Responsible for:
 - Refund audit.
 - Reversal records.
 
-## Receipt service
+### Receipt service
 
 Responsible for:
 
@@ -852,7 +852,7 @@ Responsible for:
 - Reprint audit.
 - Provider payment details.
 
-## Printer service
+### Printer service
 
 Responsible for:
 
@@ -866,7 +866,7 @@ Responsible for:
 - Reprint flow.
 - Print failure retry.
 
-## Inventory service
+### Inventory service
 
 Responsible for:
 
@@ -882,7 +882,7 @@ Responsible for:
 - Serial tracking later.
 - Purchase orders later.
 
-## Customer / loyalty service
+### Customer / loyalty service
 
 Responsible for:
 
@@ -896,7 +896,7 @@ Responsible for:
 - Tax exemption later.
 - Cross-location profile later.
 
-## Reporting service
+### Reporting service
 
 Responsible for:
 
@@ -918,7 +918,7 @@ Responsible for:
 - Tips later.
 - Executive dashboards later.
 
-## Audit log service
+### Audit log service
 
 Responsible for:
 
@@ -931,7 +931,7 @@ Responsible for:
 - Reason capture.
 - Linked entity IDs.
 
-## Device / terminal service
+### Device / terminal service
 
 Responsible for:
 
@@ -946,7 +946,7 @@ Responsible for:
 - App version.
 - Remote config.
 
-## Sync / offline service
+### Sync / offline service
 
 Responsible for:
 
@@ -963,9 +963,9 @@ Responsible for:
 
 ---
 
-# Tax Requirements
+## Tax Requirements
 
-## AU/NZ first
+### AU/NZ first
 
 The first tax implementation should support:
 
@@ -979,7 +979,7 @@ The first tax implementation should support:
 - Tax markers on receipts.
 - Tax snapshots per order line.
 
-## Mixed AU basket example
+### Mixed AU basket example
 
 Products:
 
@@ -1011,7 +1011,7 @@ Loaf of bread GST:        $0.00
 Total GST:                $1.30
 ```
 
-## Recommended tax data shape
+### Recommended tax data shape
 
 ```text
 TaxRate
@@ -1055,7 +1055,7 @@ OrderLineTax
 - JurisdictionType
 ```
 
-## Global tax design limits
+### Global tax design limits
 
 ```text
 Maximum tax components per item line: 10
@@ -1064,9 +1064,9 @@ Maximum tax components per order: 20
 
 ---
 
-# Payment Provider Roadmap
+## Payment Provider Roadmap
 
-## AU/NZ launch
+### AU/NZ launch
 
 Initial provider priority:
 
@@ -1080,7 +1080,7 @@ Initial provider priority:
 7. Windcave
 ```
 
-## APAC expansion
+### APAC expansion
 
 Singapore:
 
@@ -1101,7 +1101,7 @@ Hong Kong:
 4. Global Payments
 ```
 
-## UK
+### UK
 
 ```text
 1. Stripe Terminal
@@ -1111,7 +1111,7 @@ Hong Kong:
 5. Global Payments
 ```
 
-## US/Canada
+### US/Canada
 
 ```text
 1. Stripe Terminal
@@ -1120,7 +1120,7 @@ Hong Kong:
 4. Global Payments
 ```
 
-## Payment adapter architecture
+### Payment adapter architecture
 
 ```text
 Daxa Payments
@@ -1134,7 +1134,7 @@ Daxa Payments
 └─ Global Payments Adapter
 ```
 
-## Payment provider definition
+### Payment provider definition
 
 Each provider must define:
 
@@ -1156,7 +1156,7 @@ Settlement/reconciliation support
 Certification requirements
 ```
 
-## Integrated payment flow
+### Integrated payment flow
 
 ```text
 Staff presses Pay
@@ -1176,9 +1176,9 @@ Order closes or retries
 
 ---
 
-# Device and App Strategy
+## Device and App Strategy
 
-## Windows POS terminal
+### Windows POS terminal
 
 Use Daxa Terminal as a .NET MAUI app.
 
@@ -1194,7 +1194,7 @@ Expected capabilities:
 - Customer display second window.
 - Local/cloud/hybrid connection modes.
 
-## Customer second screen
+### Customer second screen
 
 Use Daxa Display as a second .NET MAUI window where supported.
 
@@ -1207,31 +1207,31 @@ Window 1: Staff POS UI
 Window 2: Customer display UI
 ```
 
-## Linux devices
+### Linux devices
 
 Use PWA in browser kiosk mode.
 
 Do not rely on .NET MAUI Linux for commercial production.
 
-## Android/iPad
+### Android/iPad
 
 Use PWA.
 
-## KDS
+### KDS
 
 Use PWA.
 
 KDS must be able to rebuild state from the server after reconnect.
 
-## Admin
+### Admin
 
 Use web/PWA.
 
 ---
 
-# Industry Templates
+## Industry Templates
 
-## Cafe
+### Cafe
 
 Should preconfigure:
 
@@ -1244,7 +1244,7 @@ Should preconfigure:
 - Receipt printing.
 - Quick payment flow.
 
-## Bakery
+### Bakery
 
 Should preconfigure:
 
@@ -1256,7 +1256,7 @@ Should preconfigure:
 - Deposits later.
 - Labels later.
 
-## Pub/bar
+### Pub/bar
 
 Should preconfigure:
 
@@ -1269,7 +1269,7 @@ Should preconfigure:
 - Tips later.
 - Bar routing.
 
-## Restaurant
+### Restaurant
 
 Should preconfigure:
 
@@ -1281,7 +1281,7 @@ Should preconfigure:
 - Kitchen notes.
 - Service charge.
 
-## Fast food
+### Fast food
 
 Should preconfigure:
 
@@ -1292,7 +1292,7 @@ Should preconfigure:
 - KDS routing.
 - Customer display.
 
-## Food truck
+### Food truck
 
 Should preconfigure:
 
@@ -1303,7 +1303,7 @@ Should preconfigure:
 - Quick payment.
 - End-of-day event summary.
 
-## Retail
+### Retail
 
 Should preconfigure:
 
@@ -1315,7 +1315,7 @@ Should preconfigure:
 - Inventory.
 - Stocktake later.
 
-## Electronics
+### Electronics
 
 Should preconfigure:
 
@@ -1325,7 +1325,7 @@ Should preconfigure:
 - Returns/exchanges.
 - Repairs later.
 
-## Repair shop
+### Repair shop
 
 Should preconfigure:
 
@@ -1340,11 +1340,11 @@ Should preconfigure:
 
 ---
 
-# Codex Operating Rules
+## Codex Operating Rules
 
 Codex must follow these rules every time it runs.
 
-## Autonomous planning behaviour
+### Autonomous planning behaviour
 
 When Codex is asked to plan, triage, investigate, or prepare fixes, it must work autonomously from the repository contents.
 
@@ -1377,7 +1377,7 @@ Codex must leave enough notes that a later worker can continue without re-discov
 
 ---
 
-# Required Context Review
+## Required Context Review
 
 Before changing code, Codex must read:
 
@@ -1395,7 +1395,7 @@ If any of these files do not exist, Codex must create a documentation issue or i
 
 ---
 
-# Planning Before Work
+## Planning Before Work
 
 Before making changes, Codex must create or update a short implementation plan.
 
@@ -1420,7 +1420,7 @@ The plan must include:
 
 ---
 
-# No More Than Three Changes Without a Plan Refresh
+## No More Than Three Changes Without a Plan Refresh
 
 Codex must not make more than three meaningful changes without pausing and updating the active plan.
 
@@ -1444,7 +1444,7 @@ A meaningful change includes:
 
 ---
 
-# Commit Rules
+## Commit Rules
 
 Codex must commit each completed logical change.
 
@@ -1466,7 +1466,7 @@ Do not batch unrelated changes into one commit.
 
 ---
 
-# Documentation Rules
+## Documentation Rules
 
 Documentation is part of the work.
 
@@ -1489,7 +1489,7 @@ Documentation may include:
 - Payment integration notes
 - Tax rules
 
-## Docs folder requirements
+### Docs folder requirements
 
 Codex must keep `./docs` current.
 
@@ -1517,9 +1517,20 @@ If a decision is superseded, move/update it under:
 docs/adr/superseded/
 ```
 
+### Markdown linting
+
+All Markdown files must pass `npx markdownlint-cli2 "**/*.md"` with zero errors. Repo rules are in `.markdownlint-cli2.jsonc` at the repository root (line length and table pipe alignment are intentionally disabled there; duplicate-heading checks apply per-parent, not document-wide).
+
+When creating or editing any `.md` file:
+
+- Use exactly one top-level `#` heading (the document title). Every other heading is `##` or deeper.
+- For documents with a repeated structure (phases, worker notes, changelog entries), nest each repeated block's subheadings one level below that block's own heading, e.g. `## Phase 3` → `### Goal` / `### Key actions` / `### Exit criteria`. Do not reuse the same heading text as a sibling under the same parent.
+- Give every fenced code block a language hint. Use `` ```text `` for plain output, ASCII diagrams, or file paths — never a bare `` ``` ``.
+- Run `npx markdownlint-cli2 "**/*.md"` before considering documentation work complete, and `npx markdownlint-cli2 --fix "**/*.md"` first to clear anything auto-fixable.
+
 ---
 
-# Testing Rules
+## Testing Rules
 
 Codex must add or update tests for behaviour it changes.
 
@@ -1551,7 +1562,7 @@ Financial, tax, payment, refund, and audit logic must not be changed without tes
 
 ---
 
-# Specialist Worker Workflow
+## Specialist Worker Workflow
 
 The preferred workflow is to use specialised Codex workers sequentially.
 
@@ -1592,7 +1603,7 @@ Each worker must:
 
 ---
 
-# GitHub Integration
+## GitHub Integration
 
 Codex should integrate with GitHub for repository tracking where available.
 
@@ -1608,7 +1619,7 @@ Expected behaviour:
 
 ---
 
-# Human Supervision
+## Human Supervision
 
 Codex must clearly identify:
 
@@ -1626,7 +1637,7 @@ Codex must not claim production readiness unless the relevant tests, deployment 
 
 ---
 
-# Strict Implementation Principles
+## Strict Implementation Principles
 
 - Single codebase.
 - Cloud, local, and hybrid are deployment modes.
@@ -1660,7 +1671,7 @@ Codex must not claim production readiness unless the relevant tests, deployment 
 
 ---
 
-# Initial MVP Direction
+## Initial MVP Direction
 
 MVP should include:
 
@@ -1705,9 +1716,9 @@ These can be phased in after the core architecture is stable.
 
 ---
 
-# Phase Roadmap
+## Phase Roadmap
 
-## Phase 1 — MVP
+### Phase 1 — MVP
 
 ```text
 Products/categories
@@ -1731,7 +1742,7 @@ Customer-facing second screen
 Admin portal
 ```
 
-## Phase 2 — Hospitality and operations depth
+### Phase 2 — Hospitality and operations depth
 
 ```text
 Tables/floor plan
@@ -1749,7 +1760,7 @@ Cash drawer management
 End-of-day reconciliation
 ```
 
-## Phase 3 — Multi-location and advanced business workflows
+### Phase 3 — Multi-location and advanced business workflows
 
 ```text
 Multi-location chains
@@ -1766,7 +1777,7 @@ Advanced reporting
 Accounting exports
 ```
 
-## Phase 4 — Global expansion
+### Phase 4 — Global expansion
 
 ```text
 US/CA tax engine
@@ -1784,7 +1795,7 @@ Multi-language
 
 ---
 
-# Suggested Repository Documentation Structure
+## Suggested Repository Documentation Structure
 
 Codex should maintain a docs structure similar to:
 
@@ -1867,7 +1878,7 @@ docs/
 
 ---
 
-# Suggested .NET Solution Structure
+## Suggested .NET Solution Structure
 
 This is a planning candidate, not final architecture.
 
@@ -1916,7 +1927,7 @@ tests/
 
 ---
 
-# Final Instruction To Codex
+## Final Instruction To Codex
 
 When in doubt:
 

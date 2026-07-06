@@ -35,7 +35,7 @@ Define and document the foundational architecture of Daxa POS before any applica
 
 ## Files Likely To Change
 
-```
+```text
 src/
   DaxaPos.Domain/
   DaxaPos.Application/
@@ -101,7 +101,7 @@ docs/architecture/multi-location.md
 
 ## Commit Sequence
 
-```
+```text
 chore: scaffold .NET solution structure
 docs: update architecture foundation docs
 ```

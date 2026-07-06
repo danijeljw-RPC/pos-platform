@@ -21,9 +21,9 @@ The platform direction is:
 
 ---
 
-# Phase 0 — Repository Foundation
+## Phase 0 — Repository Foundation
 
-## Goals
+### Goals
 
 - Create documentation structure.
 - Add Claude Code operating rules.
@@ -35,7 +35,7 @@ The platform direction is:
 - Establish single-codebase direction.
 - Establish initial module boundaries.
 
-## Outputs
+### Outputs
 
 ```text
 CLAUDE.md
@@ -52,9 +52,9 @@ docs/integrations/
 
 ---
 
-# Phase 1 — Architecture Foundation
+## Phase 1 — Architecture Foundation
 
-## Goals
+### Goals
 
 - Capture core architecture ADRs.
 - Confirm deployment modes.
@@ -65,7 +65,7 @@ docs/integrations/
 - Confirm sync/offline principles.
 - Confirm identity/security direction.
 
-## Key decisions to document
+### Key decisions to document
 
 - Single codebase.
 - Cloud/local/hybrid deployment.
@@ -79,9 +79,9 @@ docs/integrations/
 
 ---
 
-# Phase 2 — Platform Skeleton
+## Phase 2 — Platform Skeleton
 
-## Goals
+### Goals
 
 - Create .NET solution.
 - Add API project.
@@ -93,7 +93,7 @@ docs/integrations/
 - Add test projects.
 - Add initial CI/test commands.
 
-## Suggested starting projects
+### Suggested starting projects
 
 ```text
 DaxaPos.Api
@@ -106,9 +106,9 @@ DaxaPos.Workers
 
 ---
 
-# Phase 3 — Identity, Tenancy, Locations, Devices
+## Phase 3 — Identity, Tenancy, Locations, Devices
 
-## Goals
+### Goals
 
 - Tenant model.
 - Organisation model.
@@ -121,7 +121,7 @@ DaxaPos.Workers
 - Audit foundation.
 - Tenant/location isolation tests.
 
-## Key principle
+### Key principle
 
 Every tenant supports multi-location by default.
 
@@ -129,9 +129,9 @@ A single-location business is simply one location.
 
 ---
 
-# Phase 4 — Product Catalogue, Menus, Modifiers
+## Phase 4 — Product Catalogue, Menus, Modifiers
 
-## Goals
+### Goals
 
 - Product categories.
 - Products.
@@ -146,15 +146,15 @@ A single-location business is simply one location.
 - Print/prep routing metadata.
 - Admin APIs.
 
-## Key principle
+### Key principle
 
 Menu configuration must be data-driven.
 
 ---
 
-# Phase 5 — Tax and Pricing Engine
+## Phase 5 — Tax and Pricing Engine
 
-## Goals
+### Goals
 
 - AU GST 10%.
 - AU GST-free items.
@@ -168,7 +168,7 @@ Menu configuration must be data-driven.
 - Surcharge foundation.
 - Discount foundation.
 
-## Required mixed AU basket
+### Required mixed AU basket
 
 ```text
 Flat white                    $5.50
@@ -183,9 +183,9 @@ F = GST-free
 
 ---
 
-# Phase 6 — Order Engine and POS Core
+## Phase 6 — Order Engine and POS Core
 
-## Goals
+### Goals
 
 - Create order.
 - Add/remove items.
@@ -199,15 +199,15 @@ F = GST-free
 - Save order snapshots.
 - Audit financial actions.
 
-## Key principle
+### Key principle
 
 Financially meaningful records must not be silently edited. Use voids, refunds, reversals, and adjustment records.
 
 ---
 
-# Phase 7 — Daxa Terminal MAUI Foundation
+## Phase 7 — Daxa Terminal MAUI Foundation
 
-## Goals
+### Goals
 
 - Create Daxa Terminal MAUI app.
 - Staff POS screen.
@@ -220,15 +220,15 @@ Financially meaningful records must not be silently edited. Use voids, refunds, 
 - Full-screen/borderless planning.
 - Customer display state publishing foundation.
 
-## Target
+### Target
 
 Windows counter POS terminals.
 
 ---
 
-# Phase 8 — Daxa Display Customer Screen
+## Phase 8 — Daxa Display Customer Screen
 
-## Goals
+### Goals
 
 - Second MAUI window.
 - Customer-facing display state.
@@ -239,7 +239,7 @@ Windows counter POS terminals.
 - Receipt prompt placeholder.
 - Display assignment config.
 
-## Key principle
+### Key principle
 
 Daxa Display is not KDS.
 
@@ -247,9 +247,9 @@ It is the second customer-facing display at the point of sale.
 
 ---
 
-# Phase 9 — Payments Foundation
+## Phase 9 — Payments Foundation
 
-## Goals
+### Goals
 
 - Payment method model.
 - Cash payment.
@@ -262,7 +262,7 @@ It is the second customer-facing display at the point of sale.
 - Refund model.
 - Payment/refund audit.
 
-## Future provider order
+### Future provider order
 
 ```text
 Tyro
@@ -277,9 +277,9 @@ Global Payments
 
 ---
 
-# Phase 10 — Receipts, Printing, Cash Drawer
+## Phase 10 — Receipts, Printing, Cash Drawer
 
-## Goals
+### Goals
 
 - Receipt model.
 - Thermal receipt rendering.
@@ -294,9 +294,9 @@ Global Payments
 
 ---
 
-# Phase 11 — Admin / Back Office PWA
+## Phase 11 — Admin / Back Office PWA
 
-## Goals
+### Goals
 
 - Admin shell.
 - Tenant/location selection.
@@ -312,9 +312,9 @@ Global Payments
 
 ---
 
-# Phase 12 — Reporting and Audit Hardening
+## Phase 12 — Reporting and Audit Hardening
 
-## Goals
+### Goals
 
 - Daily sales.
 - Sales by payment method.
@@ -332,9 +332,9 @@ Global Payments
 
 ---
 
-# Phase 13 — Daxa Sync Foundation
+## Phase 13 — Daxa Sync Foundation
 
-## Goals
+### Goals
 
 - Local-to-cloud sync queue.
 - Cloud-to-local sync queue.
@@ -346,16 +346,16 @@ Global Payments
 - Sync audit.
 - Backup/export hooks.
 
-## Applies to
+### Applies to
 
 - Daxa Local.
 - Daxa Hybrid.
 
 ---
 
-# Phase 14 — Inventory Foundation
+## Phase 14 — Inventory Foundation
 
-## Goals
+### Goals
 
 - Inventory items.
 - Stock movements.
@@ -366,7 +366,7 @@ Global Payments
 - Daily production counts.
 - Low-stock alert foundation.
 
-## Industry relevance
+### Industry relevance
 
 - Bakery.
 - Food truck.
@@ -377,9 +377,9 @@ Global Payments
 
 ---
 
-# Phase 15 — Daxa KDS Foundation
+## Phase 15 — Daxa KDS Foundation
 
-## Goals
+### Goals
 
 - Station model.
 - Station login.
@@ -391,15 +391,15 @@ Global Payments
 - Bump/complete workflow.
 - Void/cancel propagation.
 
-## Key principle
+### Key principle
 
 KDS screens are separate from Daxa Display.
 
 ---
 
-# Phase 16 — Hospitality Templates
+## Phase 16 — Hospitality Templates
 
-## Goals
+### Goals
 
 Add configuration templates for:
 
@@ -422,9 +422,9 @@ Templates may include:
 
 ---
 
-# Phase 17 — Retail and Service Templates
+## Phase 17 — Retail and Service Templates
 
-## Goals
+### Goals
 
 Add configuration templates for:
 
@@ -445,9 +445,9 @@ Templates may include:
 
 ---
 
-# Phase 18 — Cloud, Local, Hybrid Deployment Hardening
+## Phase 18 — Cloud, Local, Hybrid Deployment Hardening
 
-## Goals
+### Goals
 
 - Cloud deployment docs.
 - Local deployment docs.
@@ -464,9 +464,9 @@ Templates may include:
 
 ---
 
-# Phase 19 — Payment Provider Integrations
+## Phase 19 — Payment Provider Integrations
 
-## Goals
+### Goals
 
 Implement real integrated payment providers.
 
@@ -498,9 +498,9 @@ Each provider requires:
 
 ---
 
-# Phase 20 — Global Expansion Readiness
+## Phase 20 — Global Expansion Readiness
 
-## Goals
+### Goals
 
 - Singapore readiness.
 - Hong Kong readiness.
@@ -518,9 +518,9 @@ Each provider requires:
 
 ---
 
-# Long-Term Product Areas
+## Long-Term Product Areas
 
-## Loyalty
+### Loyalty
 
 - Customer profiles.
 - Points.
@@ -530,7 +530,7 @@ Each provider requires:
 - Offers.
 - Customer history.
 
-## Gift cards
+### Gift cards
 
 - Stored-value accounts.
 - QR token model.
@@ -541,7 +541,7 @@ Each provider requires:
 - Lost-card replacement.
 - Balance check.
 
-## Service jobs
+### Service jobs
 
 - Device intake.
 - Fault description.
@@ -551,7 +551,7 @@ Each provider requires:
 - Repair lifecycle.
 - Warranty.
 
-## Advanced inventory
+### Advanced inventory
 
 - Recipes/BOM.
 - Suppliers.
@@ -562,7 +562,7 @@ Each provider requires:
 - Stocktake.
 - Margin reports.
 
-## External ordering
+### External ordering
 
 - Public menu API.
 - Website/mobile ordering.
@@ -573,7 +573,7 @@ Each provider requires:
 
 ---
 
-# Roadmap Rule
+## Roadmap Rule
 
 Claude Code must not mark a phase as complete unless:
 

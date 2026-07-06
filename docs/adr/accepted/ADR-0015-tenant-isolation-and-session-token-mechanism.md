@@ -42,6 +42,7 @@ A new `ICurrentTenantProvider` interface (`Guid? TenantId { get; }`) is defined 
 `AuthSession` (backing both `AuthMethod.LocalStaffPin` and `AuthMethod.LocalUsernamePassword`) uses a random opaque bearer token (256-bit), returned to the caller once at login. **The raw token is never persisted** — the server stores only a SHA-256 hash of the token in `AuthSession.SessionTokenHash` and validates a presented token by re-hashing it and looking up the match via a database lookup on every request. The same never-store-raw rule applies to staff PINs and local passwords (see §3 below): only their hashes are ever persisted.
 
 This is deliberately **not** a self-contained signed JWT, for three reasons:
+
 - Instant revocation (including the ADR-0013 "emergency disable" requirement) needs the server to be able to invalidate a session the moment `RevokedAtUtc` is set, without waiting for token expiry.
 - Keeping the token format visually and mechanically distinct from Keycloak's JWTs reinforces ADR-0013's boundary: a POS staff session is a Daxa WebAPI construct, never mistakable for (or interchangeable with) an OIDC token.
 - The validating lookup is a local Postgres read, which is available in Local and Hybrid deployments with no internet — it does not reintroduce a cloud dependency into the local staff-PIN path.

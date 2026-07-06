@@ -9,6 +9,7 @@ Daxa POS uses PWA in Chromium kiosk mode for Linux-based kiosk and counter devic
 Linux mini PCs, kiosk devices, and embedded computers can run Daxa POS (as a non-MAUI fallback) using a Chromium-based browser in kiosk mode pointing to the Daxa PWA.
 
 This is suitable for:
+
 - Non-Windows POS fallback.
 - Self-ordering kiosks.
 - KDS screens on Linux devices.
@@ -37,6 +38,7 @@ chromium-browser \
 ```
 
 For kiosk lockdown (prevent user from exiting):
+
 - Configure auto-login with a restricted user account.
 - Use `openbox` or similar WM with kiosk profile.
 - Disable keyboard shortcuts via Chromium policy.

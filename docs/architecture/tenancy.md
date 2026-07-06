@@ -69,6 +69,7 @@ Region is an optional grouping level for multi-country chains (e.g. APAC, EMEA).
 A `Location` (also called a Venue) is a physical trading location.
 
 Location-level data includes:
+
 - Venue name and address.
 - Country and currency.
 - Time zone.
@@ -83,6 +84,7 @@ Location-level data includes:
 ## Terminal
 
 A `Terminal` is a registered POS device at a Location. Terminals have:
+
 - Terminal type (POS, KDS, admin, display).
 - Printer mapping.
 - Payment terminal mapping.

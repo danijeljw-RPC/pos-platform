@@ -45,7 +45,7 @@ For AU/NZ launch, Sydney region (AWS ap-southeast-2 or Azure Australia East) is 
 
 Environment variables required:
 
-```
+```text
 DAXA_DB_CONNECTION_STRING=
 DAXA_KEYCLOAK_URL=
 DAXA_KEYCLOAK_REALM=

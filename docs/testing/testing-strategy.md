@@ -25,15 +25,15 @@ Financial, tax, payment, refund, sync, and audit behaviour must be tested heavil
 
 ---
 
-# Testing Principles
+## Testing Principles
 
-## 1. Tests are required for meaningful changes
+### 1. Tests are required for meaningful changes
 
 Every implementation change should include relevant tests.
 
 If tests are not added, the worker must clearly state why and create an open issue where appropriate.
 
-## 2. Financial correctness is mandatory
+### 2. Financial correctness is mandatory
 
 The following must never be changed without tests:
 
@@ -51,23 +51,23 @@ The following must never be changed without tests:
 - Cash drawer audit
 - Settlement/reconciliation references
 
-## 3. Server state is authoritative
+### 3. Server state is authoritative
 
 Realtime events are convenience notifications. Tests must confirm that clients can recover correct state from the API/database after reconnect, refresh, missed messages, or app restart.
 
-## 4. Cloud, local, and hybrid modes must share behaviour
+### 4. Cloud, local, and hybrid modes must share behaviour
 
 Daxa Cloud, Daxa Local, and Daxa Hybrid must use the same domain rules.
 
 Deployment mode can change where data is hosted and how sync works, but it must not create different business logic.
 
-## 5. Multi-location is always active
+### 5. Multi-location is always active
 
 Single-location customers are simply tenants with one location.
 
 Tests must not assume that a tenant has only one location unless the test explicitly sets that up.
 
-## 6. Device identity and user identity are separate
+### 6. Device identity and user identity are separate
 
 Tests must verify that:
 
@@ -77,9 +77,9 @@ Tests must verify that:
 
 ---
 
-# Required Test Categories
+## Required Test Categories
 
-## Core test categories
+### Core test categories
 
 - Unit tests
 - Integration tests
@@ -116,9 +116,9 @@ Tests must verify that:
 
 ---
 
-# Critical Behaviour To Test
+## Critical Behaviour To Test
 
-## AU/NZ tax behaviour
+### AU/NZ tax behaviour
 
 Daxa POS launches with AU/NZ tax support first.
 
@@ -171,7 +171,7 @@ Correct receipt output:
 Loaf of bread              F  $6.00
 ```
 
-## Global tax model
+### Global tax model
 
 Even if US/CA tax is not MVP, tests should protect the model from being narrowed to one tax rate.
 
@@ -194,7 +194,7 @@ Maximum tax components per item line: 10
 Maximum tax components per order: 20
 ```
 
-## Payments
+### Payments
 
 Payment tests must cover:
 
@@ -221,7 +221,7 @@ Payment provider tests should use fake providers first.
 
 Provider-specific integrations must have contract tests or integration tests where possible.
 
-## Square Terminal model
+### Square Terminal model
 
 Tests must confirm the Square integration model uses Daxa POS as the POS and Square as the terminal/payment provider.
 
@@ -243,7 +243,7 @@ Daxa records payment result
 
 The system must not require staff to manually type the amount into Square Terminal when integrated payments are configured.
 
-## Order lifecycle
+### Order lifecycle
 
 Tests must cover:
 
@@ -262,7 +262,7 @@ Tests must cover:
 - Reprint receipt.
 - Audit events.
 
-## Customer display
+### Customer display
 
 Tests must cover the state model used by Daxa Display.
 
@@ -280,7 +280,7 @@ Customer display states:
 
 Tests should confirm that the customer display is driven by order/payment state, not by a separate inconsistent order model.
 
-## KDS reconnect
+### KDS reconnect
 
 KDS screens are separate devices and must rebuild state after reconnect.
 
@@ -293,7 +293,7 @@ Tests must cover:
 - Bump/complete state survives refresh.
 - Routing rules produce correct station tickets.
 
-## POS reconnect
+### POS reconnect
 
 Daxa Terminal must recover order state.
 
@@ -306,7 +306,7 @@ Tests must cover:
 - Duplicate payment prevention after reconnect.
 - Idempotency key reuse behaviour.
 
-## Order routing
+### Order routing
 
 Routing tests must cover:
 
@@ -319,7 +319,7 @@ Routing tests must cover:
 - A routed item can target multiple stations if configured.
 - Void/cancel is propagated to routed stations.
 
-## Financial integrity
+### Financial integrity
 
 Tests must cover:
 
@@ -333,7 +333,7 @@ Tests must cover:
 - Store credit cannot overdraft unless explicitly allowed later.
 - Payment records are not silently edited.
 
-## Stock integrity
+### Stock integrity
 
 Tests must cover:
 
@@ -345,7 +345,7 @@ Tests must cover:
 - Daily production counts can decrement for bakery/food truck workflows.
 - Stock deduction must be idempotent when order submission is retried.
 
-## Sync and offline
+### Sync and offline
 
 Daxa Local and Daxa Hybrid need sync tests.
 
@@ -364,7 +364,7 @@ Tests must cover:
 - Failed sync is auditable.
 - Local trading continues when cloud is unavailable, where configured.
 
-## Backup/restore
+### Backup/restore
 
 Tests must cover:
 
@@ -375,7 +375,7 @@ Tests must cover:
 - Cloud backup export is authenticated.
 - Backup failure is visible and auditable.
 
-## Docker and deployment smoke tests
+### Docker and deployment smoke tests
 
 Docker smoke tests should cover:
 
@@ -390,7 +390,7 @@ Docker smoke tests should cover:
 - Logs are accessible.
 - Volumes persist data across container restart.
 
-## MAUI terminal tests
+### MAUI terminal tests
 
 Where practical, test:
 
@@ -407,7 +407,7 @@ Manual test notes are acceptable for UI/device-specific behaviours that are not 
 
 ---
 
-# Test Data Requirements
+## Test Data Requirements
 
 Use seeded test data for:
 
@@ -460,7 +460,7 @@ Tax categories:
 
 ---
 
-# Test Naming
+## Test Naming
 
 Use descriptive test names.
 
@@ -484,7 +484,7 @@ TaxTest
 
 ---
 
-# Claude Code Test Rule
+## Claude Code Test Rule
 
 Every implementation change must include relevant tests or clearly state why tests were not added.
 
@@ -494,6 +494,6 @@ Financial, tax, payment, refund, and audit changes must not be merged without te
 
 ---
 
-# Implementation Status (PLAN-0003, as of Milestone G, 2026-07-03)
+## Implementation Status (PLAN-0003, as of Milestone G, 2026-07-03)
 
 Two test projects exist: `tests/DaxaPos.UnitTests/` (pure logic — hashers, policies, plus the `IgnoreQueryFilters()` source-scan guard) and `tests/DaxaPos.Api.Tests/` (HTTP-level tests against a real Postgres container; no mocks). Offline verification is structural: CI runs with a Postgres service only (no Keycloak container exists in the workflow), local runs keep the `keycloak` compose service stopped, and `HybridOfflineLoginTests.cs` exercises both auth chains end-to-end under those conditions. Cross-cutting authorization coverage is consolidated in `RbacTests.cs`, driven by a single protected-endpoint inventory — add new protected endpoints to that inventory as they are built. See [Security Tests](security-tests.md) for the detailed mapping and the [Local smoke test](local-smoke-test.md) for the manual walkthrough.

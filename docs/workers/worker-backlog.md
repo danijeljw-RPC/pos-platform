@@ -23,7 +23,7 @@ This backlog assumes the new Daxa POS direction:
 
 ---
 
-# Phase Overview
+## Phase Overview
 
 | Phase | Worker | Status | Target Branch |
 |---:|---|---|---|
@@ -51,17 +51,17 @@ This backlog assumes the new Daxa POS direction:
 
 ---
 
-# Phase 0 — Repository Foundation
+## Phase 0 — Repository Foundation
 
-## Worker
+### Worker
 
 Documentation / Repository Worker
 
-## Goal
+### Goal
 
 Create the repository structure and documentation baseline for Daxa POS.
 
-## Key actions
+### Key actions
 
 1. Add `CLAUDE.md`.
 2. Add `docs/README.md`.
@@ -77,7 +77,7 @@ Create the repository structure and documentation baseline for Daxa POS.
 12. Add issue template.
 13. Add ADR template.
 
-## Required docs
+### Required docs
 
 ```text
 docs/README.md
@@ -93,7 +93,7 @@ docs/plans/active/
 docs/plans/completed/
 ```
 
-## Exit criteria
+### Exit criteria
 
 - Repository has planning/documentation scaffold.
 - Claude Code can start future workers without rediscovering project direction.
@@ -101,17 +101,17 @@ docs/plans/completed/
 
 ---
 
-# Phase 1 — Architecture Foundation
+## Phase 1 — Architecture Foundation
 
-## Worker
+### Worker
 
 Architecture Worker
 
-## Goal
+### Goal
 
 Capture the main Daxa POS architecture before implementation starts.
 
-## Key actions
+### Key actions
 
 1. Create ADRs for single codebase.
 2. Create ADR for cloud/local/hybrid deployment modes.
@@ -124,7 +124,7 @@ Capture the main Daxa POS architecture before implementation starts.
 9. Create module boundary documentation.
 10. Create initial domain model notes.
 
-## Required ADRs
+### Required ADRs
 
 ```text
 ADR-0001-single-codebase.md
@@ -137,7 +137,7 @@ ADR-0007-local-hybrid-sync-principles.md
 ADR-0008-device-identity-vs-user-identity.md
 ```
 
-## Exit criteria
+### Exit criteria
 
 - Architecture direction is documented.
 - Accepted/proposed ADRs are available for workers.
@@ -145,17 +145,17 @@ ADR-0008-device-identity-vs-user-identity.md
 
 ---
 
-# Phase 2 — Platform Skeleton
+## Phase 2 — Platform Skeleton
 
-## Worker
+### Worker
 
 Infrastructure / API / Database Worker
 
-## Goal
+### Goal
 
 Create the initial technical skeleton.
 
-## Key actions
+### Key actions
 
 1. Create .NET solution.
 2. Create API project.
@@ -168,7 +168,7 @@ Create the initial technical skeleton.
 9. Add CI test command.
 10. Add initial module folders.
 
-## Suggested projects
+### Suggested projects
 
 ```text
 src/
@@ -185,7 +185,7 @@ tests/
   DaxaPos.Api.Tests/
 ```
 
-## Exit criteria
+### Exit criteria
 
 - `dotnet build` passes.
 - `dotnet test` passes.
@@ -196,17 +196,17 @@ tests/
 
 ---
 
-# Phase 3 — Identity, Tenancy, Locations, Devices
+## Phase 3 — Identity, Tenancy, Locations, Devices
 
-## Worker
+### Worker
 
 Identity / Security / Device Worker
 
-## Goal
+### Goal
 
 Implement the foundation for tenant isolation, multi-location, user identity, staff roles, and device registration.
 
-## Key actions
+### Key actions
 
 1. Add tenant model.
 2. Add organisation model.
@@ -221,7 +221,7 @@ Implement the foundation for tenant isolation, multi-location, user identity, st
 11. Add audit log foundation.
 12. Add tests for tenant/location isolation.
 
-## Exit criteria
+### Exit criteria
 
 - Tenant and location boundaries are enforced.
 - Device and user identity are separate.
@@ -230,17 +230,17 @@ Implement the foundation for tenant isolation, multi-location, user identity, st
 
 ---
 
-# Phase 4 — Product Catalogue, Menus, Modifiers
+## Phase 4 — Product Catalogue, Menus, Modifiers
 
-## Worker
+### Worker
 
 Catalogue / Menu Worker
 
-## Goal
+### Goal
 
 Implement products, categories, modifiers, menus, and POS tile configuration.
 
-## Key actions
+### Key actions
 
 1. Add product category model.
 2. Add product model.
@@ -256,7 +256,7 @@ Implement products, categories, modifiers, menus, and POS tile configuration.
 12. Add admin APIs.
 13. Add tests.
 
-## Exit criteria
+### Exit criteria
 
 - Products are data-driven.
 - Menus are data-driven.
@@ -265,17 +265,17 @@ Implement products, categories, modifiers, menus, and POS tile configuration.
 
 ---
 
-# Phase 5 — Tax and Pricing Engine
+## Phase 5 — Tax and Pricing Engine
 
-## Worker
+### Worker
 
 Tax / Pricing Worker
 
-## Goal
+### Goal
 
 Implement AU/NZ tax and the global-ready tax architecture.
 
-## Key actions
+### Key actions
 
 1. Add tax category model.
 2. Add tax rate model.
@@ -292,7 +292,7 @@ Implement AU/NZ tax and the global-ready tax architecture.
 13. Add discount rule foundation.
 14. Add tests for mixed baskets.
 
-## Must-pass test
+### Must-pass test
 
 ```text
 Flat white                    $5.50
@@ -305,7 +305,7 @@ Includes GST                  $1.30
 F = GST-free
 ```
 
-## Exit criteria
+### Exit criteria
 
 - AU/NZ mixed baskets work.
 - GST-free markers are supported.
@@ -315,17 +315,17 @@ F = GST-free
 
 ---
 
-# Phase 6 — Order Engine and POS Core
+## Phase 6 — Order Engine and POS Core
 
-## Worker
+### Worker
 
 Order Worker
 
-## Goal
+### Goal
 
 Implement the core order lifecycle.
 
-## Key actions
+### Key actions
 
 1. Create order.
 2. Add item.
@@ -343,7 +343,7 @@ Implement the core order lifecycle.
 14. Audit meaningful changes.
 15. Add tests.
 
-## Exit criteria
+### Exit criteria
 
 - Orders can be created and paid later.
 - Order totals are correct.
@@ -352,17 +352,17 @@ Implement the core order lifecycle.
 
 ---
 
-# Phase 7 — Daxa Terminal MAUI Foundation
+## Phase 7 — Daxa Terminal MAUI Foundation
 
-## Worker
+### Worker
 
 MAUI POS Worker
 
-## Goal
+### Goal
 
 Create the Windows staff-facing Daxa Terminal app.
 
-## Key actions
+### Key actions
 
 1. Create MAUI project.
 2. Add login/terminal registration screen.
@@ -376,7 +376,7 @@ Create the Windows staff-facing Daxa Terminal app.
 10. Add barcode scanner keyboard-wedge support planning.
 11. Add tests/manual test notes.
 
-## Exit criteria
+### Exit criteria
 
 - Daxa Terminal can connect to API.
 - Terminal can create an order.
@@ -385,17 +385,17 @@ Create the Windows staff-facing Daxa Terminal app.
 
 ---
 
-# Phase 8 — Daxa Display Customer Screen
+## Phase 8 — Daxa Display Customer Screen
 
-## Worker
+### Worker
 
 Customer Display Worker
 
-## Goal
+### Goal
 
 Create customer-facing second display support.
 
-## Key actions
+### Key actions
 
 1. Add customer display state model.
 2. Add second MAUI window.
@@ -407,7 +407,7 @@ Create customer-facing second display support.
 8. Add display assignment configuration.
 9. Add tests/manual test notes.
 
-## Exit criteria
+### Exit criteria
 
 - Staff screen and customer display use same order/payment state.
 - No stretched-window design.
@@ -415,17 +415,17 @@ Create customer-facing second display support.
 
 ---
 
-# Phase 9 — Payments Foundation
+## Phase 9 — Payments Foundation
 
-## Worker
+### Worker
 
 Payments Worker
 
-## Goal
+### Goal
 
 Implement payment model and provider adapter foundation.
 
-## Key actions
+### Key actions
 
 1. Add payment method model.
 2. Add cash payment.
@@ -440,7 +440,7 @@ Implement payment model and provider adapter foundation.
 11. Add payment/refund audit.
 12. Add tests.
 
-## Exit criteria
+### Exit criteria
 
 - Orders can be paid by cash/manual EFTPOS.
 - Payment adapter architecture exists.
@@ -449,17 +449,17 @@ Implement payment model and provider adapter foundation.
 
 ---
 
-# Phase 10 — Receipts, Printing, Cash Drawer
+## Phase 10 — Receipts, Printing, Cash Drawer
 
-## Worker
+### Worker
 
 Printing / Receipt Worker
 
-## Goal
+### Goal
 
 Implement receipts and printer queue foundation.
 
-## Key actions
+### Key actions
 
 1. Add receipt model.
 2. Add receipt rendering.
@@ -473,7 +473,7 @@ Implement receipts and printer queue foundation.
 10. Add reprint audit.
 11. Add tests.
 
-## Exit criteria
+### Exit criteria
 
 - Receipt shows actual product names.
 - Receipt shows GST summary.
@@ -483,17 +483,17 @@ Implement receipts and printer queue foundation.
 
 ---
 
-# Phase 11 — Admin / Back Office PWA
+## Phase 11 — Admin / Back Office PWA
 
-## Worker
+### Worker
 
 Back Office Worker
 
-## Goal
+### Goal
 
 Create the management/admin application.
 
-## Key actions
+### Key actions
 
 1. Add admin shell.
 2. Add tenant/location selector.
@@ -508,7 +508,7 @@ Create the management/admin application.
 11. Add audit log view.
 12. Add tests.
 
-## Exit criteria
+### Exit criteria
 
 - Admin users can configure core POS data.
 - Configuration is location-aware.
@@ -516,17 +516,17 @@ Create the management/admin application.
 
 ---
 
-# Phase 12 — Reporting and Audit Hardening
+## Phase 12 — Reporting and Audit Hardening
 
-## Worker
+### Worker
 
 Reporting / Audit Worker
 
-## Goal
+### Goal
 
 Implement basic operational reporting and harden audit trails.
 
-## Key actions
+### Key actions
 
 1. Daily sales report.
 2. Sales by payment method.
@@ -541,7 +541,7 @@ Implement basic operational reporting and harden audit trails.
 11. Audit event filtering.
 12. Export foundation.
 
-## Exit criteria
+### Exit criteria
 
 - Venue manager can see daily trading report.
 - Tax summary is reportable.
@@ -549,17 +549,17 @@ Implement basic operational reporting and harden audit trails.
 
 ---
 
-# Phase 13 — Local/Hybrid Sync Foundation
+## Phase 13 — Local/Hybrid Sync Foundation
 
-## Worker
+### Worker
 
 Sync / Offline Worker
 
-## Goal
+### Goal
 
 Create the foundation for Daxa Local and Daxa Hybrid.
 
-## Key actions
+### Key actions
 
 1. Define sync event model.
 2. Add local-to-cloud queue.
@@ -572,7 +572,7 @@ Create the foundation for Daxa Local and Daxa Hybrid.
 9. Add backup/export hooks.
 10. Add tests.
 
-## Exit criteria
+### Exit criteria
 
 - Local server can queue data for cloud.
 - Cloud can push configuration to local.
@@ -581,17 +581,17 @@ Create the foundation for Daxa Local and Daxa Hybrid.
 
 ---
 
-# Phase 14 — Inventory Foundation
+## Phase 14 — Inventory Foundation
 
-## Worker
+### Worker
 
 Inventory Worker
 
-## Goal
+### Goal
 
 Implement simple inventory and stock movement foundation.
 
-## Key actions
+### Key actions
 
 1. Add inventory item.
 2. Add stock movement.
@@ -604,7 +604,7 @@ Implement simple inventory and stock movement foundation.
 9. Add low stock alert foundation.
 10. Add tests.
 
-## Exit criteria
+### Exit criteria
 
 - Sales can decrement stock.
 - Adjustments are auditable.
@@ -612,17 +612,17 @@ Implement simple inventory and stock movement foundation.
 
 ---
 
-# Phase 15 — KDS Foundation
+## Phase 15 — KDS Foundation
 
-## Worker
+### Worker
 
 KDS Worker
 
-## Goal
+### Goal
 
 Implement kitchen/bar/prep display foundation.
 
-## Key actions
+### Key actions
 
 1. Add station model.
 2. Add station login.
@@ -635,7 +635,7 @@ Implement kitchen/bar/prep display foundation.
 9. Add void/cancel propagation.
 10. Add tests.
 
-## Exit criteria
+### Exit criteria
 
 - KDS can display routed tickets.
 - KDS can rebuild state after reconnect.
@@ -643,17 +643,17 @@ Implement kitchen/bar/prep display foundation.
 
 ---
 
-# Phase 16 — Hospitality Templates
+## Phase 16 — Hospitality Templates
 
-## Worker
+### Worker
 
 Hospitality Worker
 
-## Goal
+### Goal
 
 Add configured templates for hospitality venues.
 
-## Key actions
+### Key actions
 
 1. Cafe template.
 2. Bakery template.
@@ -667,24 +667,24 @@ Add configured templates for hospitality venues.
 10. Receipt defaults.
 11. Tests.
 
-## Exit criteria
+### Exit criteria
 
 - New venues can start from a hospitality template.
 - Templates are configuration, not separate code.
 
 ---
 
-# Phase 17 — Retail/Service Templates
+## Phase 17 — Retail/Service Templates
 
-## Worker
+### Worker
 
 Retail / Service Worker
 
-## Goal
+### Goal
 
 Add configured templates for retail and service businesses.
 
-## Key actions
+### Key actions
 
 1. Retail template.
 2. Clothing template.
@@ -696,24 +696,24 @@ Add configured templates for retail and service businesses.
 8. Service job placeholders.
 9. Tests.
 
-## Exit criteria
+### Exit criteria
 
 - New venues can start from retail/service templates.
 - Templates are configuration, not separate code.
 
 ---
 
-# Phase 18 — Cloud/Local/Hybrid Deployment Hardening
+## Phase 18 — Cloud/Local/Hybrid Deployment Hardening
 
-## Worker
+### Worker
 
 Infrastructure / Deployment Worker
 
-## Goal
+### Goal
 
 Harden deployment models.
 
-## Key actions
+### Key actions
 
 1. Cloud deployment docs.
 2. Local deployment docs.
@@ -728,7 +728,7 @@ Harden deployment models.
 11. TLS/cert docs.
 12. Smoke tests.
 
-## Exit criteria
+### Exit criteria
 
 - Local dev deployment works.
 - Local server deployment is documented.
@@ -738,17 +738,17 @@ Harden deployment models.
 
 ---
 
-# Phase 19 — Payment Provider Integrations
+## Phase 19 — Payment Provider Integrations
 
-## Worker
+### Worker
 
 Payment Provider Worker
 
-## Goal
+### Goal
 
 Add real payment providers.
 
-## Priority
+### Priority
 
 ```text
 1. Tyro
@@ -761,7 +761,7 @@ Add real payment providers.
 8. Global Payments later
 ```
 
-## Key actions
+### Key actions
 
 1. Create provider-specific docs.
 2. Confirm certification/onboarding requirements.
@@ -775,7 +775,7 @@ Add real payment providers.
 10. Add audit events.
 11. Add manual test checklist.
 
-## Exit criteria
+### Exit criteria
 
 - At least one integrated provider can be tested end-to-end.
 - Provider credentials are protected.
@@ -783,17 +783,17 @@ Add real payment providers.
 
 ---
 
-# Phase 20 — Global Expansion Readiness
+## Phase 20 — Global Expansion Readiness
 
-## Worker
+### Worker
 
 Globalisation Worker
 
-## Goal
+### Goal
 
 Prepare for APAC, NA, and EMEA.
 
-## Key actions
+### Key actions
 
 1. Tax-exclusive pricing support.
 2. US/CA stacked tax model.
@@ -806,7 +806,7 @@ Prepare for APAC, NA, and EMEA.
 9. Language/localisation foundation.
 10. Tests.
 
-## Exit criteria
+### Exit criteria
 
 - Model can support SG/HK/UK/US/CA.
 - US/CA tax and tipping architecture is documented.
@@ -814,7 +814,7 @@ Prepare for APAC, NA, and EMEA.
 
 ---
 
-# Worker Type Reference
+## Worker Type Reference
 
 | Worker Type | Relevant Phases |
 |---|---|
@@ -840,7 +840,7 @@ Prepare for APAC, NA, and EMEA.
 
 ---
 
-# Current Next Worker
+## Current Next Worker
 
 For a new Daxa POS repository, the next worker should be:
 

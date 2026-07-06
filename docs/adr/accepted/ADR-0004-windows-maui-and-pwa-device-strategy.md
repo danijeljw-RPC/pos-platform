@@ -15,11 +15,13 @@ Non-Windows devices (Linux kiosks, tablets, KDS screens) need: easy deployment, 
 ## Decision
 
 **Windows POS terminals use .NET MAUI:**
+
 - `Daxa Terminal` is a .NET MAUI application for Windows.
 - The customer-facing second display (`Daxa Display`) is a second MAUI window within the same application process — not a stretched single window across two monitors.
 - MAUI provides native Windows integration for printers, peripherals, and full-screen mode.
 
 **All other device types use PWA:**
+
 - Admin/back-office portal (`Daxa Back Office`) is a PWA/web application.
 - KDS screens (`Daxa KDS`) are PWA.
 - Non-Windows POS fallback is PWA.
@@ -28,11 +30,13 @@ Non-Windows devices (Linux kiosks, tablets, KDS screens) need: easy deployment, 
 - Future self-ordering kiosks use PWA with OS kiosk lockdown.
 
 **Linux MAUI is not used for production:**
+
 - .NET MAUI on Linux is not a reliable commercial baseline for venue deployments.
 
 ## Consequences
 
 **Positive:**
+
 - Windows POS gets the best native experience.
 - Non-Windows devices get easy, update-friendly, cross-platform PWA.
 - No separate Linux native app to maintain.
@@ -40,6 +44,7 @@ Non-Windows devices (Linux kiosks, tablets, KDS screens) need: easy deployment, 
 - KDS can run on any networked device with a browser.
 
 **Negative:**
+
 - Two technology stacks (MAUI + web/PWA) must be maintained.
 - MAUI updates and Windows-specific testing are required.
 - PWA has limitations on some hardware APIs (though these are manageable for admin/KDS use cases).

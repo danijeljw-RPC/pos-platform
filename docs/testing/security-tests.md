@@ -53,7 +53,7 @@ Security tests verify tenant isolation, RBAC, and access controls.
 
 ## Test Project
 
-```
+```text
 tests/DaxaPos.IntegrationTests/   (security and isolation tests)
 tests/DaxaPos.Api.Tests/          (API-level security tests)
 ```

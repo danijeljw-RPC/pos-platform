@@ -14,7 +14,7 @@ All 14 ADRs are accepted (ADR-0009 superseded by ADR-0013). This report now trac
 
 A neutral .NET 9 platform skeleton, scoped and approved for PLAN-0002 only — no business logic, no module projects, no identity/RBAC, no Stripe Terminal.
 
-```
+```text
 DaxaPos.sln                                (classic .sln format, not .slnx)
 Directory.Build.props                      (RollForward=LatestMajor — build-env accommodation, see below)
 src/
@@ -81,7 +81,7 @@ What remains for PLAN-0002 to be *fully* complete, per the original plan documen
 
 ## Recommended execution order (unchanged)
 
-```
+```text
 PLAN-0001 (Architecture Foundation)                — satisfied by existing docs + ADR-0014
   └─ PLAN-0002 (Platform Skeleton)                  — neutral skeleton done; not committed
        └─ PLAN-0003 (Identity, Tenancy, Locations, Devices, Staff Sessions)  — next

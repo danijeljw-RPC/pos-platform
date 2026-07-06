@@ -164,6 +164,7 @@ there was nothing running to wipe). `GET /health` returned `200 Healthy` before 
 1. `bash -n scripts/setup-local-demo.sh` — passed (run before and after the bash-3.2 fix below).
 2. `git diff --check` (staged) — no whitespace errors.
 3. First live run used the required override variables:
+
    ```bash
    DEMO_LOCATION_NAME="Local Demo Verification Venue" \
    DEMO_STAFF_CODE="VERIFY01" \
@@ -171,6 +172,7 @@ there was nothing running to wipe). `GET /health` returned `200 Healthy` before 
    DEMO_STAFF_PIN="135790" \
    ./scripts/setup-local-demo.sh
    ```
+
    First attempt failed fast with `bad substitution` on `${DEMO_STAFF_CODE^^}` (bash 3.2 on
    macOS does not support that expansion) — fixed to use `tr`, no other changes needed. Re-run:
    created location `Local Demo Verification Venue` and staff `VERIFY01`, PIN `135790` as

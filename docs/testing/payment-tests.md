@@ -57,7 +57,7 @@ Payment tests are mandatory. Payment logic must not be changed without test cove
 
 ## Test Project
 
-```
+```text
 tests/DaxaPos.PaymentProvider.Tests/
 tests/DaxaPos.IntegrationTests/
 ```

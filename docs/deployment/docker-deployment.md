@@ -28,9 +28,9 @@ Docker must support development and local/on-prem deployment. Cloud deployment m
 
 ---
 
-# Deployment Modes
+## Deployment Modes
 
-## Daxa Cloud
+### Daxa Cloud
 
 Cloud-hosted deployment.
 
@@ -46,7 +46,7 @@ Daxa Cloud
 └─ Monitoring/logging
 ```
 
-## Daxa Local
+### Daxa Local
 
 On-prem/local deployment.
 
@@ -60,7 +60,7 @@ Daxa Local Server
 └─ Persistent volumes
 ```
 
-## Daxa Hybrid
+### Daxa Hybrid
 
 Local server plus cloud sync.
 
@@ -83,7 +83,7 @@ Daxa Cloud
 
 ---
 
-# Expected Local Stack
+## Expected Local Stack
 
 The expected local Docker stack should include:
 
@@ -96,7 +96,7 @@ docker compose
   optional monitoring/logging
 ```
 
-## Services
+### Services
 
 | Service | Purpose |
 | --- | --- |
@@ -109,7 +109,7 @@ docker compose
 
 ---
 
-# Phase 1 Local Development Stack
+## Phase 1 Local Development Stack
 
 > This section (and its Suggested Quick Start below) describes the reverse-proxied target design,
 > including the `proxy` service, which is **not implemented**. What actually runs today —
@@ -118,7 +118,7 @@ docker compose
 > below is otherwise accurate for `db`/`api`/`worker` (see the root `compose.yaml` for the real
 > port mappings: `api` host `5118`, `web` host `8080`).
 
-## Services
+### Services
 
 | Service | Image | Port | Purpose |
 | --- | --- | ---: | --- |
@@ -128,7 +128,7 @@ docker compose
 | `web` | built from `src/DaxaPos.Web/Dockerfile` | internal `80` | Blazor WebAssembly PWA (nginx) |
 | `proxy` | `nginx:1.27-alpine` or equivalent | `80`, `443` | Reverse proxy / TLS termination — not yet implemented |
 
-## Optional future services
+### Optional future services
 
 | Service | Purpose |
 | --- | --- |
@@ -141,7 +141,7 @@ docker compose
 
 ---
 
-# Suggested Quick Start
+## Suggested Quick Start
 
 ```bash
 cd deploy
@@ -164,7 +164,7 @@ curl https://localhost/api/health
 
 ---
 
-# Environment Variables
+## Environment Variables
 
 A real `.env` file must never be committed.
 
@@ -174,7 +174,7 @@ Use:
 deploy/.env.example
 ```
 
-## Required variables
+### Required variables
 
 ```text
 POSTGRES_DB
@@ -190,7 +190,7 @@ DAXA_DEPLOYMENT_MODE
 DAXA_PUBLIC_BASE_URL
 ```
 
-## Security-related variables
+### Security-related variables
 
 ```text
 JWT_SIGNING_KEY
@@ -204,7 +204,7 @@ SYNC_CLIENT_SECRET
 BACKUP_ENCRYPTION_KEY
 ```
 
-## Optional variables
+### Optional variables
 
 ```text
 DAXA_CLOUD_SYNC_ENDPOINT
@@ -220,7 +220,7 @@ PAYMENT_WEBHOOK_BASE_URL
 
 ---
 
-# Deployment Mode Configuration
+## Deployment Mode Configuration
 
 Use deployment mode config:
 
@@ -230,7 +230,7 @@ DAXA_DEPLOYMENT_MODE=Local
 DAXA_DEPLOYMENT_MODE=Hybrid
 ```
 
-## Cloud mode
+### Cloud mode
 
 Expected:
 
@@ -240,7 +240,7 @@ Expected:
 - Cloud admin/back office.
 - Venue devices connect to cloud.
 
-## Local mode
+### Local mode
 
 Expected:
 
@@ -251,7 +251,7 @@ Expected:
 - Optional backup/export.
 - No required cloud dependency during trading.
 
-## Hybrid mode
+### Hybrid mode
 
 Expected:
 
@@ -263,7 +263,7 @@ Expected:
 
 ---
 
-# Volumes
+## Volumes
 
 Recommended volumes:
 
@@ -280,7 +280,7 @@ Database volume must be persistent across restarts.
 
 ---
 
-# Ports
+## Ports
 
 Development example:
 
@@ -295,11 +295,11 @@ Production local deployments should not expose PostgreSQL outside the Docker net
 
 ---
 
-# HTTPS
+## HTTPS
 
 HTTPS should be supported locally where feasible.
 
-## Local TLS options
+### Local TLS options
 
 - Self-signed certificate.
 - Locally trusted certificate.
@@ -307,14 +307,14 @@ HTTPS should be supported locally where feasible.
 - Internal CA certificate.
 - Reverse proxy TLS termination.
 
-## Example cert path
+### Example cert path
 
 ```text
 deploy/nginx/certs/pos.crt
 deploy/nginx/certs/pos.key
 ```
 
-## HTTPS requirements before production
+### HTTPS requirements before production
 
 - TLS termination documented.
 - Certificate renewal documented.
@@ -324,7 +324,7 @@ deploy/nginx/certs/pos.key
 
 ---
 
-# Local Hostname
+## Local Hostname
 
 Suggested local hostname options:
 
@@ -338,7 +338,7 @@ The actual hostname must be configurable.
 
 ---
 
-# Health Checks
+## Health Checks
 
 Required health checks:
 
@@ -364,7 +364,7 @@ GET /api/health/live
 
 ---
 
-# Workers
+## Workers
 
 Worker services may include:
 
@@ -381,7 +381,7 @@ Workers must be idempotent where possible.
 
 ---
 
-# Backup
+## Backup
 
 Local database backups may be:
 
@@ -392,7 +392,7 @@ Local database backups may be:
 - Synced to customer data lake/storage.
 - Restorable to same or replacement local server.
 
-## Backup requirements
+### Backup requirements
 
 - Scheduled local DB backup.
 - Manual backup command.
@@ -405,7 +405,7 @@ Local database backups may be:
 
 ---
 
-# Restore
+## Restore
 
 Restore docs must include:
 
@@ -423,7 +423,7 @@ Restore docs must include:
 
 ---
 
-# Updates
+## Updates
 
 Updates should be deployed to local server using a documented process.
 
@@ -434,7 +434,7 @@ Possible update models:
 - Managed Daxa update service later.
 - Customer-managed update.
 
-## Update requirements
+### Update requirements
 
 - Pre-update backup.
 - Migration check.
@@ -446,7 +446,7 @@ Possible update models:
 
 ---
 
-# Daxa Terminal and Docker
+## Daxa Terminal and Docker
 
 Daxa Terminal is a Windows MAUI app and is not expected to run inside Docker for production.
 
@@ -470,7 +470,7 @@ Daxa Hybrid Local Server API
 
 ---
 
-# Daxa Back Office and PWA Hosting
+## Daxa Back Office and PWA Hosting
 
 Daxa Back Office can be hosted by:
 
@@ -483,7 +483,7 @@ This must be decided by ADR when implementation starts.
 
 ---
 
-# Docker Smoke Tests
+## Docker Smoke Tests
 
 Docker deployment smoke tests must verify:
 
@@ -501,7 +501,7 @@ Docker deployment smoke tests must verify:
 
 ---
 
-# Required Documentation Before Production
+## Required Documentation Before Production
 
 Before production use, deployment docs must include:
 
@@ -522,7 +522,7 @@ Before production use, deployment docs must include:
 
 ---
 
-# Local Server Recommendation
+## Local Server Recommendation
 
 Recommended deployment target:
 
@@ -544,7 +544,7 @@ Possible hardware:
 
 ---
 
-# Open Questions
+## Open Questions
 
 Create open issues for:
 

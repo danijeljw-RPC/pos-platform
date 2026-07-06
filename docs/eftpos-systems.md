@@ -1,3 +1,5 @@
+# EFTPOS and Payment Systems Notes
+
 Cash
 External EFTPOS
 Tyro
@@ -13,13 +15,16 @@ Zeller
 Square
 Stripe Terminal
 Windcave
+
 1. Tyro
 2. Zeller
 3. Square
 4. Stripe Terminal
 5. Windcave
+
 ---
 AU/NZ launch:
+
 - Tyro
 - Zeller
 - Stripe Terminal
@@ -27,20 +32,24 @@ AU/NZ launch:
 - Windcave
 
 APAC expansion:
+
 - Stripe Terminal for Singapore
 - Adyen for Singapore/Hong Kong
 - Windcave/Worldline/Global Payments as regional options
 
 NA/EMEA expansion:
+
 - Stripe Terminal
 - Square
 - Adyen
 - Worldline
 - Global Payments
+
 ---
 
 MVP
 MVP payment modes:
+
 1. Cash
 2. Manual external EFTPOS
 3. Stripe Terminal
@@ -55,7 +64,6 @@ then for expansion:
 8. Adyen
 9. Worldline
 10. Global Payments
-
 
 tax:
 Maximum tax lines per order: 20

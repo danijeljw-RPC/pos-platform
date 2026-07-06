@@ -9,6 +9,7 @@ Daxa Hybrid combines a local server (Daxa Local) with cloud management (Daxa Clo
 In Daxa Hybrid, the local server handles all day-to-day trading. The cloud provides central management, reporting, backups, and multi-location visibility.
 
 Data flows in both directions via Daxa Sync:
+
 - Local → Cloud: orders, payments, refunds, audit events.
 - Cloud → Local: menus, pricing, tax config, device config.
 

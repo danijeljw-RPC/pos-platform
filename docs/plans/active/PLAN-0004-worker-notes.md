@@ -45,10 +45,12 @@ Human approved all 7 "Human Decisions Needed" items as recommended (see the plan
 ### Files changed
 
 New:
+
 - `src/DaxaPos.Domain/Enums/PermissionCategory.cs`
 - `src/DaxaPos.Persistence/Migrations/20260703120121_AddPermissionCategory.cs` (+ `.Designer.cs`)
 
 Modified:
+
 - `src/DaxaPos.Domain/Entities/Permission.cs` — added `Category` property.
 - `src/DaxaPos.Persistence/Configurations/PermissionConfiguration.cs` — `Category` column mapping (required) + seed data for all 12 permissions (8 existing backfilled to `AdminSensitive`, 4 new).
 - `src/DaxaPos.Persistence/Configurations/RolePermissionConfiguration.cs` — `catalog.manage`/`pricing.manage`/`menus.manage`/`catalog.sold-out-toggle` granted to `SystemAdmin`/`OrganisationOwner`/`VenueManager`; `catalog.sold-out-toggle` also granted to `Staff` (its first-ever permission grant).
@@ -68,6 +70,7 @@ No catalog/product/menu/tax/pricing entities, endpoints, or DTOs were added — 
 ### Tests added
 
 2 new integration tests in `tests/DaxaPos.Api.Tests/StaffPinLoginTests.cs`:
+
 - `Login_WhenAssignedRoleGrantsOnlyOperationalPermissions_Succeeds` — assigns `Staff` role, logs in via staff PIN, asserts 200 OK and `catalog.sold-out-toggle` present in the response's `Permissions`. This is the load-bearing proof of OI-0015's resolution: an `Operational`-category permission does not trip the staff-PIN rejection, and `Staff` holding a permission at all is new behaviour this milestone introduces deliberately.
 - `PermissionCatalogue_ClassifiesPLAN0004MilestoneAPermissions_ByCategory` — queries the DB directly for 5 permission codes (1 pre-existing + 4 new) and asserts each has the expected `Category`, proving the classification is real seed data.
 
@@ -77,7 +80,7 @@ The existing `Login_WhenAssignedRoleGrantsSensitivePermissions_IsRejectedAndAudi
 
 ### Commands run
 
-```
+```text
 dotnet build tests/DaxaPos.Api.Tests/DaxaPos.Api.Tests.csproj      (RED: 15 compile errors, expected symbols)
 dotnet build DaxaPos.sln                                           (GREEN after implementation, 0 warnings/errors)
 dotnet ef migrations add AddPermissionCategory --project src/DaxaPos.Persistence --startup-project src/DaxaPos.Api
@@ -124,6 +127,7 @@ Implemented per the plan using strict TDD: wrote all 10 `TaxCalculationEngineTes
 ### Files changed
 
 New:
+
 - `src/DaxaPos.Domain/Enums/TaxJurisdictionType.cs`, `TaxRoundingMode.cs`, `TaxCalculationScope.cs`, `TaxTreatment.cs`
 - `src/DaxaPos.Domain/Entities/TaxDefinitionTemplate.cs`, `TaxDefinition.cs`, `TaxCategory.cs`, `TaxCategoryDefinition.cs`
 - `src/DaxaPos.Application/Tax/TaxCalculationModels.cs` (`TaxComponentSnapshot`, `TaxableLineRequest`, `TaxLineResult`), `TaxLineCalculationResult.cs` (`TaxCalculationErrorCode`, `TaxLineCalculationResult`), `TaxCalculationEngine.cs`
@@ -133,6 +137,7 @@ New:
 - `tests/DaxaPos.UnitTests/Tax/TaxCalculationEngineTests.cs`
 
 Modified:
+
 - `src/DaxaPos.Persistence/DaxaDbContext.cs` — 4 new `DbSet`s; fail-closed query filters added for `TaxDefinition`/`TaxCategory`/`TaxCategoryDefinition` (not `TaxDefinitionTemplate`, which is global/unfiltered like `Role`/`Permission`).
 - `docs/plans/active/PLAN-0004-catalog-menu-tax-pricing-planning.md` (Status line, Milestone B status marker, ADR-0016 re-check note).
 
@@ -145,6 +150,7 @@ No tax configuration endpoints, product/menu/pricing entities, or order-line tax
 ### Tests added
 
 10 new unit tests in `tests/DaxaPos.UnitTests/Tax/TaxCalculationEngineTests.cs`, covering every item in the task's required list:
+
 1. `CalculateLine_AuGst10Inclusive_FiveFiftyDollarItem_ExtractsFiftyCentsGst` — $5.50 → $0.50 GST.
 2. `CalculateLine_AuMixedBasket_TotalGstAcrossThreeLinesEqualsOneThirty` — the CLAUDE.md/ADR-0006 worked example, byte-for-byte: 3 separate `CalculateLine` calls (flat white/cake/bread) summed by the test, not a basket API in the engine (see Design Decisions below).
 3. `CalculateLine_GstFreeLine_ProducesAZeroTaxLineResult_NotAnAbsentLine` — proves the 0%-rate case still returns a populated result, per ADR-0006's Global Tax Design Constraints.
@@ -158,7 +164,7 @@ Plus 2 extra covering the plan's own ADR-0006 design limit: `CalculateLine_WithE
 
 ### Commands run
 
-```
+```text
 dotnet build tests/DaxaPos.UnitTests/DaxaPos.UnitTests.csproj      (RED: 4 compile errors, expected symbols)
 dotnet test tests/DaxaPos.UnitTests/DaxaPos.UnitTests.csproj --filter "FullyQualifiedName~TaxCalculationEngineTests"   (GREEN: 10/10)
 dotnet build DaxaPos.sln                                           (0 warnings/errors, after entities+configs+DbContext)
@@ -205,11 +211,13 @@ Implemented per the plan's endpoint list exactly (17 endpoints total, matching t
 ### Files changed
 
 New:
+
 - `src/DaxaPos.Domain/Events/TaxDefinitionLifecycleDomainEvent.cs`, `TaxCategoryLifecycleDomainEvent.cs`, `TaxCategoryDefinitionChangedDomainEvent.cs`
 - `src/DaxaPos.Api/Endpoints/Tax/TaxDefinitionTemplateEndpoints.cs`, `TaxDefinitionEndpoints.cs`, `TaxCategoryEndpoints.cs`, `TaxCategoryDefinitionEndpoints.cs`
 - `tests/DaxaPos.Api.Tests/TaxDefinitionEndpointsTests.cs`, `TaxCategoryEndpointsTests.cs`, `TaxCategoryDefinitionEndpointsTests.cs`
 
 Modified:
+
 - `src/DaxaPos.Api/Audit/DomainEventAuditHandlers.cs` — 3 new handler classes (`TaxDefinitionLifecycleAuditHandler`, `TaxCategoryLifecycleAuditHandler`, `TaxCategoryDefinitionChangedAuditHandler`), same `$"{EntityType}{Action}"` `EventType` convention as Milestone D.
 - `src/DaxaPos.Api/Program.cs` — 3 new `AddScoped<IDomainEventHandler<...>>` registrations, 4 new `app.Map...Endpoints()` calls.
 - `tests/DaxaPos.Api.Tests/StaffPinLoginTests.cs` — extended `AssertAllSensitiveEndpointsForbiddenAsync` (now takes `organisationId` too, needed to build valid request bodies) with 7 tax-endpoint attempts, matching the file's established "one shared inventory, not per-entity duplication" convention (see its own class remarks, and `TaxDefinitionEndpointsTests`' class remarks pointing back at it).
@@ -229,6 +237,7 @@ All gated `catalog.manage` + `rejectStaffPin: true`, no exceptions (this milesto
 ### Tests added
 
 35 new integration tests across 3 files, covering the full matrix from prior milestones (create/read/update/deactivate/reactivate happy path, 400 on client-supplied `TenantId`, 403 without `catalog.manage`, 404 cross-tenant, 404 cross-organisation, audit-row assertions) plus tax-specific additions:
+
 - `Templates_ListsSeededAuNzRows` — proves the 5 Milestone B seed rows are readable.
 - `CreateFromTemplate_ClonesTemplateFields_AndSetsSourceTemplateCode` / `CreateFromTemplate_Fails_ForUnknownTemplateCode`.
 - `Create_Rejects_DuplicateCodeWithinSameTenant` (both `TaxDefinition` and `TaxCategory`) — proves the `(TenantId, Code)` unique-index precondition check.
@@ -238,7 +247,7 @@ All gated `catalog.manage` + `rejectStaffPin: true`, no exceptions (this milesto
 
 ### Commands run
 
-```
+```text
 dotnet build DaxaPos.sln
 dotnet test tests/DaxaPos.Api.Tests/DaxaPos.Api.Tests.csproj --filter "FullyQualifiedName~TaxDefinitionEndpointsTests|FullyQualifiedName~TaxCategoryEndpointsTests|FullyQualifiedName~TaxCategoryDefinitionEndpointsTests"
 dotnet test tests/DaxaPos.Api.Tests/DaxaPos.Api.Tests.csproj --filter "FullyQualifiedName~StaffPinLoginTests"
@@ -280,6 +289,7 @@ Implemented per the plan's endpoint list exactly. CRUD-endpoint acceptance-test 
 ### Files changed
 
 New:
+
 - `src/DaxaPos.Domain/Entities/ProductCategory.cs`, `Product.cs`
 - `src/DaxaPos.Domain/Events/ProductCategoryLifecycleDomainEvent.cs`, `ProductLifecycleDomainEvent.cs`
 - `src/DaxaPos.Api/Endpoints/Catalog/ProductCategoryEndpoints.cs`, `ProductEndpoints.cs`
@@ -288,6 +298,7 @@ New:
 - `tests/DaxaPos.Api.Tests/ProductCategoryEndpointsTests.cs`, `ProductEndpointsTests.cs`
 
 Modified:
+
 - `src/DaxaPos.Persistence/DaxaDbContext.cs` — 2 new `DbSet`s, 2 new fail-closed query filters (`ProductCategory`, `Product` — both tenant-owned, no bootstrap `IgnoreQueryFilters()` caller needed).
 - `src/DaxaPos.Api/Audit/DomainEventAuditHandlers.cs` — 2 new handler classes (`ProductCategoryLifecycleAuditHandler`, `ProductLifecycleAuditHandler`), same `$"{EntityType}{Action}"` convention as Milestones C/D-prior.
 - `src/DaxaPos.Api/Program.cs` — 2 new `AddScoped<IDomainEventHandler<...>>` registrations, 2 new `app.Map...Endpoints()` calls.
@@ -321,13 +332,14 @@ The documented two-simultaneous-tax-category-edits concurrency race (Risks secti
 ### Tests added
 
 27 new integration tests across 2 files:
+
 - `ProductCategoryEndpointsTests.cs` — standard CRUD matrix (as Milestone C/D-prior), plus `Create_AllowsDuplicateName_NoUniquenessConstraint` documenting the deliberate no-dedup decision.
 - `ProductEndpointsTests.cs` — standard CRUD matrix, cross-organisation checks for both `ProductCategoryId` and `TaxCategoryId` references independently, `Create_AllowsDuplicateSkuAndBarcode_NoUniquenessConstraint`, and the archive-and-replace battery: `Update_NonTaxAffectingChange_UpdatesInPlace_AndDoesNotArchive`, `Update_TaxCategoryChange_ArchivesOldRow_AndCreatesReplacementWithLink` (asserts the old row's `IsArchived`/`ArchivedAtUtc`/`SupersededByProductId`, the new row's `PreviousProductId`, and that list excludes the old row but includes the new one), `Update_OnAnAlreadyArchivedProduct_IsRejectedWithConflict`, `DeactivateAndReactivate_OnAnArchivedProduct_IsRejectedWithConflict`, and an audit-row test asserting both rows' event types independently.
 - `StaffPinLoginTests`'s extended inventory — proves staff-PIN rejection for both new endpoint groups without per-entity duplication (existing convention).
 
 ### Commands run
 
-```
+```text
 dotnet build DaxaPos.sln
 dotnet ef migrations add AddProductCatalogueFoundation --project src/DaxaPos.Persistence --startup-project src/DaxaPos.Api
 dotnet ef database update --project src/DaxaPos.Persistence --startup-project src/DaxaPos.Api
@@ -374,6 +386,7 @@ Implemented per the plan's endpoint list exactly (20 endpoints total, matching t
 ### Files changed
 
 New:
+
 - `src/DaxaPos.Domain/Entities/ProductVariant.cs`, `ModifierGroup.cs`, `Modifier.cs`, `ProductModifierGroup.cs`
 - `src/DaxaPos.Domain/Events/ProductVariantLifecycleDomainEvent.cs`, `ModifierGroupLifecycleDomainEvent.cs`, `ModifierLifecycleDomainEvent.cs`, `ProductModifierGroupChangedDomainEvent.cs`
 - `src/DaxaPos.Api/Endpoints/Catalog/ProductVariantEndpoints.cs`, `ModifierGroupEndpoints.cs`, `ModifierEndpoints.cs`, `ProductModifierGroupEndpoints.cs`
@@ -382,6 +395,7 @@ New:
 - `tests/DaxaPos.Api.Tests/ProductVariantEndpointsTests.cs`, `ModifierGroupEndpointsTests.cs`, `ModifierEndpointsTests.cs`, `ProductModifierGroupEndpointsTests.cs`
 
 Modified:
+
 - `src/DaxaPos.Persistence/DaxaDbContext.cs` — 4 new `DbSet`s, 4 new fail-closed query filters.
 - `src/DaxaPos.Api/Audit/DomainEventAuditHandlers.cs` — 4 new handler classes, same `$"{EntityType}{Action}"` convention.
 - `src/DaxaPos.Api/Program.cs` — 4 new `AddScoped<IDomainEventHandler<...>>` registrations, 4 new `app.Map...Endpoints()` calls.
@@ -414,6 +428,7 @@ All gated `catalog.manage` + `rejectStaffPin: true`, no exceptions — no sold-o
 ### Tests added
 
 44 new integration tests across 4 files:
+
 - `ProductVariantEndpointsTests.cs`, `ModifierEndpointsTests.cs` — standard CRUD matrix plus the `[Theory]` price-delta-sign tests and a cross-organisation-parent rejection test (`Product`/`ModifierGroup` respectively).
 - `ModifierGroupEndpointsTests.cs` — standard CRUD matrix plus `Create_Rejects_SelectionMaxLessThanSelectionMin`.
 - `ProductModifierGroupEndpointsTests.cs` — assign/unassign happy path (asserting `DisplayOrder` persisted directly via `DbContext`, since no list endpoint exists), `TenantId` rejection, missing-permission 403, both cross-organisation reference checks independently, cross-organisation unassign 404, and an audit-row test for both `"Assigned"`/`"Unassigned"`.
@@ -421,7 +436,7 @@ All gated `catalog.manage` + `rejectStaffPin: true`, no exceptions — no sold-o
 
 ### Commands run
 
-```
+```text
 dotnet build DaxaPos.sln
 dotnet ef migrations add AddVariantsAndModifiers --project src/DaxaPos.Persistence --startup-project src/DaxaPos.Api
 dotnet ef database update --project src/DaxaPos.Persistence --startup-project src/DaxaPos.Api
@@ -467,6 +482,7 @@ One heads-up for whoever starts Milestone F: it introduces the plan's first genu
 ### Files changed
 
 New:
+
 - `src/DaxaPos.Domain/Entities/ProductLocationOverride.cs`, `VenueTaxConfiguration.cs`
 - `src/DaxaPos.Domain/Events/ProductLocationOverrideChangedDomainEvent.cs`, `VenueTaxConfigurationLifecycleDomainEvent.cs`
 - `src/DaxaPos.Application/Pricing/PriceResolutionModels.cs` (`ResolvedPrice`), `PriceResolutionResult.cs` (`PriceResolutionErrorCode`, `PriceResolutionResult`), `PriceResolver.cs`
@@ -478,6 +494,7 @@ New:
 - `tests/DaxaPos.Api.Tests/ProductLocationOverrideEndpointsTests.cs`, `VenueTaxConfigurationEndpointsTests.cs`, `ProductSoldOutEndpointsTests.cs`
 
 Modified:
+
 - `src/DaxaPos.Persistence/DaxaDbContext.cs` — 2 new `DbSet`s, 2 new fail-closed query filters.
 - `src/DaxaPos.Api/Audit/DomainEventAuditHandlers.cs` — 2 new handler classes.
 - `src/DaxaPos.Api/Program.cs` — 2 new `AddScoped<IDomainEventHandler<...>>` registrations, 3 new `app.Map...Endpoints()` calls.
@@ -517,13 +534,14 @@ One row per location (unique index + a pre-check `Conflict` on duplicate create,
 ### Tests added
 
 44 new tests: 12 unit (`PriceResolverTests.cs`, TDD-first) + 32 integration across 3 files:
+
 - `ProductLocationOverrideEndpointsTests.cs`, `VenueTaxConfigurationEndpointsTests.cs` — standard CRUD/authorization matrix (as prior milestones), plus duplicate-pair/duplicate-location `Conflict` tests and, for venue tax config, `Get_MissingConfiguration_ReturnsNotFound_InsteadOfSilentlyDefaulting` — the explicit fail-closed proof.
 - `ProductSoldOutEndpointsTests.cs` — the full staff-PIN scenario chain (device registration → staff member → `Staff` role assignment → PIN login), proving: the toggle **succeeds** for a staff session with `catalog.sold-out-toggle`; the *same* session still gets 403 on the `pricing.manage`-gated `PATCH` (the plan's explicit asymmetry-proof pair); upsert-creates with safe defaults; upsert-updates without touching `PriceOverride`/`IsAvailable`; a session lacking `catalog.sold-out-toggle` (seeded directly, since every current role includes it) is rejected; cross-organisation and cross-location (same organisation, different location) are both blocked; and an audit row is written with `StaffMemberId` set, `UserId` null.
 - `StaffPinLoginTests`'s extended inventory — the `pricing.manage` endpoints only.
 
 ### Commands run
 
-```
+```text
 dotnet build tests/DaxaPos.UnitTests/DaxaPos.UnitTests.csproj      (RED: 2 compile errors, expected symbols)
 dotnet test tests/DaxaPos.UnitTests/DaxaPos.UnitTests.csproj --filter "FullyQualifiedName~PriceResolverTests"   (GREEN: 12/12)
 dotnet build DaxaPos.sln
@@ -574,6 +592,7 @@ Implemented per the plan's endpoint list and exact permission table (re-read bef
 ### Files changed
 
 New (written before the crash, confirmed intact, no changes needed):
+
 - `src/DaxaPos.Domain/Entities/Menu.cs`, `MenuSection.cs`, `MenuSectionItem.cs`, `MenuAvailabilityRule.cs`
 - `src/DaxaPos.Domain/Enums/DaysOfWeekMask.cs`
 - `src/DaxaPos.Domain/Events/MenuLifecycleDomainEvent.cs`, `MenuSectionLifecycleDomainEvent.cs`, `MenuSectionItemChangedDomainEvent.cs`, `MenuAvailabilityRuleChangedDomainEvent.cs`
@@ -581,16 +600,19 @@ New (written before the crash, confirmed intact, no changes needed):
 - `src/DaxaPos.Api/Endpoints/Menus/MenuEndpoints.cs`, `MenuSectionEndpoints.cs`, `MenuSectionItemEndpoints.cs`, `MenuAvailabilityRuleEndpoints.cs`
 
 New (written this session, continuing from the recovered state):
+
 - `src/DaxaPos.Api/Endpoints/Menus/ResolvedMenuEndpoints.cs`
 - `src/DaxaPos.Persistence/Migrations/20260705102237_AddMenus.cs` (+ `.Designer.cs`)
 - `tests/DaxaPos.Api.Tests/MenuEndpointsTests.cs`, `MenuSectionEndpointsTests.cs`, `MenuSectionItemEndpointsTests.cs`, `MenuAvailabilityRuleEndpointsTests.cs`, `ResolvedMenuEndpointsTests.cs`
 
 Modified (tracked edits present before the crash, confirmed intact):
+
 - `src/DaxaPos.Domain/Entities/Location.cs` — added `TimeZoneId` (`string`, default `"UTC"`), needed for `MenuAvailabilityRule` evaluation in the location's own local time.
 - `src/DaxaPos.Persistence/Configurations/LocationConfiguration.cs` — `TimeZoneId` column mapping (required, max length 100, default `"UTC"`).
 - `src/DaxaPos.Persistence/DaxaDbContext.cs` — 4 new `DbSet`s, 4 new fail-closed query filters (`Menu`/`MenuSection`/`MenuSectionItem`/`MenuAvailabilityRule`).
 
 Modified (this session):
+
 - `src/DaxaPos.Api/Audit/DomainEventAuditHandlers.cs` — 4 new handler classes (`MenuLifecycleAuditHandler`, `MenuSectionLifecycleAuditHandler`, `MenuSectionItemChangedAuditHandler`, `MenuAvailabilityRuleChangedAuditHandler`).
 - `src/DaxaPos.Api/Program.cs` — 4 new `AddScoped<IDomainEventHandler<...>>` registrations, 5 new `app.Map...Endpoints()` calls (the 4 configuration groups plus `ResolvedMenuEndpoints`, none of which had been wired in before the crash).
 - `tests/DaxaPos.Api.Tests/StaffPinLoginTests.cs` — extended `AssertAllSensitiveEndpointsForbiddenAsync` with the 4 `menus.manage` configuration endpoints (never the resolved-menu endpoint, which has its own dedicated staff-**succeeds** test instead, matching the `ProductSoldOutEndpointsTests` precedent for the plan's other staff-accessible surface).
@@ -621,6 +643,7 @@ Response shape: `ResolvedMenuResponse(LocationId, Sections)` where each `Resolve
 ### Tests added
 
 44 new integration tests across 5 files:
+
 - `MenuEndpointsTests.cs`, `MenuSectionEndpointsTests.cs`, `MenuAvailabilityRuleEndpointsTests.cs` — standard CRUD/authorization matrix (create/read/update/deactivate-reactivate or create/list/delete as applicable, 400 on client-supplied `TenantId`, 403 without `menus.manage`, 404 cross-organisation, audit-row assertions), plus entity-specific validation (`MenuAvailabilityRule` rejects `DaysOfWeekMask.None` and non-strictly-ordered start/end times).
 - `MenuSectionItemEndpointsTests.cs` — assign/unassign happy path (`DisplayOrder` persisted, asserted directly via `DbContext.IgnoreQueryFilters()` since no list endpoint exists for this join, matching `ProductModifierGroupEndpointsTests`' precedent), rejection of an inactive/archived product, both cross-organisation reference checks (section, product) independently, missing-permission 403, and an audit-row test for both `"Assigned"`/`"Unassigned"`.
 - `ResolvedMenuEndpointsTests.cs` — the full staff-PIN scenario chain (device registration → staff member → `Staff` role assignment → PIN login), proving: **a staff-PIN session succeeds** (the critical assertion, mirroring `ProductSoldOutEndpointsTests`' asymmetry-proof pattern but for a no-permission-code endpoint rather than an `Operational`-permission one); unauthenticated requests get 401; sold-out and unavailable products are excluded; an org-wide and a location-specific menu merge with the location-specific item winning, including its own `DisplayOrder` and section; a menu with an availability rule covering every day except today is hidden, and the same-shaped rule covering every day including today is shown; prices come from `PriceResolver`'s base-price and location-override paths, matching `PriceResolverTests`' own expectations for equivalent inputs; a missing `VenueTaxConfiguration` fails the whole endpoint closed (404); and both cross-organisation and cross-location (staff session's own location) access are blocked.
@@ -628,7 +651,7 @@ Response shape: `ResolvedMenuResponse(LocationId, Sections)` where each `Resolve
 
 ### Commands run
 
-```
+```text
 dotnet build DaxaPos.sln                                           (0 warnings/errors, confirmed before any Milestone G code was added this session)
 dotnet ef migrations add AddMenus --project src/DaxaPos.Persistence --startup-project src/DaxaPos.Api
 dotnet ef database update --project src/DaxaPos.Persistence --startup-project src/DaxaPos.Api
@@ -732,7 +755,7 @@ Per the plan's Open Issues Required section, three candidates named:
 
 ### Commands run
 
-```
+```text
 dotnet build DaxaPos.sln
 dotnet test tests/DaxaPos.Api.Tests/DaxaPos.Api.Tests.csproj --filter "FullyQualifiedName~RbacTests"
 dotnet test tests/DaxaPos.UnitTests/DaxaPos.UnitTests.csproj --filter "FullyQualifiedName~IgnoreQueryFiltersUsageTests"

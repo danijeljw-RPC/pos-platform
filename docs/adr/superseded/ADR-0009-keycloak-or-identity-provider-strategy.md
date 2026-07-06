@@ -33,6 +33,7 @@ This decision is **proposed** and requires further evaluation before acceptance 
 ## Consequences
 
 **Positive:**
+
 - Battle-tested identity platform with extensive community support.
 - Multi-tenant (realm per tenant, or shared realm with tenant isolation).
 - Supports OIDC for web/PWA and native MAUI app authentication.
@@ -40,6 +41,7 @@ This decision is **proposed** and requires further evaluation before acceptance 
 - Auditable login events.
 
 **Negative:**
+
 - Keycloak is a heavy runtime for small local deployments.
 - PIN login for POS staff requires customisation.
 - Local Keycloak on-premises adds operational complexity.

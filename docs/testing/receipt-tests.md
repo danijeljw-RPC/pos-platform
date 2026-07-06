@@ -45,7 +45,7 @@ Receipt tests verify correct rendering of tax invoices and refund receipts.
 
 ## Test Project
 
-```
+```text
 tests/DaxaPos.Receipt.Tests/
 ```
 

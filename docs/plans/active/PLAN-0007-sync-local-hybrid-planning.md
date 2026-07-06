@@ -35,7 +35,7 @@ Implement Daxa Sync — the local-to-cloud and cloud-to-local synchronisation la
 
 ## Files Likely To Change
 
-```
+```text
 src/DaxaPos.Modules.Sync/
 src/DaxaPos.Workers/    (sync background worker)
 src/DaxaPos.Infrastructure/ (local queue, HTTP sync client)
@@ -101,7 +101,7 @@ src/DaxaPos.Infrastructure/ (local queue, HTTP sync client)
 
 ## Commit Sequence
 
-```
+```text
 feat(sync): add local order queue
 feat(sync): add local-to-cloud sync worker
 feat(sync): add cloud-to-local config sync worker

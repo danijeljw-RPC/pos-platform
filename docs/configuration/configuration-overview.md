@@ -23,19 +23,19 @@ Configuration must be data-driven and auditable where operationally significant.
 
 ---
 
-# Configuration Principles
+## Configuration Principles
 
-## 1. Configuration is part of the product
+### 1. Configuration is part of the product
 
 Daxa POS should not require code changes for normal venue setup.
 
 Products, menus, prices, taxes, surcharges, printers, devices, payment terminals, and roles must be configurable.
 
-## 2. Dangerous changes require audit
+### 2. Dangerous changes require audit
 
 Configuration changes affecting financial, tax, payment, security, or device behaviour must be audited.
 
-## 3. Multi-location is default
+### 3. Multi-location is default
 
 Configuration should support:
 
@@ -45,19 +45,19 @@ Configuration should support:
 - Location-level overrides.
 - Terminal-level assignments.
 
-## 4. Deployment mode is configuration/infrastructure
+### 4. Deployment mode is configuration/infrastructure
 
 Daxa Cloud, Daxa Local, and Daxa Hybrid must be deployment modes, not separate products/codebases.
 
-## 5. Industry templates are configuration
+### 5. Industry templates are configuration
 
 Daxa Hospitality and Daxa Retail are template/configuration sets, not separate codebases.
 
 ---
 
-# Configuration Areas
+## Configuration Areas
 
-## Tenant and organisation
+### Tenant and organisation
 
 - Tenant name.
 - Organisation name.
@@ -68,7 +68,7 @@ Daxa Hospitality and Daxa Retail are template/configuration sets, not separate c
 - Support access configuration.
 - Billing/licensing later.
 
-## Location / venue settings
+### Location / venue settings
 
 - Venue name.
 - Address.
@@ -85,7 +85,7 @@ Daxa Hospitality and Daxa Retail are template/configuration sets, not separate c
 - Surcharge rules.
 - Offline/local mode settings.
 
-## Device registrations
+### Device registrations
 
 - Device name.
 - Device type.
@@ -102,7 +102,7 @@ Daxa Hospitality and Daxa Retail are template/configuration sets, not separate c
 - App version.
 - Last seen.
 
-## User roles and permissions
+### User roles and permissions
 
 - Roles.
 - Permissions.
@@ -114,7 +114,7 @@ Daxa Hospitality and Daxa Retail are template/configuration sets, not separate c
 - Support access.
 - Accountant/reporting access.
 
-## Products and menus
+### Products and menus
 
 - Categories.
 - Products.
@@ -131,7 +131,7 @@ Daxa Hospitality and Daxa Retail are template/configuration sets, not separate c
 - Product tax category.
 - Print/prep routing.
 
-## Pricing
+### Pricing
 
 - Base price.
 - Modifier price.
@@ -144,7 +144,7 @@ Daxa Hospitality and Daxa Retail are template/configuration sets, not separate c
 - Promotion price.
 - Manual override permission.
 
-## Tax
+### Tax
 
 - Country tax profile.
 - Tax-inclusive/exclusive mode.
@@ -157,7 +157,7 @@ Daxa Hospitality and Daxa Retail are template/configuration sets, not separate c
 - Rounding mode.
 - Receipt tax labels.
 
-## Surcharges and fees
+### Surcharges and fees
 
 - Card surcharge.
 - Sunday surcharge.
@@ -174,7 +174,7 @@ Daxa Hospitality and Daxa Retail are template/configuration sets, not separate c
 - Applies by day/time/date.
 - Shown on receipt yes/no.
 
-## Payment methods
+### Payment methods
 
 - Cash.
 - Manual external EFTPOS.
@@ -187,7 +187,7 @@ Daxa Hospitality and Daxa Retail are template/configuration sets, not separate c
 - Split payment.
 - Tips later.
 
-## Payment providers
+### Payment providers
 
 - Provider name.
 - Merchant/account ID.
@@ -202,7 +202,7 @@ Daxa Hospitality and Daxa Retail are template/configuration sets, not separate c
 - Default provider per location.
 - Default terminal per POS terminal.
 
-## Printers
+### Printers
 
 - Printer name.
 - Printer type.
@@ -217,7 +217,7 @@ Daxa Hospitality and Daxa Retail are template/configuration sets, not separate c
 - Cash drawer mapping.
 - Print retry rules.
 
-## Cash drawer
+### Cash drawer
 
 - Drawer name.
 - Attached printer.
@@ -226,7 +226,7 @@ Daxa Hospitality and Daxa Retail are template/configuration sets, not separate c
 - No-sale permission.
 - Audit configuration.
 
-## Stations and KDS
+### Stations and KDS
 
 - Station name.
 - Station type.
@@ -238,7 +238,7 @@ Daxa Hospitality and Daxa Retail are template/configuration sets, not separate c
 - Reconnect behaviour.
 - Print fallback.
 
-## Inventory
+### Inventory
 
 - Stock tracking enabled.
 - Stock item definitions.
@@ -250,7 +250,7 @@ Daxa Hospitality and Daxa Retail are template/configuration sets, not separate c
 - Daily production reset.
 - Supplier settings later.
 
-## Customer / loyalty
+### Customer / loyalty
 
 - Customer capture enabled.
 - Required customer fields.
@@ -260,7 +260,7 @@ Daxa Hospitality and Daxa Retail are template/configuration sets, not separate c
 - Store credit enabled later.
 - Cross-location customer profile setting.
 
-## Sync
+### Sync
 
 - Deployment mode.
 - Cloud sync endpoint.
@@ -274,7 +274,7 @@ Daxa Hospitality and Daxa Retail are template/configuration sets, not separate c
 - Last successful sync.
 - Sync health alert settings.
 
-## Backup
+### Backup
 
 - Backup enabled.
 - Backup schedule.
@@ -286,7 +286,7 @@ Daxa Hospitality and Daxa Retail are template/configuration sets, not separate c
 - Restore procedure.
 - Last successful backup.
 
-## Updates
+### Updates
 
 - Update channel.
 - Update endpoint.
@@ -297,7 +297,7 @@ Daxa Hospitality and Daxa Retail are template/configuration sets, not separate c
 - MAUI app update method.
 - PWA update behaviour.
 
-## Security
+### Security
 
 - Identity provider.
 - Keycloak realm/config if used.
@@ -313,9 +313,9 @@ Daxa Hospitality and Daxa Retail are template/configuration sets, not separate c
 
 ---
 
-# Configuration Storage
+## Configuration Storage
 
-## Database configuration
+### Database configuration
 
 Most operational configuration should be stored in the database.
 
@@ -332,7 +332,7 @@ Examples:
 - Surcharge rules.
 - Receipt templates.
 
-## Environment configuration
+### Environment configuration
 
 Environment configuration should be used for infrastructure-level settings.
 
@@ -350,7 +350,7 @@ Examples:
 - Worker toggles.
 - Secret references.
 
-## Secret storage
+### Secret storage
 
 Sensitive configuration must be protected.
 
@@ -371,7 +371,7 @@ Do not commit secrets.
 
 ---
 
-# Admin-Editable Configuration
+## Admin-Editable Configuration
 
 Admin portal should expose safe operational configuration.
 
@@ -407,7 +407,7 @@ Dangerous settings include:
 
 ---
 
-# Configuration Inheritance
+## Configuration Inheritance
 
 Configuration should support inheritance.
 
@@ -449,9 +449,9 @@ Specific payment terminal and receipt printer
 
 ---
 
-# Deployment Mode Configuration
+## Deployment Mode Configuration
 
-## Cloud
+### Cloud
 
 ```text
 DeploymentMode = Cloud
@@ -460,7 +460,7 @@ CloudSyncEnabled = false
 ApiBaseUrl = https://api.daxapos.com
 ```
 
-## Local
+### Local
 
 ```text
 DeploymentMode = Local
@@ -469,7 +469,7 @@ CloudSyncEnabled = false or optional backup only
 ApiBaseUrl = https://daxa.local
 ```
 
-## Hybrid
+### Hybrid
 
 ```text
 DeploymentMode = Hybrid
@@ -481,9 +481,9 @@ CloudApiBaseUrl = https://api.daxapos.com
 
 ---
 
-# Industry Template Configuration
+## Industry Template Configuration
 
-## Cafe
+### Cafe
 
 - Coffee categories.
 - Milk modifiers.
@@ -494,7 +494,7 @@ CloudApiBaseUrl = https://api.daxapos.com
 - Receipt printing.
 - Quick payment.
 
-## Bakery
+### Bakery
 
 - Daily stock.
 - Cake orders.
@@ -504,7 +504,7 @@ CloudApiBaseUrl = https://api.daxapos.com
 - Deposits later.
 - Labels later.
 
-## Pub/bar
+### Pub/bar
 
 - Bar tabs.
 - Split bills.
@@ -515,7 +515,7 @@ CloudApiBaseUrl = https://api.daxapos.com
 - Tips later.
 - Bar routing.
 
-## Restaurant
+### Restaurant
 
 - Tables/floor plan.
 - Dine-in/takeaway.
@@ -525,7 +525,7 @@ CloudApiBaseUrl = https://api.daxapos.com
 - Kitchen notes.
 - Service charge.
 
-## Food truck
+### Food truck
 
 - Offline-aware mode.
 - Event/location tagging.
@@ -534,7 +534,7 @@ CloudApiBaseUrl = https://api.daxapos.com
 - Quick payment.
 - End-of-day event summary.
 
-## Retail
+### Retail
 
 - SKU/barcode.
 - Variants.
@@ -544,7 +544,7 @@ CloudApiBaseUrl = https://api.daxapos.com
 - Inventory.
 - Stocktake later.
 
-## Repair shop
+### Repair shop
 
 - Service jobs.
 - Customer device record.
@@ -557,7 +557,7 @@ CloudApiBaseUrl = https://api.daxapos.com
 
 ---
 
-# Required Configuration Tests
+## Required Configuration Tests
 
 Tests must cover:
 
@@ -577,7 +577,7 @@ Tests must cover:
 
 ---
 
-# Open Questions
+## Open Questions
 
 Create open issues for:
 

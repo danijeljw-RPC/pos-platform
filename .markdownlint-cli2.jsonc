@@ -1,0 +1,28 @@
+{
+  // Daxa POS markdownlint configuration.
+  //
+  // Rationale for deviations from markdownlint-cli2 defaults:
+  // - MD013 (line-length) is disabled. Docs in this repo are written as
+  //   long-form prose (one paragraph per line, not hard-wrapped) and contain
+  //   wide ASCII architecture diagrams in fenced code blocks. Enforcing an
+  //   80-character wrap would require reflowing hundreds of files for no
+  //   readability gain in a Markdown renderer.
+  // - MD024 (no-duplicate-heading) uses siblings_only. Plans, worker notes,
+  //   the changelog, and the worker backlog repeat template subheadings
+  //   (e.g. "Goal", "Summary", "Commands run") once per phase/session entry.
+  //   siblings_only still catches genuine duplicate headings under the same
+  //   parent, which is the actual mistake this rule exists to catch.
+  // - MD060 (table-column-style) is disabled. It requires every pipe in a
+  //   table to be padded/aligned consistently with the table's other rows.
+  //   GFM renders tables identically regardless of pipe padding, and this
+  //   repo's tables are edited piecemeal often enough that hand-realigning
+  //   every column on every edit is not worth enforcing.
+  "config": {
+    "default": true,
+    "MD013": false,
+    "MD024": {
+      "siblings_only": true
+    },
+    "MD060": false
+  }
+}

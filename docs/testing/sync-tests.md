@@ -48,7 +48,7 @@ Sync tests verify local-to-cloud and cloud-to-local data synchronisation.
 
 ## Test Project
 
-```
+```text
 tests/DaxaPos.Sync.Tests/
 tests/DaxaPos.IntegrationTests/
 ```

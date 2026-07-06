@@ -36,12 +36,14 @@ F = GST-free
 ## Consequences
 
 **Positive:**
+
 - Compliant with ATO mixed-supply tax invoice requirements.
 - Product names remain product names.
 - Clear to the customer which items are GST-free.
 - Extensible to additional markers for other tax treatments.
 
 **Negative:**
+
 - Requires receipt layout to accommodate marker column.
 - Thermal receipt line length must accommodate the marker without truncating product names.
 

@@ -21,12 +21,13 @@ Tax is calculated **per order line** and stored as one or more tax lines per ord
 - There is no single `Order.TaxRate` field.
 
 **Design limits:**
+
 - Maximum 10 tax components per order line.
 - Maximum 20 tax components per order.
 
 **Tax snapshot per order line includes:**
 
-```
+```text
 TaxRateId
 TaxName
 RatePercent
@@ -38,7 +39,7 @@ JurisdictionType
 
 **Receipt example (AU mixed basket):**
 
-```
+```text
 Flat white                    $5.50
 Chocolate cake slice          $8.80
 Loaf of bread              F  $6.00
@@ -52,12 +53,14 @@ F = GST-free
 ## Consequences
 
 **Positive:**
+
 - Supports AU/NZ mixed baskets correctly.
 - Supports future US stacked taxes, VAT, and other multi-component tax jurisdictions.
 - Historical order records remain accurate even if tax rates change later.
 - Tax reports are derived from immutable snapshots.
 
 **Negative:**
+
 - More complex data model than a single `Order.TaxRate` field.
 - Tax engine implementation requires careful rounding handling.
 - Test coverage for mixed baskets and global tax scenarios must be comprehensive.

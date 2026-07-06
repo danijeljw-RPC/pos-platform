@@ -41,7 +41,7 @@ This plan deliberately separates payment methods that need no adapter (cash, man
 
 ## Files Likely To Change
 
-```
+```text
 src/DaxaPos.Modules.Payments/                 (payment ledger, cash + manual EFTPOS recording)
 src/DaxaPos.Application/                      (IPaymentTerminalProvider interface, adapter resolution)
 src/DaxaPos.PaymentProviders.StripeTerminal/  (Stripe Terminal adapter implementation)
@@ -107,7 +107,7 @@ src/DaxaPos.Infrastructure/                   (provider credential encryption/st
 
 ## Commit Sequence
 
-```
+```text
 feat(payments): add cash payment recording
 feat(payments): add manual EFTPOS payment recording
 feat(payments): add IPaymentTerminalProvider interface and adapter resolution

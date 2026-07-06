@@ -8,11 +8,11 @@ Daxa POS is a large project with multiple modules, deployment modes, and device 
 
 ---
 
-# Branching
+## Branching
 
 Use feature branches for meaningful work.
 
-## Branch naming
+### Branch naming
 
 Use clear branch names.
 
@@ -40,7 +40,7 @@ security/tenant-isolation
 test/tax-receipts
 ```
 
-## Branch rules
+### Branch rules
 
 - Use one branch per meaningful feature or documentation package.
 - Do not mix unrelated work.
@@ -50,13 +50,13 @@ test/tax-receipts
 
 ---
 
-# Commits
+## Commits
 
 Commit each logical change.
 
 Do not combine unrelated work.
 
-## Commit message examples
+### Commit message examples
 
 ```text
 docs: add Daxa deployment mode ADRs
@@ -71,7 +71,7 @@ infra: add docker compose stack
 security: enforce location-scoped authorization
 ```
 
-## Commit rules
+### Commit rules
 
 Each commit should:
 
@@ -83,7 +83,7 @@ Each commit should:
 
 ---
 
-# Issues
+## Issues
 
 Use GitHub issues to track implementation tasks and open questions where appropriate.
 
@@ -95,7 +95,7 @@ docs/issues/open/
 
 When mapped to GitHub, include the GitHub issue number in the Markdown file.
 
-## Issue types
+### Issue types
 
 Use issues for:
 
@@ -110,7 +110,7 @@ Use issues for:
 - Hardware validation.
 - Documentation gaps.
 
-## Issue file format
+### Issue file format
 
 Docs issue files should use:
 
@@ -131,7 +131,7 @@ Include:
 
 ---
 
-# Pull Requests
+## Pull Requests
 
 Pull requests should include:
 
@@ -146,7 +146,7 @@ Pull requests should include:
 - Known limitations.
 - Human review required.
 
-## PR template
+### PR template
 
 Use this structure:
 
@@ -176,11 +176,11 @@ Use this structure:
 
 ---
 
-# ADR Workflow
+## ADR Workflow
 
 Significant decisions require ADRs.
 
-## Proposed ADRs
+### Proposed ADRs
 
 Create proposed ADRs under:
 
@@ -188,7 +188,7 @@ Create proposed ADRs under:
 docs/adr/accepted/
 ```
 
-## Accepted ADRs
+### Accepted ADRs
 
 Move to accepted only after human approval:
 
@@ -196,7 +196,7 @@ Move to accepted only after human approval:
 docs/adr/accepted/
 ```
 
-## Superseded ADRs
+### Superseded ADRs
 
 Do not rewrite accepted ADR history. Create a new ADR and supersede the old one.
 
@@ -204,7 +204,7 @@ Do not rewrite accepted ADR history. Create a new ADR and supersede the old one.
 docs/adr/superseded/
 ```
 
-## Decisions requiring ADRs
+### Decisions requiring ADRs
 
 - Cloud/local/hybrid deployment.
 - Database selection.
@@ -222,7 +222,7 @@ docs/adr/superseded/
 
 ---
 
-# Claude Code GitHub Rule
+## Claude Code GitHub Rule
 
 Claude Code should not close GitHub issues unless:
 
@@ -237,7 +237,7 @@ Claude Code must not close architectural issues without an ADR or explicit human
 
 ---
 
-# Required Status Updates
+## Required Status Updates
 
 When finishing a branch or worker session, Claude Code must document:
 
@@ -265,7 +265,7 @@ This should be added to the active plan or worker notes.
 
 ---
 
-# Release Tags
+## Release Tags
 
 Release tags should not be created until:
 
@@ -288,7 +288,7 @@ v1.0.0
 
 ---
 
-# GitHub Project Board Suggested Columns
+## GitHub Project Board Suggested Columns
 
 Suggested columns:
 
@@ -305,7 +305,7 @@ Done
 
 ---
 
-# Protected Branch Recommendation
+## Protected Branch Recommendation
 
 `main` should eventually require:
 
@@ -319,7 +319,7 @@ Done
 
 ---
 
-# Claude Code Review Expectations
+## Claude Code Review Expectations
 
 Claude Code should call out:
 

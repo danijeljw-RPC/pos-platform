@@ -52,7 +52,7 @@ Daxa receipt templates should target 42 characters per line for 80mm compatibili
 
 Cash drawers connect via the printer's RJ11/RJ12 port. The drawer kick command is sent through the printer, not a separate device driver.
 
-```
+```text
 ESC p 0 100 200   → Drawer 0, pulse duration
 ESC p 1 100 200   → Drawer 1
 ```

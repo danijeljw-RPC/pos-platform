@@ -36,9 +36,9 @@ The product should use one core codebase and one platform architecture, with dep
 
 ---
 
-# Product line
+## Product line
 
-## Daxa POS
+### Daxa POS
 
 Daxa POS is the main product name for the platform.
 
@@ -80,9 +80,9 @@ Daxa POS
 
 ---
 
-# Deployment options
+## Deployment options
 
-## Daxa Cloud
+### Daxa Cloud
 
 Daxa Cloud is the fully cloud-hosted deployment of Daxa POS.
 
@@ -90,7 +90,7 @@ In this model, the master system runs in Daxa-managed cloud infrastructure.
 
 The customer does not need to run their own server onsite unless they want local resilience or local device integration.
 
-## Daxa Cloud is best for
+### Daxa Cloud is best for
 
 | Customer type | Reason |
 | --- | --- |
@@ -100,7 +100,7 @@ The customer does not need to run their own server onsite unless they want local
 | Franchise group | Easier head-office visibility |
 | Businesses with reliable internet | Lower local infrastructure burden |
 
-## Daxa Cloud responsibilities
+### Daxa Cloud responsibilities
 
 Daxa Cloud handles:
 
@@ -118,7 +118,7 @@ Daxa Cloud handles:
 - Monitoring
 - Cloud API access
 
-## Daxa Cloud topology
+### Daxa Cloud topology
 
 ```text
 Daxa Cloud
@@ -139,7 +139,7 @@ Venue devices
 └─ Payment terminals
 ```
 
-## Daxa Cloud behaviour
+### Daxa Cloud behaviour
 
 ```text
 Venue device
@@ -157,7 +157,7 @@ Receives updated menu/pricing/tax/device config
 
 ---
 
-# Daxa Local
+## Daxa Local
 
 Daxa Local is the on-premises/local-server deployment of Daxa POS.
 
@@ -165,7 +165,7 @@ In this model, the customer runs a local Daxa server onsite inside their own net
 
 The local server becomes the master operational system for that venue or group of venues, depending on configuration.
 
-## Daxa Local is best for
+### Daxa Local is best for
 
 | Customer type | Reason |
 | --- | --- |
@@ -177,7 +177,7 @@ The local server becomes the master operational system for that venue or group o
 | Customers wanting local control | Onsite server ownership |
 | Customers with existing IT teams | Can manage local infrastructure |
 
-## Daxa Local responsibilities
+### Daxa Local responsibilities
 
 The local server can handle:
 
@@ -194,7 +194,7 @@ The local server can handle:
 - Local offline resilience
 - Optional cloud backup/sync
 
-## Daxa Local topology
+### Daxa Local topology
 
 ```text
 Venue local network
@@ -214,7 +214,7 @@ Venue local network
 └─ Admin devices
 ```
 
-## Daxa Local behaviour
+### Daxa Local behaviour
 
 ```text
 Daxa Terminal
@@ -232,7 +232,7 @@ Optionally syncs/backs up to Daxa Cloud or external storage
 
 ---
 
-# Daxa Hybrid
+## Daxa Hybrid
 
 Daxa Hybrid is the deployment mode where both local and cloud components are used.
 
@@ -244,7 +244,7 @@ In this model:
 - The local server keeps the venue operational if internet drops.
 - Data syncs between the local server and the cloud.
 
-## Daxa Hybrid is best for
+### Daxa Hybrid is best for
 
 | Customer type | Reason |
 | --- | --- |
@@ -255,7 +255,7 @@ In this model:
 | Remote/regional venues | Handles unreliable internet |
 | Customers needing backups | Local + cloud data paths |
 
-## Daxa Hybrid topology
+### Daxa Hybrid topology
 
 ```text
 Daxa Cloud
@@ -288,7 +288,7 @@ Venue devices
 └─ Payment terminals
 ```
 
-## Daxa Hybrid behaviour
+### Daxa Hybrid behaviour
 
 ```text
 Cloud defines master configuration
@@ -304,7 +304,7 @@ Data syncs back to cloud
 Cloud provides reporting, backup, monitoring, and central management
 ```
 
-## Hybrid sync examples
+### Hybrid sync examples
 
 Data pushed from cloud to local:
 
@@ -334,15 +334,15 @@ Data pushed from local to cloud:
 
 ---
 
-# Product components
+## Product components
 
-## Daxa Terminal
+### Daxa Terminal
 
 Daxa Terminal is the staff-facing POS app.
 
 For Windows devices, this is expected to be a .NET MAUI application.
 
-## Daxa Terminal does
+### Daxa Terminal does
 
 - Staff PIN login
 - Product/category display
@@ -361,7 +361,7 @@ For Windows devices, this is expected to be a .NET MAUI application.
 - Customer display control
 - Device health reporting
 
-## Daxa Terminal target devices
+### Daxa Terminal target devices
 
 | Device | App type |
 | --- | --- |
@@ -372,7 +372,7 @@ For Windows devices, this is expected to be a .NET MAUI application.
 
 ---
 
-## Daxa Display
+### Daxa Display
 
 Daxa Display is the customer-facing second screen.
 
@@ -392,7 +392,7 @@ It is used at the point of sale so the customer can see:
 - Loyalty prompt later
 - Branding/promotions when idle
 
-## Daxa Display topology
+### Daxa Display topology
 
 ```text
 Windows POS machine
@@ -400,7 +400,7 @@ Windows POS machine
 └─ Screen 2: Daxa Display
 ```
 
-## Daxa Display states
+### Daxa Display states
 
 | State | Display |
 | --- | --- |
@@ -416,13 +416,13 @@ Windows POS machine
 
 ---
 
-## Daxa Back Office
+### Daxa Back Office
 
 Daxa Back Office is the admin and management portal.
 
 This should normally be a web application/PWA.
 
-## Daxa Back Office does
+### Daxa Back Office does
 
 - Dashboard
 - Product management
@@ -443,7 +443,7 @@ This should normally be a web application/PWA.
 - Multi-location management
 - Cloud/local/hybrid configuration
 
-## Daxa Back Office users
+### Daxa Back Office users
 
 | User type | Purpose |
 | --- | --- |
@@ -456,7 +456,7 @@ This should normally be a web application/PWA.
 
 ---
 
-## Daxa Payments
+### Daxa Payments
 
 Daxa Payments is the payment integration layer.
 
@@ -464,7 +464,7 @@ It is not necessarily a payment processor itself.
 
 It provides a provider-agnostic adapter system that allows venues to connect their own payment-provider account and terminal.
 
-## Daxa Payments should support
+### Daxa Payments should support
 
 - Cash
 - Manual external EFTPOS
@@ -479,7 +479,7 @@ It provides a provider-agnostic adapter system that allows venues to connect the
 - Tips/gratuity later
 - Card/public holiday/Sunday/service surcharges
 
-## Daxa Payments provider roadmap
+### Daxa Payments provider roadmap
 
 AU/NZ first:
 
@@ -500,7 +500,7 @@ International expansion:
 9. Global Payments
 ```
 
-## Payment adapter model
+### Payment adapter model
 
 ```text
 Daxa Payments
@@ -514,7 +514,7 @@ Daxa Payments
 └─ Global Payments Adapter
 ```
 
-## Payment flow
+### Payment flow
 
 ```text
 Staff presses Pay
@@ -534,13 +534,13 @@ Order closes or retries
 
 ---
 
-## Daxa Inventory
+### Daxa Inventory
 
 Daxa Inventory manages stock and product availability.
 
 It should start simple and support more advanced inventory later.
 
-## Simple inventory
+### Simple inventory
 
 - Track finished items
 - Sold-out flag
@@ -550,7 +550,7 @@ It should start simple and support more advanced inventory later.
 - Low stock warning
 - Daily stock reset
 
-## Advanced inventory later
+### Advanced inventory later
 
 - Ingredient inventory
 - Recipes/BOM
@@ -563,7 +563,7 @@ It should start simple and support more advanced inventory later.
 - Stocktake
 - Margin reporting
 
-## Industry examples
+### Industry examples
 
 | Business | Inventory need |
 | --- | --- |
@@ -576,7 +576,7 @@ It should start simple and support more advanced inventory later.
 
 ---
 
-## Daxa KDS
+### Daxa KDS
 
 Daxa KDS is the kitchen display system.
 
@@ -584,7 +584,7 @@ It should be separate from the POS counter customer display.
 
 Daxa KDS should usually run as a PWA on separate devices.
 
-## Daxa KDS does
+### Daxa KDS does
 
 - Shows kitchen/bar/prep tickets
 - Receives routed items
@@ -595,7 +595,7 @@ Daxa KDS should usually run as a PWA on separate devices.
 - Supports multiple prep stations
 - Supports kitchen/bar/coffee routing
 
-## KDS topology
+### KDS topology
 
 ```text
 Daxa Terminal
@@ -611,13 +611,13 @@ Daxa KDS devices
 
 ---
 
-## Daxa Sync
+### Daxa Sync
 
 Daxa Sync is the local-to-cloud synchronisation layer.
 
 It is important for Daxa Local and Daxa Hybrid.
 
-## Daxa Sync does
+### Daxa Sync does
 
 - Pushes local sales data to cloud
 - Pulls cloud configuration to local server
@@ -631,7 +631,7 @@ It is important for Daxa Local and Daxa Hybrid.
 - Tracks sync status
 - Supports backup/export flows
 
-## Sync directions
+### Sync directions
 
 Cloud to local:
 
@@ -664,7 +664,7 @@ End-of-day reports
 
 ---
 
-## Daxa Hospitality
+### Daxa Hospitality
 
 Daxa Hospitality is a configured industry template/module for hospitality venues.
 
@@ -681,7 +681,7 @@ It enables relevant workflows for:
 - Cake shops
 - Food trucks
 
-## Daxa Hospitality features
+### Daxa Hospitality features
 
 - Tables/floor plan
 - Dine-in/takeaway
@@ -701,7 +701,7 @@ It enables relevant workflows for:
 
 ---
 
-## Daxa Retail
+### Daxa Retail
 
 Daxa Retail is a configured industry template/module for retail and service businesses.
 
@@ -716,7 +716,7 @@ It enables relevant workflows for:
 - Repair shops
 - Service counters
 
-## Daxa Retail features
+### Daxa Retail features
 
 - SKU/barcode scanning
 - Product variants
@@ -735,7 +735,7 @@ It enables relevant workflows for:
 
 ---
 
-# Single codebase approach
+## Single codebase approach
 
 Daxa POS should remain one codebase.
 
@@ -760,7 +760,7 @@ Single Daxa POS platform
 └─ Device/terminal config
 ```
 
-## Configuration-based deployment
+### Configuration-based deployment
 
 Example deployment mode config:
 
@@ -805,7 +805,7 @@ CustomerDisplay = Enabled
 
 ---
 
-# Multi-tenant and multi-location model
+## Multi-tenant and multi-location model
 
 Every tenant should support multi-location by default.
 
@@ -813,7 +813,7 @@ A single-location customer simply has one location.
 
 Do not create separate logic for single-location tenants.
 
-## Recommended hierarchy
+### Recommended hierarchy
 
 ```text
 Tenant
@@ -824,7 +824,7 @@ Tenant
             └─ Terminal
 ```
 
-## Example: single-location business
+### Example: single-location business
 
 ```text
 Tenant: Main Street Bakery
@@ -834,7 +834,7 @@ Location: Main Street Bakery
 Terminal: Front Counter 1
 ```
 
-## Example: multi-location chain
+### Example: multi-location chain
 
 ```text
 Tenant: Example Hospitality Group
@@ -853,7 +853,7 @@ Terminals:
 - Parramatta / Restaurant POS
 ```
 
-## Why everything should be multi-location
+### Why everything should be multi-location
 
 | Reason | Benefit |
 | --- | --- |
@@ -866,15 +866,15 @@ Terminals:
 
 ---
 
-# Product naming summary
+## Product naming summary
 
-## Primary product
+### Primary product
 
 ```text
 Daxa POS
 ```
 
-## Deployment options
+### Deployment options
 
 | Name | Meaning |
 | --- | --- |
@@ -883,7 +883,7 @@ Daxa POS
 | Daxa Hybrid | Local server plus cloud sync/management |
 | Daxa Sync | Local-to-cloud sync/backup layer |
 
-## Apps/components
+### Apps/components
 
 | Name | Meaning |
 | --- | --- |
@@ -894,7 +894,7 @@ Daxa POS
 | Daxa Payments | Payment-provider integration layer |
 | Daxa Inventory | Inventory/stock module |
 
-## Industry templates
+### Industry templates
 
 | Name | Meaning |
 | --- | --- |
@@ -903,27 +903,27 @@ Daxa POS
 
 ---
 
-# Short positioning copy
+## Short positioning copy
 
-## Option 1
+### Option 1
 
 ```text
 Daxa POS is a configurable point-of-sale platform for hospitality, retail, food service, and service businesses. It can run cloud-hosted, locally on-premises, or in a hybrid model with local resilience and cloud management.
 ```
 
-## Option 2
+### Option 2
 
 ```text
 Daxa POS gives venues and stores a flexible POS system that can run in the cloud, on a local server, or both. It supports counter sales, customer displays, payments, receipts, tax, inventory, reporting, and multi-location operations.
 ```
 
-## Option 3
+### Option 3
 
 ```text
 Daxa POS is a cloud, local, and hybrid POS platform for modern retail and hospitality operations.
 ```
 
-## Short tagline
+### Short tagline
 
 ```text
 Daxa POS

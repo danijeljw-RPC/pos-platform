@@ -37,7 +37,7 @@ Establish comprehensive test coverage, security hardening, and production-ready 
 
 ## Files Likely To Change
 
-```
+```text
 tests/DaxaPos.UnitTests/
 tests/DaxaPos.IntegrationTests/
 tests/DaxaPos.Api.Tests/
@@ -115,7 +115,7 @@ All existing test suites must pass. New tests added in this plan.
 
 ## Commit Sequence
 
-```
+```text
 test: add tenant isolation and RBAC integration tests
 test: add tax, payment, and receipt tests
 test: add sync and financial record audit tests

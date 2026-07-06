@@ -52,7 +52,7 @@ Tax engine tests are mandatory. Financial and tax logic must not be changed with
 
 ## Test Project
 
-```
+```text
 tests/DaxaPos.UnitTests/Tax/
 ```
 

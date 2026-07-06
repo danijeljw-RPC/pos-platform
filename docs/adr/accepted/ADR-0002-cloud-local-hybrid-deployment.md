@@ -25,12 +25,14 @@ All three modes use the same codebase, same domain model, and same API concepts.
 ## Consequences
 
 **Positive:**
+
 - Venues choose the deployment model that fits their infrastructure and business risk tolerance.
 - Internet outages do not automatically stop trading for Local and Hybrid venues.
 - Central reporting and management remain available in Hybrid and Cloud modes.
 - Single codebase and test suite apply across all modes.
 
 **Negative:**
+
 - All three modes must be designed for and tested, increasing upfront design complexity.
 - Sync and conflict resolution (Hybrid mode) adds engineering effort.
 - Local server hardware must be specified and supported.

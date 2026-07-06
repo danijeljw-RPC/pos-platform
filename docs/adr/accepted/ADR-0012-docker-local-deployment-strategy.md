@@ -36,12 +36,14 @@ Cloud deployment strategy (Kubernetes, Azure Container Apps, AWS ECS, etc.) is a
 ## Consequences
 
 **Positive:**
+
 - Reproducible local development environment.
 - Local server deployment is consistent with development environment.
 - Integration tests run against real services.
 - Onboarding new developers is faster.
 
 **Negative:**
+
 - Local server hardware must support Docker (Linux preferred; Windows containers are less common in hospitality).
 - Keycloak in Docker can be resource-intensive on small hardware.
 - Persistent volume management must be planned for on-premises deployments.
@@ -213,7 +215,7 @@ OI-0003 = what hardware is initially used to run it
 
 If the hardware decision changes later, OI-0003 or a future ADR/OI should be updated without changing the core Docker Compose deployment strategy.
 
-## Consequences
+## Consequences of the Accepted Addendum
 
 This decision keeps the local deployment simple and supportable.
 

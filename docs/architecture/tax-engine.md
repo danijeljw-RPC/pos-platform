@@ -77,7 +77,7 @@ OrderLineTax  (snapshot at sale time)
 
 ## Receipt Presentation
 
-```
+```text
 Flat white                    $5.50
 Chocolate cake slice          $8.80
 Loaf of bread              F  $6.00

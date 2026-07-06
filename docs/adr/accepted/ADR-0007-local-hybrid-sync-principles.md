@@ -25,12 +25,14 @@ Local-to-cloud and cloud-to-local sync in Daxa POS follows these principles:
 ## Consequences
 
 **Positive:**
+
 - Internet loss does not stop trading.
 - Conflict handling is visible and auditable.
 - Retry logic is safe via idempotency.
 - Historical sync records support debugging and reporting.
 
 **Negative:**
+
 - Sync engine is a significant engineering investment.
 - Conflict resolution rules must be explicitly designed.
 - Full-state reload can be expensive for large datasets.

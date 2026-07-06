@@ -50,12 +50,14 @@ Staff do not manually enter payment amounts into integrated terminals. The POS s
 ## Consequences
 
 **Positive:**
+
 - New providers can be added without changing the core payment flow.
 - Venues can switch providers without code changes.
 - Each provider can be tested in isolation.
 - Multiple providers can be active at the same time across different terminals/locations.
 
 **Negative:**
+
 - Interface must be designed carefully to accommodate provider feature differences (tips, surcharges, offline capability).
 - Provider certification requirements differ by region and must be tracked.
 - Some provider-specific capabilities (e.g. tip prompt on terminal) may need provider extensions.
