@@ -8,11 +8,69 @@ For the full detailed deployment reference, see [docker-deployment.md](docker-de
 
 ---
 
-## Current Skeleton Status (PLAN-0002)
+## Full Local Dev Stack (PLAN-0010)
 
-As of PLAN-0002 (platform skeleton), `deploy/docker-compose.yml` runs **only** `db` (PostgreSQL) and `keycloak`. There is no `api`, `worker`, or `proxy` service yet, and no `Dockerfile` for `DaxaPos.Api` — the API runs directly on the host via `dotnet run --project src/DaxaPos.Api` against the Compose-provided `db`. Keycloak is present but not wired into any application code yet (see ADR-0013 and PLAN-0003); the API starts and reports healthy whether or not the `keycloak` container is running.
+As of PLAN-0010, the repo root has a `compose.yaml` that runs the **full local dev stack**:
+`db`, `keycloak`, a one-shot `migrations` service, `api`, `worker`, and `web` (the PLAN-0006
+Blazor WebAssembly PWA, `DaxaPos.Web`). This is local-dev only — plain HTTP, no reverse proxy/TLS,
+dev-only default credentials.
 
-Quick start for this stage:
+Quick start:
+
+```bash
+cp .env.example .env
+# Edit .env with your local values if needed — the defaults work out of the box
+docker compose up -d --build
+```
+
+Fresh start (wipes the Postgres volume — use if migrations get into a bad state):
+
+```bash
+docker compose down -v --remove-orphans
+docker compose up -d --build
+```
+
+Check commands:
+
+```bash
+docker compose ps
+docker compose logs -f migrations
+docker compose logs -f api
+docker compose logs -f worker
+curl http://localhost:5118/health
+```
+
+Open the PWA at **http://localhost:8080/**. It calls the API at `http://localhost:5118/` — this
+is baked into the `web` image via `deploy/web/appsettings.docker.json` at build time, since the
+Blazor WebAssembly app runs in the *browser*, which cannot resolve Compose service names. The
+`api`/`worker`/`migrations` services, by contrast, talk to Postgres over the Compose network
+using the service name `db` (`Host=db;Port=5432;...`) — never `localhost`.
+
+There is no seeded staff member or device-registration PIN yet — Back Office (PLAN-0006
+Milestone B) doesn't exist. To reach the PWA's Staff PIN login screen after a fresh stack comes
+up, call the admin API directly (bootstrap admin credentials come from `DAXA_BOOTSTRAP_ADMIN_EMAIL`
+/`_PASSWORD` in `.env.example`):
+
+1. `POST http://localhost:5118/api/v1/auth/local/login` with the bootstrap admin email/password.
+2. `GET /api/v1/auth/me` with that session token → `OrganisationId`.
+3. `POST /api/v1/locations` `{ "Name": "...", "OrganisationId": "<step 2>" }` → `LocationId`.
+4. `POST /api/v1/device-registration-pins` `{ "LocationId": "<step 3>" }` → one-time PIN.
+5. `POST /api/v1/staff-members` `{ "DisplayName": "...", "StaffCode": "...", "Pin": "...", "LocationId": "<step 3>" }`.
+6. `POST /api/v1/staff-members/{id}/roles` `{ "RoleId": "00000000-0000-0000-0001-000000000004" }`
+   (the seeded `Staff` role — the only one that's staff-PIN-eligible).
+7. In the browser, use the PIN from step 4 on `/device-setup`, then the staff code/PIN from
+   step 5 on `/login`.
+
+`deploy/docker-compose.yml` (below) is the older, infra-only PLAN-0002 file (`db`+`keycloak`
+only) and is unchanged — it still works for the `dotnet run` host-process workflow. Don't run
+both stacks at once; they both bind host port 5432 for Postgres.
+
+---
+
+## Legacy Infra-Only Compose File (PLAN-0002)
+
+`deploy/docker-compose.yml` runs **only** `db` (PostgreSQL) and `keycloak`, for developers who
+prefer to run `DaxaPos.Api`/`DaxaPos.Workers` directly on the host via `dotnet run`.
 
 ```bash
 cd deploy
@@ -27,24 +85,24 @@ dotnet run --project src/DaxaPos.Api
 Health check:
 
 ```bash
-curl http://localhost:5299/health
+curl http://localhost:5118/health
 ```
 
-(Port depends on the `ASPNETCORE_URLS` the API binds to when run directly; there is no reverse proxy in front of it yet.)
-
-The `api`/`worker`/`proxy` containerised stack described below and in [docker-deployment.md](docker-deployment.md) is the target design for later plans, not what exists today.
+(Port depends on the `ASPNETCORE_URLS`/launch profile the API binds to when run directly.)
 
 ---
 
-## Target Docker Compose Services (future plans)
+## Docker Compose Services
 
 | Service | Purpose | Status |
 |---------|---------|--------|
 | `db` | PostgreSQL database | Implemented (PLAN-0002) |
 | `keycloak` | Identity provider (cloud/admin/back-office only, ADR-0013) | Implemented (PLAN-0002), not yet used by application code |
-| `api` | ASP.NET Core Web API (DaxaPos.Api) | Not yet containerised — runs via `dotnet run` |
-| `worker` | Background workers (DaxaPos.Workers) | Not yet created |
-| `proxy` | Reverse proxy / TLS termination | Not yet created |
+| `migrations` | One-shot EF Core `database update` | Implemented (PLAN-0010), root `compose.yaml` only |
+| `api` | ASP.NET Core Web API (DaxaPos.Api) | Containerised (PLAN-0010), root `compose.yaml` only |
+| `worker` | Background workers (DaxaPos.Workers) | Containerised (PLAN-0010), root `compose.yaml` only |
+| `web` | Blazor WebAssembly PWA (DaxaPos.Web) | Containerised (PLAN-0010), root `compose.yaml` only |
+| `proxy` | Reverse proxy / TLS termination | Not yet created — out of scope, local-dev is plain HTTP |
 
 ---
 
@@ -67,3 +125,4 @@ DAXA_DEPLOYMENT_MODE=Hybrid
 - [Deployment: Hybrid](hybrid.md)
 - [ADR-0012 — Docker Local Deployment Strategy](../adr/accepted/ADR-0012-docker-local-deployment-strategy.md)
 - [PLAN-0002 — Platform Skeleton](../plans/active/PLAN-0002-platform-skeleton.md)
+- [PLAN-0010 — Docker Compose Local Dev Stack](../plans/active/PLAN-0010-docker-compose-local-dev-stack.md)

@@ -19,7 +19,12 @@ Daxa POS must support:
 
 Docker must support development and local/on-prem deployment. Cloud deployment may use containers or managed services depending on the selected cloud infrastructure.
 
-> **Current implementation status (PLAN-0002, 2026-07-01):** everything below is the target design. Today, `deploy/docker-compose.yml` only runs `db` and `keycloak`; there is no `api`/`worker`/`proxy` service or Dockerfile yet, and Keycloak is not wired into any application code. See [docker.md](docker.md) § Current Skeleton Status for what actually exists right now.
+> **Current implementation status (PLAN-0010, 2026-07-06):** the root `compose.yaml` now runs
+> `db`, `keycloak`, `migrations`, `api`, `worker`, and `web` (see [docker.md](docker.md) § Full
+> Local Dev Stack) — this is a real, containerized local-dev stack, not just the target design.
+> Still not implemented: a `proxy` (reverse-proxy/TLS) service — the stack is plain HTTP only.
+> `deploy/docker-compose.yml` (PLAN-0002, `db`+`keycloak` only) is unchanged and still works for
+> the `dotnet run` host-process workflow. See [docker.md](docker.md) for both.
 
 ---
 
@@ -106,6 +111,13 @@ docker compose
 
 # Phase 1 Local Development Stack
 
+> This section (and its Suggested Quick Start below) describes the reverse-proxied target design,
+> including the `proxy` service, which is **not implemented**. What actually runs today —
+> `db`/`keycloak`/`migrations`/`api`/`worker`/`web` on plain HTTP, host-published ports, no proxy —
+> is documented in [docker.md](docker.md) § Full Local Dev Stack (PLAN-0010). The port/image table
+> below is otherwise accurate for `db`/`api`/`worker` (see the root `compose.yaml` for the real
+> port mappings: `api` host `5118`, `web` host `8080`).
+
 ## Services
 
 | Service | Image | Port | Purpose |
@@ -113,7 +125,8 @@ docker compose
 | `db` | `postgres:16-alpine` or newer | `127.0.0.1:5432` dev only | PostgreSQL database |
 | `api` | built from `src/DaxaPos.Api/Dockerfile` | internal `8080` | ASP.NET Core API |
 | `worker` | built from `src/DaxaPos.Workers/Dockerfile` | internal | Background jobs |
-| `proxy` | `nginx:1.27-alpine` or equivalent | `80`, `443` | Reverse proxy / TLS termination |
+| `web` | built from `src/DaxaPos.Web/Dockerfile` | internal `80` | Blazor WebAssembly PWA (nginx) |
+| `proxy` | `nginx:1.27-alpine` or equivalent | `80`, `443` | Reverse proxy / TLS termination — not yet implemented |
 
 ## Optional future services
 
