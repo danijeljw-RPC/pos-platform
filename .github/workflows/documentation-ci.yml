@@ -1,0 +1,38 @@
+# .github/workflows/documentation-ci.yml
+name: Documentation CI
+
+on:
+  pull_request:
+    paths:
+      - 'docs/**'
+      - 'tools/**'
+      - '.markdownlint-cli2.jsonc'
+      - '.github/workflows/documentation-ci.yml'
+
+  push:
+    branches: [ main ]
+    paths:
+      - 'docs/**'
+      - 'tools/**'
+      - '.markdownlint-cli2.jsonc'
+      - '.github/workflows/documentation-ci.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  validate-docs:
+    name: Validate Markdown
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Lint Markdown
+        uses: DavidAnson/markdownlint-cli2-action@v24
+        with:
+          config: .markdownlint-cli2.jsonc
+          globs: |
+            docs/**/*.md
+            tools/**/*.md

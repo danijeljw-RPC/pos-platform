@@ -41,7 +41,7 @@ Project reference graph (per ADR-0014): `Api → {Application, Infrastructure, P
 ## Verification performed (commands run, results)
 
 | Check | Command | Result |
-|---|---|---|
+| --- | --- | --- |
 | Solution builds | `dotnet build DaxaPos.sln` | **Pass** — 0 warnings, 0 errors, all 6 projects |
 | Migration generates | `dotnet ef migrations add InitialCreate --project src/DaxaPos.Persistence --startup-project src/DaxaPos.Api` | **Pass** |
 | Migration applies to real Postgres | `docker compose up -d db` then `dotnet ef database update ...` | **Pass** — confirmed via `psql \dt`: `tenants`, `organisations`, `locations`, `devices`, `terminals`, `__EFMigrationsHistory` all present with correct FKs |
@@ -65,7 +65,7 @@ This directly satisfies the user's decision #4: *"The API must start successfull
 ## Blocked Before Implementation — updated status
 
 | # | Blocker | Status |
-|---|---|---|
+| --- | --- | --- |
 | 1 | Inter-module communication pattern undecided | **Resolved.** [ADR-0014](../adr/accepted/ADR-0014-inter-module-communication.md) accepted, with a Handler I/O Rule added before acceptance: domain event handlers must not perform slow/unreliable/external I/O directly — that work must go through a durable outbox/work item processed by `DaxaPos.Workers`. `IDomainEvent`/`IDomainEventDispatcher`/a simple in-process dispatcher/DI registration are implemented; no real events, handlers, or outbox table yet (correctly deferred). |
 | 2 | PLAN-0003 modelled staff PIN login as Keycloak/OIDC | **Resolved** (previous pass). |
 | 3–7 | Stale doc references, PLAN-0009 sub-plan, etc. | **Resolved** (previous pass). |

@@ -301,7 +301,7 @@ Organised as milestones in dependency order. Each milestone ends in one or more 
 ## Initial Permission Catalogue
 
 | Permission code | Purpose | Seeded to roles |
-|---|---|---|
+| --- | --- | --- |
 | `organisations.manage` | Create/update organisations | `SystemAdmin` |
 | `locations.manage` | Create/update locations within an organisation | `SystemAdmin`, `OrganisationOwner` |
 | `terminals.manage` | Create/update terminals within a location | `SystemAdmin`, `OrganisationOwner`, `VenueManager` |

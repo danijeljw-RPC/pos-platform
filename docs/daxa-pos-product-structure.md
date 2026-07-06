@@ -93,7 +93,7 @@ The customer does not need to run their own server onsite unless they want local
 ## Daxa Cloud is best for
 
 | Customer type | Reason |
-|---|---|
+| --- | --- |
 | Small business | No onsite server required |
 | Cafe / bakery / retail store | Simple deployment |
 | Multi-location chain | Centralised management |
@@ -168,7 +168,7 @@ The local server becomes the master operational system for that venue or group o
 ## Daxa Local is best for
 
 | Customer type | Reason |
-|---|---|
+| --- | --- |
 | Pubs | Local resilience |
 | Restaurants | Local order/payment continuity |
 | Food trucks | Can operate with poor internet |
@@ -247,7 +247,7 @@ In this model:
 ## Daxa Hybrid is best for
 
 | Customer type | Reason |
-|---|---|
+| --- | --- |
 | Multi-location hospitality groups | Local resilience + head-office reporting |
 | Larger pubs/restaurants | Avoid cloud dependency at the counter |
 | Food trucks/events | Can sell locally, sync later |
@@ -364,7 +364,7 @@ For Windows devices, this is expected to be a .NET MAUI application.
 ## Daxa Terminal target devices
 
 | Device | App type |
-|---|---|
+| --- | --- |
 | Windows POS terminal | .NET MAUI |
 | Windows touchscreen counter terminal | .NET MAUI |
 | Windows kiosk-style staff terminal | .NET MAUI |
@@ -403,7 +403,7 @@ Windows POS machine
 ## Daxa Display states
 
 | State | Display |
-|---|---|
+| --- | --- |
 | Idle | Logo, promo, daily specials |
 | Order building | Items, quantities, total |
 | Discount applied | Discount line |
@@ -446,7 +446,7 @@ This should normally be a web application/PWA.
 ## Daxa Back Office users
 
 | User type | Purpose |
-|---|---|
+| --- | --- |
 | Owner | Whole organisation access |
 | Admin | Configuration and reporting |
 | Venue manager | Store-level management |
@@ -566,7 +566,7 @@ It should start simple and support more advanced inventory later.
 ## Industry examples
 
 | Business | Inventory need |
-|---|---|
+| --- | --- |
 | Bakery | Daily production quantities, waste, sold-out |
 | Food truck | Event stock countdown |
 | Retail | SKU/barcode stock |
@@ -856,7 +856,7 @@ Terminals:
 ## Why everything should be multi-location
 
 | Reason | Benefit |
-|---|---|
+| --- | --- |
 | Single-location is just one location | No special-case code |
 | Businesses can grow | No migration problem |
 | Chains/franchises are supported | Better enterprise path |
@@ -877,7 +877,7 @@ Daxa POS
 ## Deployment options
 
 | Name | Meaning |
-|---|---|
+| --- | --- |
 | Daxa Cloud | Fully cloud-hosted POS |
 | Daxa Local | On-prem/local-server deployment |
 | Daxa Hybrid | Local server plus cloud sync/management |
@@ -886,7 +886,7 @@ Daxa POS
 ## Apps/components
 
 | Name | Meaning |
-|---|---|
+| --- | --- |
 | Daxa Terminal | Staff-facing POS app |
 | Daxa Display | Customer-facing second screen |
 | Daxa Back Office | Admin/management portal |
@@ -897,7 +897,7 @@ Daxa POS
 ## Industry templates
 
 | Name | Meaning |
-|---|---|
+| --- | --- |
 | Daxa Hospitality | Hospitality configuration/template |
 | Daxa Retail | Retail/service configuration/template |
 

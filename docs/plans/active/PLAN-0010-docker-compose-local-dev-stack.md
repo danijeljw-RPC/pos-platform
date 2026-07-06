@@ -49,7 +49,7 @@ containerized API without hand-seeding ports/CORS every time).
 
 ## Files Likely To Change
 
-```
+```text
 .dockerignore
 compose.yaml
 .env.example
@@ -109,7 +109,7 @@ None — no business logic touched.
 
 ## Commit Sequence
 
-```
+```text
 infra: add API and Workers Dockerfiles for local Docker Compose stack
 infra: add root compose.yaml running db/keycloak/migrations/api/worker/web
 docs: document the root Docker Compose local dev stack

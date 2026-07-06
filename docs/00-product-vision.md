@@ -7,7 +7,7 @@ Build a new POS platform that can operate across retail, hospitality, food servi
 The product should work for:
 
 | Business type | Examples |
-|---|---|
+| --- | --- |
 | Hospitality | Cafe, pub, restaurant, bar |
 | Food retail | Bakery, cake counter, food truck, fast food |
 | General retail | Clothing, electronics, gifts |
@@ -35,7 +35,7 @@ One POS platform
 ## Device strategy
 
 | Device / OS | Recommended app type |
-|---|---|
+| --- | --- |
 | Windows POS terminal | .NET MAUI |
 | Windows customer-facing second display | .NET MAUI second window |
 | Windows admin/back-office terminal | MAUI or browser |
@@ -60,7 +60,7 @@ The customer display is not a KDS. It is a customer-facing display for order sum
 ## Core customer display states
 
 | State | Display |
-|---|---|
+| --- | --- |
 | Idle | Logo, promo, daily specials |
 | Order building | Items, quantities, total |
 | Item removed | Updated basket |

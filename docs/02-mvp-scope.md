@@ -50,7 +50,7 @@ Windcave for AU/NZ bridge
 The first version should support these with configuration, not separate code branches:
 
 | Business type | MVP support |
-|---|---|
+| --- | --- |
 | Cafe | Yes |
 | Bakery/cake shop | Yes |
 | Pub/bar | Basic |
@@ -62,7 +62,7 @@ The first version should support these with configuration, not separate code bra
 ## MVP exclusions / later items
 
 | Feature | Phase |
-|---|---|
+| --- | --- |
 | Full floor plan | Phase 2 |
 | KDS | Phase 2 |
 | Advanced inventory/BOM | Phase 3 |

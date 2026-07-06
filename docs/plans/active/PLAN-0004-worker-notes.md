@@ -671,7 +671,7 @@ One heads-up for whoever starts Milestone H: it is scoped as test-and-documentat
 
 ## Milestone H Report (2026-07-05)
 
-Working tree confirmed clean before editing except one pre-existing uncommitted change: a whitespace-only markdown table-separator normalization in `ADR-0016-multi-language-and-localisation-strategy.md` (`|---|---|` → `| --- | --- |`, no semantic change), absorbed into this milestone's ADR-0016 edits since that file was already being touched for the acceptance move.
+Working tree confirmed clean before editing except one pre-existing uncommitted change: a whitespace-only markdown table-separator normalization in `ADR-0016-multi-language-and-localisation-strategy.md` (`| --- | --- |` → `| --- | --- |`, no semantic change), absorbed into this milestone's ADR-0016 edits since that file was already being touched for the acceptance move.
 
 Test-and-documentation-only, exactly as scoped: no new entities, no migration, no new endpoint groups, no order/payment/receipt/UI/sync/inventory/KDS/pricing-rule work.
 

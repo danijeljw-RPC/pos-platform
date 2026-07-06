@@ -139,7 +139,7 @@ Restating and applying ADR-0006's accepted direction concretely for this plan, s
 These are the *seed data* this plan ships, not engine-level rules:
 
 | `TaxDefinitionTemplate.Code` | RatePercent | JurisdictionName | IncludedInPrice | ReceiptMarkerCode |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | `AU_GST_10` | 10 | Australia | true | (none) |
 | `AU_GST_FREE` | 0 | Australia | true | `F` |
 | `NZ_GST_15` | 15 | New Zealand | true | (none) |
@@ -321,7 +321,7 @@ Test-and-documentation-only, mirroring PLAN-0003 Milestone G's shape.
 ## Permission Catalogue Additions (Summary)
 
 | Permission code | Purpose | Category | Seeded to roles |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `catalog.manage` | Product/category/variant/modifier CRUD; tax category/definition CRUD and assignment (per OI-0007) | AdminSensitive | `SystemAdmin`, `OrganisationOwner`, `VenueManager` |
 | `pricing.manage` | Location price overrides, venue tax configuration | AdminSensitive | `SystemAdmin`, `OrganisationOwner`, `VenueManager` |
 | `menus.manage` | Menu/section/item/availability-rule CRUD | AdminSensitive | `SystemAdmin`, `OrganisationOwner`, `VenueManager` |
