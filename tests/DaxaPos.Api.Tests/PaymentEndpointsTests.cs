@@ -209,6 +209,47 @@ public class PaymentEndpointsTests : IClassFixture<WebApplicationFactory<Program
     }
 
     [Fact]
+    public async Task ListPayments_Fails_WithoutPermission()
+    {
+        // Create_Fails_WithoutPermission above already proves POST .../payments; this covers the
+        // list endpoint too (Milestone F RBAC-inventory consolidation).
+        var ownerClient = _factory.CreateClient();
+        var (owner, _, terminal) = await SetupVenueAsync(ownerClient);
+        var order = await OpenOrderWithSingleLineAsync(ownerClient, owner.OrganisationId, terminal.Id, 10.00m);
+
+        var supportClient = _factory.CreateClient();
+        var supportCaller = await RbacTestSeeder.SeedAsync(supportClient, "SupportAccess", owner.TenantId);
+        AuthenticateAs(supportClient, supportCaller);
+
+        var response = await supportClient.GetAsync($"/api/v1/orders/{order.Id}/payments");
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task AllEndpoints_Return403_ForDeviceToken()
+    {
+        // A device token is trusted device context only (ADR-0008) — empty roles/permissions by
+        // design, so it must never satisfy payments.record on either payment endpoint.
+        var ownerClient = _factory.CreateClient();
+        var (owner, location, terminal) = await SetupVenueAsync(ownerClient);
+        var order = await OpenOrderWithSingleLineAsync(ownerClient, owner.OrganisationId, terminal.Id, 10.00m);
+
+        var deviceClient = _factory.CreateClient();
+        var pin = await DeviceTestHelper.CreatePinAsync(ownerClient, location.Id);
+        var device = await DeviceTestHelper.RegisterDeviceAsync(deviceClient, pin.Pin);
+        DeviceTestHelper.AuthenticateWithDeviceToken(deviceClient, device.DeviceToken);
+
+        var attempts = new[]
+        {
+            await RecordPaymentAsync(deviceClient, order.Id, PaymentMethod.Cash, 10.00m, Guid.NewGuid()),
+            await deviceClient.GetAsync($"/api/v1/orders/{order.Id}/payments"),
+        };
+
+        Assert.All(attempts, response => Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode));
+    }
+
+    [Fact]
     public async Task ListPayments_Blocked_ForDifferentOrganisation_SameTenant()
     {
         var client = _factory.CreateClient();

@@ -164,6 +164,47 @@ public class ReceiptEndpointsTests : IClassFixture<WebApplicationFactory<Program
     }
 
     [Fact]
+    public async Task GetReceipt_Fails_WithoutPermission()
+    {
+        // GET .../receipt is gated orders.manage, not receipts.reprint — a caller with neither must
+        // still get 403 (Milestone F RBAC-inventory consolidation).
+        var ownerClient = _factory.CreateClient();
+        var (owner, _, terminal) = await SetupVenueAsync(ownerClient);
+        var order = await OpenOrderWithSingleLineAsync(ownerClient, owner.OrganisationId, terminal.Id, 10.00m);
+
+        var supportClient = _factory.CreateClient();
+        var supportCaller = await RbacTestSeeder.SeedAsync(supportClient, "SupportAccess", owner.TenantId);
+        AuthenticateAs(supportClient, supportCaller);
+
+        var response = await supportClient.GetAsync($"/api/v1/orders/{order.Id}/receipt");
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task AllEndpoints_Return403_ForDeviceToken()
+    {
+        // A device token is trusted device context only (ADR-0008) — empty roles/permissions by
+        // design, so it must never satisfy orders.manage/receipts.reprint on either endpoint.
+        var ownerClient = _factory.CreateClient();
+        var (owner, location, terminal) = await SetupVenueAsync(ownerClient);
+        var order = await OpenOrderWithSingleLineAsync(ownerClient, owner.OrganisationId, terminal.Id, 10.00m);
+
+        var deviceClient = _factory.CreateClient();
+        var pin = await DeviceTestHelper.CreatePinAsync(ownerClient, location.Id);
+        var device = await DeviceTestHelper.RegisterDeviceAsync(deviceClient, pin.Pin);
+        DeviceTestHelper.AuthenticateWithDeviceToken(deviceClient, device.DeviceToken);
+
+        var attempts = new[]
+        {
+            await deviceClient.GetAsync($"/api/v1/orders/{order.Id}/receipt"),
+            await deviceClient.PostAsync($"/api/v1/orders/{order.Id}/receipt/reprint", content: null),
+        };
+
+        Assert.All(attempts, response => Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode));
+    }
+
+    [Fact]
     public async Task Reprint_Fails_WithoutPermission()
     {
         var ownerClient = _factory.CreateClient();

@@ -107,15 +107,18 @@ public class RbacTests : IClassFixture<RbacScenarioFixture>
     public RbacTests(RbacScenarioFixture fixture) => _fixture = fixture;
 
     /// <summary>
-    /// Every permission-gated endpoint built by PLAN-0003 (Milestones C–F) and PLAN-0004
-    /// (Milestones C–G). All of them are also <c>rejectStaffPin: true</c>, so this one inventory
-    /// drives the wrong-permission, device-token, and staff-PIN-session 403 sweeps as well as the
-    /// 401 sweeps. Deliberately excludes PLAN-0004's two staff-accessible exceptions —
-    /// <c>catalog.sold-out-toggle</c> (<c>rejectStaffPin: false</c>) and the resolved-menu read
-    /// (no permission code at all) — each already has its own dedicated staff-**succeeds** proof
-    /// (<c>ProductSoldOutEndpointsTests</c>, <c>ResolvedMenuEndpointsTests</c>); adding either here
-    /// would either be redundant or actively wrong, since this inventory's own staff-PIN theory
-    /// asserts 403 for every entry.
+    /// Every permission-gated endpoint built by PLAN-0003 (Milestones C–F), PLAN-0004
+    /// (Milestones C–G), and PLAN-0005 (Milestone C's refund endpoints). All of them are also
+    /// <c>rejectStaffPin: true</c>, so this one inventory drives the wrong-permission, device-token,
+    /// and staff-PIN-session 403 sweeps as well as the 401 sweeps. Deliberately excludes PLAN-0004's
+    /// two staff-accessible exceptions — <c>catalog.sold-out-toggle</c> (<c>rejectStaffPin: false</c>)
+    /// and the resolved-menu read (no permission code at all) — and all of PLAN-0005's other
+    /// endpoints (<c>orders.manage</c>, <c>payments.record</c>, <c>receipts.reprint</c>/the receipt
+    /// GET — every one of them Operational/staff-PIN-eligible) — each already has its own dedicated
+    /// staff-**succeeds** proof (<c>ProductSoldOutEndpointsTests</c>, <c>ResolvedMenuEndpointsTests</c>,
+    /// <c>OrderEndpointsTests</c>, <c>PaymentEndpointsTests</c>, <c>ReceiptEndpointsTests</c>);
+    /// adding any of them here would either be redundant or actively wrong, since this inventory's
+    /// own staff-PIN theory asserts 403 for every entry.
     /// </summary>
     public static TheoryData<string, string> PermissionGatedEndpoints() => new()
     {
@@ -233,6 +236,17 @@ public class RbacTests : IClassFixture<RbacScenarioFixture>
         { "POST", "/api/v1/menu-availability-rules" },
         { "GET", "/api/v1/menu-availability-rules" },
         { "DELETE", $"/api/v1/menu-availability-rules/{Id}" },
+
+        // PLAN-0005 Milestone C: refunds (payments.refund, AdminSensitive, rejectStaffPin: true).
+        // 2 endpoints. This is PLAN-0005's only rejectStaffPin:true surface — orders.manage
+        // (Milestone A), payments.record (Milestone B), and receipts.reprint/the receipt GET
+        // (Milestone D) are all Operational/staff-PIN-eligible and are deliberately excluded here
+        // for the same reason as catalog.sold-out-toggle/the resolved-menu read above: each has its
+        // own dedicated staff-succeeds proof (OrderEndpointsTests/PaymentEndpointsTests/
+        // ReceiptEndpointsTests), and this inventory's own staff-PIN theory asserts 403 for every
+        // entry, which would be actively wrong for a staff-accessible endpoint.
+        { "POST", $"/api/v1/payments/{Id}/refunds" },
+        { "GET", $"/api/v1/payments/{Id}/refunds" },
     };
 
     /// <summary>

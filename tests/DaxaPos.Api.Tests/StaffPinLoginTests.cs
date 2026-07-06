@@ -4,6 +4,7 @@ using System.Net.Http.Json;
 using DaxaPos.Api.Endpoints.Catalog;
 using DaxaPos.Api.Endpoints.Identity;
 using DaxaPos.Api.Endpoints.Menus;
+using DaxaPos.Api.Endpoints.Refunds;
 using DaxaPos.Api.Endpoints.Tax;
 using DaxaPos.Api.Tests.Support;
 using DaxaPos.Application.Identity;
@@ -366,6 +367,33 @@ public class StaffPinLoginTests : IClassFixture<WebApplicationFactory<Program>>
     }
 
     [Fact]
+    public async Task PermissionCatalogue_ClassifiesPLAN0005Permissions_ByCategory()
+    {
+        // Milestone F consolidation check (per the plan's own "confirm permission metadata/category/
+        // role grants" requirement): orders.manage/payments.record/receipts.reprint are Operational
+        // (staff-PIN-eligible, OI-0015) and payments.refund is AdminSensitive (approved Human
+        // Decision #4, manager/admin-only by default) — exactly as approved at planning time, not
+        // silently drifted since.
+        await using var dbContext = CreateDbContext();
+        var codes = new[]
+        {
+            Permissions.OrdersManage,
+            Permissions.PaymentsRecord,
+            Permissions.PaymentsRefund,
+            Permissions.ReceiptsReprint,
+        };
+
+        var categoriesByCode = await dbContext.Permissions
+            .Where(p => codes.Contains(p.Code))
+            .ToDictionaryAsync(p => p.Code, p => p.Category);
+
+        Assert.Equal(PermissionCategory.Operational, categoriesByCode[Permissions.OrdersManage]);
+        Assert.Equal(PermissionCategory.Operational, categoriesByCode[Permissions.PaymentsRecord]);
+        Assert.Equal(PermissionCategory.AdminSensitive, categoriesByCode[Permissions.PaymentsRefund]);
+        Assert.Equal(PermissionCategory.Operational, categoriesByCode[Permissions.ReceiptsReprint]);
+    }
+
+    [Fact]
     public async Task StaffSession_Receives403_FromEveryRejectStaffPinEndpoint()
     {
         var scenario = await SetupAsync("Reject Staff Pin Venue");
@@ -512,6 +540,16 @@ public class StaffPinLoginTests : IClassFixture<WebApplicationFactory<Program>>
             await staffClient.PostAsJsonAsync(
                 "/api/v1/menu-availability-rules",
                 new CreateMenuAvailabilityRuleRequest(Guid.NewGuid(), DaysOfWeekMask.Monday, new TimeOnly(9, 0), new TimeOnly(17, 0))),
+            // PLAN-0005 Milestone C: payments.refund is AdminSensitive + rejectStaffPin: true — the
+            // plan's only surface with that posture. orders.manage/payments.record/receipts.reprint
+            // are all Operational/staff-PIN-eligible and are deliberately not listed here — see
+            // OrderEndpointsTests/PaymentEndpointsTests/ReceiptEndpointsTests for their own
+            // staff-succeeds proofs, matching this file's existing sold-out-toggle/resolved-menu
+            // exclusion precedent above.
+            await staffClient.GetAsync($"/api/v1/payments/{Guid.NewGuid()}/refunds"),
+            await staffClient.PostAsJsonAsync(
+                $"/api/v1/payments/{Guid.NewGuid()}/refunds",
+                new RecordRefundRequest(1.00m, "Nope")),
         };
 
         Assert.All(attempts, response => Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode));

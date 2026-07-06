@@ -340,6 +340,65 @@ public class OrderEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
     }
 
     [Fact]
+    public async Task RemainingEndpoints_Return403_WithoutOrdersManage()
+    {
+        // Create_Fails_WithoutPermission above already proves POST /orders itself; this sweeps the
+        // other 8 orders.manage-gated endpoints (Milestone F RBAC-inventory consolidation).
+        var ownerClient = _factory.CreateClient();
+        var (owner, _, terminal) = await SetupVenueAsync(ownerClient);
+        var withLine = await OpenOrderAsync(ownerClient, terminal.Id);
+        var order = (await withLine.Content.ReadFromJsonAsync<OrderResponse>())!;
+
+        var supportClient = _factory.CreateClient();
+        var supportCaller = await RbacTestSeeder.SeedAsync(supportClient, "SupportAccess", owner.TenantId);
+        AuthenticateAs(supportClient, supportCaller);
+
+        var attempts = new[]
+        {
+            await supportClient.GetAsync("/api/v1/orders"),
+            await supportClient.GetAsync($"/api/v1/orders/{order.Id}"),
+            await supportClient.PostAsJsonAsync($"/api/v1/orders/{order.Id}/lines", new AddOrderLineRequest(Guid.NewGuid(), null, 1, null, null)),
+            await supportClient.DeleteAsync($"/api/v1/orders/{order.Id}/lines/{Guid.NewGuid()}"),
+            await supportClient.PostAsync($"/api/v1/orders/{order.Id}/hold", content: null),
+            await supportClient.PostAsync($"/api/v1/orders/{order.Id}/resume", content: null),
+            await supportClient.PostAsync($"/api/v1/orders/{order.Id}/void", content: null),
+            await supportClient.PostAsync($"/api/v1/orders/{order.Id}/cancel", content: null),
+        };
+
+        Assert.All(attempts, response => Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode));
+    }
+
+    [Fact]
+    public async Task AllEndpoints_Return403_ForDeviceToken()
+    {
+        // A device token is trusted device context only (ADR-0008) — empty roles/permissions by
+        // design, so it must never satisfy orders.manage on any of the 9 order endpoints.
+        var ownerClient = _factory.CreateClient();
+        var (owner, location, terminal) = await SetupVenueAsync(ownerClient);
+        var order = (await (await OpenOrderAsync(ownerClient, terminal.Id)).Content.ReadFromJsonAsync<OrderResponse>())!;
+
+        var deviceClient = _factory.CreateClient();
+        var pin = await DeviceTestHelper.CreatePinAsync(ownerClient, location.Id);
+        var device = await DeviceTestHelper.RegisterDeviceAsync(deviceClient, pin.Pin);
+        DeviceTestHelper.AuthenticateWithDeviceToken(deviceClient, device.DeviceToken);
+
+        var attempts = new[]
+        {
+            await OpenOrderAsync(deviceClient, terminal.Id),
+            await deviceClient.GetAsync("/api/v1/orders"),
+            await deviceClient.GetAsync($"/api/v1/orders/{order.Id}"),
+            await deviceClient.PostAsJsonAsync($"/api/v1/orders/{order.Id}/lines", new AddOrderLineRequest(Guid.NewGuid(), null, 1, null, null)),
+            await deviceClient.DeleteAsync($"/api/v1/orders/{order.Id}/lines/{Guid.NewGuid()}"),
+            await deviceClient.PostAsync($"/api/v1/orders/{order.Id}/hold", content: null),
+            await deviceClient.PostAsync($"/api/v1/orders/{order.Id}/resume", content: null),
+            await deviceClient.PostAsync($"/api/v1/orders/{order.Id}/void", content: null),
+            await deviceClient.PostAsync($"/api/v1/orders/{order.Id}/cancel", content: null),
+        };
+
+        Assert.All(attempts, response => Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode));
+    }
+
+    [Fact]
     public async Task LifecycleActions_WriteAuditEventRows()
     {
         var client = _factory.CreateClient();
