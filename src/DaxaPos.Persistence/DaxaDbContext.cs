@@ -87,6 +87,8 @@ public class DaxaDbContext(DbContextOptions<DaxaDbContext> options, ICurrentTena
 
     public DbSet<Refund> Refunds => Set<Refund>();
 
+    public DbSet<OutboxWorkItem> OutboxWorkItems => Set<OutboxWorkItem>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(DaxaDbContext).Assembly);
@@ -244,5 +246,14 @@ public class DaxaDbContext(DbContextOptions<DaxaDbContext> options, ICurrentTena
         // already-authenticated tenant/org context).
         modelBuilder.Entity<Refund>()
             .HasQueryFilter(r => currentTenantProvider.TenantId != null && r.TenantId == currentTenantProvider.TenantId);
+
+        // Outbox/work-item mechanism (PLAN-0005 Milestone E, ADR-0014's Handler I/O Rule). Same
+        // fail-closed pattern as every other tenant-owned entity above for any request-path query.
+        // DaxaPos.Workers' cross-tenant poll query is the one deliberate, documented exception —
+        // it runs with no tenant context of its own (there is no HTTP request to derive one from)
+        // and must see every tenant's pending rows, so it calls IgnoreQueryFilters() explicitly,
+        // added to IgnoreQueryFiltersUsageTests' approved list alongside the pre-auth call sites.
+        modelBuilder.Entity<OutboxWorkItem>()
+            .HasQueryFilter(w => currentTenantProvider.TenantId != null && w.TenantId == currentTenantProvider.TenantId);
     }
 }

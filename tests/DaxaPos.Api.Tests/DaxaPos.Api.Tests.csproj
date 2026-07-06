@@ -21,6 +21,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\DaxaPos.Api\DaxaPos.Api.csproj" />
+    <ProjectReference Include="..\..\src\DaxaPos.Workers\DaxaPos.Workers.csproj" />
   </ItemGroup>
 
 </Project>

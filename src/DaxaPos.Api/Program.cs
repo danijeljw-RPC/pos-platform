@@ -10,6 +10,7 @@ using DaxaPos.Api.Endpoints.Payments;
 using DaxaPos.Api.Endpoints.Receipts;
 using DaxaPos.Api.Endpoints.Refunds;
 using DaxaPos.Api.Endpoints.Tax;
+using DaxaPos.Api.Printing;
 using DaxaPos.Application.Events;
 using DaxaPos.Application.Identity;
 using DaxaPos.Domain.Events;
@@ -131,6 +132,11 @@ builder.Services.AddScoped<IDomainEventHandler<RefundLifecycleDomainEvent>, Refu
 
 // PLAN-0005 Milestone D: receipt reprint audit handler. Live-sale receipt viewing raises no event.
 builder.Services.AddScoped<IDomainEventHandler<ReceiptReprintedDomainEvent>, ReceiptReprintedAuditHandler>();
+
+// PLAN-0005 Milestone E: a fully-settling payment's OrderLifecycleDomainEvent("Completed") also
+// enqueues a durable "PrintReceipt" outbox row (ADR-0014's Handler I/O Rule) — registered alongside
+// OrderLifecycleAuditHandler for the same event, not replacing it.
+builder.Services.AddScoped<IDomainEventHandler<OrderLifecycleDomainEvent>, OrderCompletedPrintOutboxHandler>();
 
 // Health checks cover the API/database path only. Keycloak is scoped to cloud/admin/back-office
 // auth (ADR-0013) and is intentionally not part of this check — the API must start and report
