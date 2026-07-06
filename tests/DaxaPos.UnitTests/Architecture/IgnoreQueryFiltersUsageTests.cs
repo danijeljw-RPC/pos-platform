@@ -14,8 +14,10 @@ public class IgnoreQueryFiltersUsageTests
     /// The documented call-site files (see the query-filter comment in
     /// <c>src/DaxaPos.Persistence/DaxaDbContext.cs</c>):
     /// bootstrap admin seeding, email login (tenant unknown until the user resolves), session and
-    /// device-token validation (tenant comes from the resolved session/credential row), and
-    /// pre-auth device registration (tenant comes from the matched PIN row).
+    /// device-token validation (tenant comes from the resolved session/credential row), pre-auth
+    /// device registration (tenant comes from the matched PIN row), and (PLAN-0005 Milestone E)
+    /// <c>DaxaPos.Workers</c>' outbox-polling loop, which has no single tenant context of its own
+    /// until it claims a row and sets <c>AmbientTenantContext</c> per item.
     /// </summary>
     private static readonly IReadOnlyList<string> ApprovedFiles =
     [
@@ -24,6 +26,7 @@ public class IgnoreQueryFiltersUsageTests
         "src/DaxaPos.Api/BootstrapAdminSeeder.cs",
         "src/DaxaPos.Api/Endpoints/Identity/AuthEndpoints.cs",
         "src/DaxaPos.Api/Endpoints/Identity/DeviceRegistrationEndpoints.cs",
+        "src/DaxaPos.Workers/OutboxProcessorWorker.cs",
     ];
 
     [Fact]
