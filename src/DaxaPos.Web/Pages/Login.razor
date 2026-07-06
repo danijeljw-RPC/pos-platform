@@ -1,0 +1,83 @@
+@page "/login"
+@inject DaxaApiClient ApiClient
+@inject IDeviceContextStore DeviceContextStore
+@inject IAuthSessionStore SessionStore
+@inject DaxaPos.Web.Auth.ApiAuthenticationStateProvider AuthStateProvider
+@inject NavigationManager Navigation
+
+<PageTitle>Staff Login</PageTitle>
+
+<h1>Staff Login</h1>
+
+@if (DeviceContextStore.Current is not { } device)
+{
+    <p>No device is registered on this browser yet.</p>
+    <button type="button" class="btn btn-primary" @onclick="GoToDeviceSetup">Set up device</button>
+}
+else
+{
+    <p>Location: <code>@device.LocationId</code></p>
+
+    <EditForm Model="_model" OnValidSubmit="() => LoginAsync(device)">
+        <div class="mb-3">
+            <label class="form-label" for="staffCode">Staff code</label>
+            <InputText id="staffCode" class="form-control" @bind-Value="_model.StaffCode" />
+        </div>
+        <div class="mb-3">
+            <label class="form-label" for="pin">PIN</label>
+            <InputText id="pin" type="password" class="form-control" @bind-Value="_model.Pin" />
+        </div>
+
+        <button type="submit" class="btn btn-primary" disabled="@_isSubmitting">Log in</button>
+    </EditForm>
+
+    @if (_errorMessage is not null)
+    {
+        <p class="text-danger mt-3" role="alert">@_errorMessage</p>
+    }
+}
+
+@code {
+    private readonly LoginModel _model = new();
+    private bool _isSubmitting;
+    private string? _errorMessage;
+
+    private async Task LoginAsync(DeviceContext device)
+    {
+        _isSubmitting = true;
+        _errorMessage = null;
+
+        var result = await ApiClient.StaffPinLoginAsync(new StaffPinLoginRequest(device.LocationId, _model.StaffCode, _model.Pin));
+
+        _isSubmitting = false;
+
+        if (result.Kind != ApiResultKind.Success || result.Value is null)
+        {
+            // Deliberately generic (matches the server's non-disclosure design, PLAN-0003
+            // Milestone F): never reveal whether the staff code or the PIN was the wrong part.
+            _errorMessage = "Staff code or PIN was not accepted.";
+            return;
+        }
+
+        var login = result.Value;
+        await SessionStore.SaveAsync(new SessionState(
+            login.SessionToken,
+            login.ExpiresAtUtc,
+            login.StaffMemberId,
+            login.DisplayName,
+            login.Roles,
+            login.Permissions));
+
+        AuthStateProvider.NotifyChanged();
+        Navigation.NavigateTo("/");
+    }
+
+    private void GoToDeviceSetup() => Navigation.NavigateTo("/device-setup");
+
+    private sealed class LoginModel
+    {
+        public string StaffCode { get; set; } = string.Empty;
+
+        public string Pin { get; set; } = string.Empty;
+    }
+}

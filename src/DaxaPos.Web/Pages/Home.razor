@@ -1,0 +1,26 @@
+@page "/"
+@inject IDeviceContextStore DeviceContextStore
+@inject IAuthSessionStore SessionStore
+
+<PageTitle>Daxa POS</PageTitle>
+
+<AuthorizeView>
+    <Authorized>
+        <h1>Daxa POS</h1>
+
+        @if (SessionStore.Current is { } session)
+        {
+            <p>Signed in as <strong>@session.DisplayName</strong>.</p>
+        }
+
+        @if (DeviceContextStore.Current is { } device)
+        {
+            <p>Device <code>@device.DeviceId</code> (@device.DeviceType) at location <code>@device.LocationId</code>.</p>
+        }
+
+        <p>The sales screen is not part of PLAN-0006 Milestone A. This page is the foundation shell only.</p>
+    </Authorized>
+    <NotAuthorized>
+        <p>Redirecting to login&hellip;</p>
+    </NotAuthorized>
+</AuthorizeView>

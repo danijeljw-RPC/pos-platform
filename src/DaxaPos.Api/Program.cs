@@ -45,6 +45,23 @@ builder.Services
 
 builder.Services.AddAuthorization();
 
+// PLAN-0006 Milestone A: the Blazor WebAssembly PWA (DaxaPos.Web) is a separate origin from the
+// API host, so its browser-issued fetch calls need CORS. Origins are configuration-driven, not
+// hard-coded, and default to empty (no cross-origin allowed) unless explicitly configured — see
+// appsettings.Development.json for the dev-server origins.
+var corsAllowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
+const string blazorPwaCorsPolicy = "BlazorPwa";
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy(blazorPwaCorsPolicy, policy =>
+    {
+        if (corsAllowedOrigins.Length > 0)
+        {
+            policy.WithOrigins(corsAllowedOrigins).AllowAnyHeader().AllowAnyMethod();
+        }
+    });
+});
+
 // Pre-auth device registration is PIN-gated but unauthenticated, so it is rate-limited per remote
 // IP (ADR-0008: "PIN attempts are rate-limited"). The permit limit is configuration-overridable so
 // integration tests can raise it for non-rate-limit scenarios; the default is the approved
@@ -147,6 +164,7 @@ builder.Services.AddHealthChecks()
 var app = builder.Build();
 
 app.UseRateLimiter();
+app.UseCors(blazorPwaCorsPolicy);
 app.UseAuthentication();
 app.UseAuthorization();
 

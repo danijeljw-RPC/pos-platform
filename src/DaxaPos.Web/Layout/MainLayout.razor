@@ -1,0 +1,79 @@
+@inherits LayoutComponentBase
+@implements IDisposable
+@inject NavigationManager Navigation
+@inject IDeviceContextStore DeviceContextStore
+@inject IAuthSessionStore SessionStore
+@inject DaxaApiClient ApiClient
+@inject DaxaPos.Web.Auth.ApiAuthenticationStateProvider AuthStateProvider
+
+<div class="page">
+    <div class="sidebar">
+        <NavMenu />
+    </div>
+
+    <main>
+        <div class="top-row px-4">
+            @if (DeviceContextStore.Current is { } device)
+            {
+                <span class="device-context">@device.DeviceType device</span>
+            }
+            @if (SessionStore.Current is { } session && !session.IsExpired(DateTimeOffset.UtcNow))
+            {
+                <span class="staff-context px-2">Signed in as @session.DisplayName</span>
+                <button type="button" class="btn btn-link" @onclick="LogoutAsync">Log out</button>
+            }
+        </div>
+
+        <article class="content px-4">
+            @Body
+        </article>
+    </main>
+</div>
+
+@code {
+    private static readonly string[] PublicRoutes = ["/device-setup", "/login"];
+
+    protected override void OnInitialized()
+    {
+        Navigation.LocationChanged += OnLocationChanged;
+        EnforceRouteGuard();
+    }
+
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e) => EnforceRouteGuard();
+
+    /// <summary>
+    /// Milestone A's shell has no sales screen yet, so every route except device setup and staff
+    /// login requires an established device context and an unexpired session (CLAUDE.md: device
+    /// identity and user identity are separate, and both are required before the shell is usable).
+    /// </summary>
+    private void EnforceRouteGuard()
+    {
+        var relativePath = "/" + Navigation.ToBaseRelativePath(Navigation.Uri).Split('?')[0].TrimEnd('/');
+
+        if (PublicRoutes.Contains(relativePath))
+        {
+            return;
+        }
+
+        if (DeviceContextStore.Current is null)
+        {
+            Navigation.NavigateTo("/device-setup");
+            return;
+        }
+
+        if (SessionStore.Current is not { } session || session.IsExpired(DateTimeOffset.UtcNow))
+        {
+            Navigation.NavigateTo("/login");
+        }
+    }
+
+    private async Task LogoutAsync()
+    {
+        await ApiClient.LogoutAsync();
+        await SessionStore.ClearAsync();
+        AuthStateProvider.NotifyChanged();
+        Navigation.NavigateTo("/login");
+    }
+
+    public void Dispose() => Navigation.LocationChanged -= OnLocationChanged;
+}

@@ -1,0 +1,100 @@
+@page "/device-setup"
+@inject DaxaApiClient ApiClient
+@inject IDeviceContextStore DeviceContextStore
+@inject NavigationManager Navigation
+
+<PageTitle>Device Setup</PageTitle>
+
+<h1>Device Setup</h1>
+
+@if (DeviceContextStore.Current is { } device)
+{
+    <p>
+        This browser is already registered as a <strong>@device.DeviceType</strong> device
+        (<code>@device.DeviceId</code>).
+    </p>
+    <button type="button" class="btn btn-primary" @onclick="GoToLogin">Continue to staff login</button>
+    <button type="button" class="btn btn-outline-danger ms-2" @onclick="ResetDeviceAsync">Reset device registration</button>
+}
+else
+{
+    <EditForm Model="_model" OnValidSubmit="RegisterAsync">
+        <div class="mb-3">
+            <label class="form-label" for="pin">Registration PIN</label>
+            <InputText id="pin" class="form-control" @bind-Value="_model.Pin" />
+        </div>
+        <div class="mb-3">
+            <label class="form-label" for="deviceType">Device type</label>
+            <InputSelect id="deviceType" class="form-select" @bind-Value="_model.DeviceType">
+                @foreach (var deviceType in DeviceTypes)
+                {
+                    <option value="@deviceType">@deviceType</option>
+                }
+            </InputSelect>
+        </div>
+        <div class="mb-3">
+            <label class="form-label" for="name">Device name (optional)</label>
+            <InputText id="name" class="form-control" @bind-Value="_model.Name" />
+        </div>
+
+        <button type="submit" class="btn btn-primary" disabled="@_isSubmitting">Register device</button>
+    </EditForm>
+
+    @if (_errorMessage is not null)
+    {
+        <p class="text-danger mt-3" role="alert">@_errorMessage</p>
+    }
+}
+
+@code {
+    private static readonly string[] DeviceTypes =
+        ["KioskBrowser", "IPadKds", "CustomerDisplay", "WindowsPos", "PaymentTerminal", "Printer", "Other"];
+
+    private readonly DeviceSetupModel _model = new();
+    private bool _isSubmitting;
+    private string? _errorMessage;
+
+    private async Task RegisterAsync()
+    {
+        _isSubmitting = true;
+        _errorMessage = null;
+
+        var result = await ApiClient.RegisterDeviceAsync(new DeviceRegistrationRequest(_model.Pin, _model.DeviceType, _model.Name));
+
+        _isSubmitting = false;
+
+        if (result.Kind != ApiResultKind.Success || result.Value is null)
+        {
+            _errorMessage = "The registration PIN was not accepted. Check the PIN and try again.";
+            return;
+        }
+
+        var registration = result.Value;
+        await DeviceContextStore.SaveAsync(new DeviceContext(
+            registration.DeviceId,
+            registration.TenantId,
+            registration.OrganisationId,
+            registration.LocationId,
+            registration.DeviceType,
+            registration.Name,
+            registration.DeviceToken));
+
+        GoToLogin();
+    }
+
+    private async Task ResetDeviceAsync()
+    {
+        await DeviceContextStore.ClearAsync();
+    }
+
+    private void GoToLogin() => Navigation.NavigateTo("/login");
+
+    private sealed class DeviceSetupModel
+    {
+        public string Pin { get; set; } = string.Empty;
+
+        public string DeviceType { get; set; } = DeviceTypes[0];
+
+        public string? Name { get; set; }
+    }
+}
