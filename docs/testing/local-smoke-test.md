@@ -2,6 +2,35 @@
 
 Manual end-to-end walkthrough of the identity/tenancy/device surface built by PLAN-0003. Current to **Milestone F**, commit `585cd39`. The entire flow runs with only Postgres available — Keycloak stopped — which is itself the ADR-0013 offline confirmation this document exists to exercise. PLAN-0003 Milestone G formalises the same chains as automated tests (`HybridOfflineLoginTests.cs`, `RbacTests.cs`).
 
+---
+
+## Fast path (PLAN-0011)
+
+If you just want a location, a demo staff member, and a device registration PIN so you can log
+into the PWA — without stepping through the manual walkthrough below — start the root Compose
+stack (`docker compose up -d --build`, see [docs/deployment/docker.md](../deployment/docker.md))
+and run:
+
+```bash
+./scripts/setup-local-demo.sh
+```
+
+This requires only `curl` and `jq`. It authenticates as the bootstrap admin, reuses or creates a
+`Local Demo Venue` location and a `TEST01` staff member under the bootstrap organisation, and
+always issues a fresh device registration PIN. It prints the PWA URL, the registration PIN and
+its expiry, the staff code, and the current staff PIN — never the admin password or admin
+session token. It is safe to rerun: it reuses the same location and staff member and resets the
+staff PIN, printing the new one each time. All defaults are overridable via environment
+variables (`API_URL`, `PWA_URL`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `DEMO_LOCATION_NAME`,
+`DEMO_STAFF_CODE`, `DEMO_STAFF_NAME`, `DEMO_STAFF_PIN`) — useful for keeping a second,
+independent demo identity alongside one you're using interactively.
+
+This fast path automates steps 6–13 below against the same API endpoints. The detailed manual
+walkthrough remains below for exercising individual endpoints, negative cases, and the
+Keycloak-stopped offline confirmation.
+
+---
+
 ## Important quirk
 
 Every location, PIN, and staff operation is cross-checked against the caller's session `OrganisationId`.

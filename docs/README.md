@@ -101,6 +101,7 @@ Five issues are open (OI-0011, OI-0012, OI-0013, OI-0014, OI-0016), all created 
 ## Testing
 
 - [Strategy](testing/strategy.md)
+- [Local Smoke Test](testing/local-smoke-test.md) — manual API walkthrough plus the `scripts/setup-local-demo.sh` fast path (PLAN-0011)
 - [Tax Tests](testing/tax-tests.md)
 - [Payment Tests](testing/payment-tests.md)
 - [Sync Tests](testing/sync-tests.md)

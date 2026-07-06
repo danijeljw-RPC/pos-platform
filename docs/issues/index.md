@@ -2,8 +2,12 @@
 
 All Open Issues that require human decision before closing are listed here.
 Issues that have been decided are moved to `issues/closed/` and listed under Closed Issues below.
-Reviewed during PLAN-0011 planning on 2026-07-07; the local demo setup helper introduced no new
-unresolved product or architecture issue.
+Reviewed during PLAN-0011 planning on 2026-07-07 and again after PLAN-0011 implementation later
+the same day; the local demo setup helper introduced no new unresolved product or architecture
+issue. Implementation surfaced one implementation-surface gap (no way to detect an inactive
+location by name via the current `LocationEndpoints` API surface) recorded in
+`docs/plans/active/PLAN-0011-worker-notes.md` for a future worker touching that area, not filed
+here as it is not a product/architecture decision.
 
 ---
 

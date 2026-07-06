@@ -23,6 +23,40 @@ cp .env.example .env
 docker compose up -d --build
 ```
 
+Once the stack is healthy, run the local demo setup helper (PLAN-0011) to prepare the minimum
+data the PWA needs — a demo location, a demo staff member with a PIN, and a device registration
+PIN:
+
+```bash
+./scripts/setup-local-demo.sh
+```
+
+The script requires only `curl` and `jq`. It logs in as the bootstrap admin, then reuses or
+creates a location named `Local Demo Venue` and a staff member `TEST01` under the bootstrap
+organisation, and always issues a fresh, single-use device registration PIN (raw PINs expire
+after 15 minutes and are shown only once). It never prints the admin password or admin session
+token. It is safe to rerun: rerunning reuses the same location and staff member, resets the
+staff member's PIN, and prints the new one — the previous staff PIN stops working. All defaults
+are overridable via environment variables (`API_URL`, `PWA_URL`, `ADMIN_EMAIL`,
+`ADMIN_PASSWORD`, `DEMO_LOCATION_NAME`, `DEMO_STAFF_CODE`, `DEMO_STAFF_NAME`, `DEMO_STAFF_PIN`).
+
+The script's final output block gives you everything needed to reach the PWA's staff-PIN login:
+
+```text
+PWA URL, location ID, device registration PIN + expiry, staff code, current staff PIN
+```
+
+1. Open `http://localhost:8080/device-setup` and enter the printed registration PIN.
+2. Then log in at `http://localhost:8080/login` with the printed staff code and PIN.
+
+This is local-development tooling only — it makes real API calls and creates real rows in your
+local database; it does not seed anything at application startup and does not touch
+PostgreSQL directly. See
+[docs/testing/local-smoke-test.md](../testing/local-smoke-test.md) for the detailed manual
+API walkthrough this script automates the fast path of, and
+[docs/plans/active/PLAN-0011-local-demo-setup-helper.md](../plans/active/PLAN-0011-local-demo-setup-helper.md)
+for the design/implementation record.
+
 Fresh start (wipes the Postgres volume — use if migrations get into a bad state):
 
 ```bash
@@ -47,9 +81,10 @@ Blazor WebAssembly app runs in the *browser*, which cannot resolve Compose servi
 using the service name `db` (`Host=db;Port=5432;...`) — never `localhost`.
 
 There is no seeded staff member or device-registration PIN yet — Back Office (PLAN-0006
-Milestone B) doesn't exist. To reach the PWA's Staff PIN login screen after a fresh stack comes
-up, call the admin API directly (bootstrap admin credentials come from `DAXA_BOOTSTRAP_ADMIN_EMAIL`
-/`_PASSWORD` in `.env.example`):
+Milestone B) doesn't exist. Run `./scripts/setup-local-demo.sh` (see above) for the fast path, or
+call the admin API directly (bootstrap admin credentials come from `DAXA_BOOTSTRAP_ADMIN_EMAIL`
+/`_PASSWORD` in `.env.example`) to reach the PWA's Staff PIN login screen after a fresh stack
+comes up:
 
 1. `POST http://localhost:5118/api/v1/auth/local/login` with the bootstrap admin email/password.
 2. `GET /api/v1/auth/me` with that session token → `OrganisationId`.
