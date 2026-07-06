@@ -368,3 +368,176 @@ Not touched. Milestone D never reads `Product`/`ProductVariant` — its only ent
 None. `ReceiptRenderer`/`ReceiptDocument` exist and render correctly from immutable order/payment/refund snapshots; `GET`/`POST reprint` endpoints work end-to-end with correct RBAC and reprint auditing; `dotnet build`/`dotnet test` are clean (1017/1017); migrations verified clean from empty. Milestone E (ESC/POS printing and the outbox mechanism) can start on request — **do not start it in this session**, per this session's explicit scope boundary.
 
 One heads-up for whoever starts Milestone E: `ReceiptDocument` (this milestone's output) is the input Milestone E's ESC/POS command generation should consume — it is already print-transport-agnostic (no printer/ESC/POS type anywhere in `DaxaPos.Application.Receipts`). The generic outbox/work-item table and `DaxaPos.Workers` project do not exist yet; per ADR-0014's Handler I/O Rule and this plan's own Architecture Assumptions, sending a receipt to a printer must go through that outbox → worker path, never inline from a request handler — building it is Milestone E's first task, not a prerequisite this milestone already satisfied.
+
+---
+
+## Milestone E Report (2026-07-06)
+
+Implemented per the plan using strict TDD for the milestone's two genuinely pure-logic units:
+wrote `OutboxRetryPolicyTests.cs` first (confirmed RED via `dotnet build` — `DaxaPos.Application.Outbox`
+namespace not found), implemented the pure `OutboxRetryPolicy` class, confirmed GREEN (7/7); then
+wrote `EscPosReceiptFormatterTests.cs` first (confirmed RED — `DaxaPos.Application.Printing`
+namespace not found), implemented the pure `EscPosReceiptFormatter` class, confirmed GREEN (7/7).
+Everything else (`OutboxWorkItem` schema, the `DaxaPos.Workers` project, the printer transport
+boundary, the outbox integration tests) followed the established convention from Milestones A–D
+(not TDD-first — schema/plumbing code, not calculation/formatting logic).
+
+### Files changed
+
+New:
+- `src/DaxaPos.Application/Outbox/OutboxRetryPolicy.cs` (TDD'd first).
+- `src/DaxaPos.Application/Printing/EscPosReceiptFormatter.cs` (TDD'd first), `PrintReceiptWorkPayload.cs`.
+- `src/DaxaPos.Domain/Entities/OutboxWorkItem.cs`, `Enums/OutboxWorkItemStatus.cs`.
+- `src/DaxaPos.Persistence/Configurations/OutboxWorkItemConfiguration.cs`, `Migrations/20260706000748_AddOutboxWorkItems.cs` (+ `.Designer.cs`).
+- `src/DaxaPos.Infrastructure/Printing/IPrinterTransport.cs`, `NetworkPrinterTransport.cs`, `NetworkPrinterOptions.cs`.
+- `src/DaxaPos.Infrastructure/Identity/AmbientTenantContext.cs`, `AmbientCurrentTenantProvider.cs`.
+- `src/DaxaPos.Api/Printing/PrintOutboxHandlers.cs` (`OrderCompletedPrintOutboxHandler`).
+- `src/DaxaPos.Workers/` (new project) — `DaxaPos.Workers.csproj`, `Program.cs`, `OutboxProcessorWorker.cs`, `Processing/PrintReceiptOutboxProcessor.cs`, `appsettings.json`, `appsettings.Development.json`.
+- `tests/DaxaPos.UnitTests/Outbox/OutboxRetryPolicyTests.cs` (7 tests, TDD'd first).
+- `tests/DaxaPos.UnitTests/Printing/EscPosReceiptFormatterTests.cs` (7 tests, TDD'd first).
+- `tests/DaxaPos.Api.Tests/PrintOutboxTests.cs` (4 tests).
+
+Modified:
+- `src/DaxaPos.Persistence/DaxaDbContext.cs` — 1 new `DbSet`, 1 new fail-closed query filter (`OutboxWorkItem`).
+- `src/DaxaPos.Api/Program.cs` — 1 new `AddScoped<IDomainEventHandler<...>>` registration for `OrderCompletedPrintOutboxHandler` (against the existing `OrderLifecycleDomainEvent` type — no new event type needed).
+- `DaxaPos.sln` — added `DaxaPos.Workers` project.
+- `tests/DaxaPos.Api.Tests/DaxaPos.Api.Tests.csproj` — added a project reference to `DaxaPos.Workers` (so `PrintOutboxTests.cs` can exercise `PrintReceiptOutboxProcessor` directly against a real Postgres database and a fake `IPrinterTransport`, without a running worker host).
+- `tests/DaxaPos.UnitTests/Architecture/IgnoreQueryFiltersUsageTests.cs` — approved-list addition for `src/DaxaPos.Workers/OutboxProcessorWorker.cs` (see Deviation 4 below).
+- `docs/modules/printing.md`, `docs/plans/active/PLAN-0005-payments-receipts-printing-planning.md` (kickoff scope note, Status line, Milestone E status marker, Permission Catalogue Additions note), this file, `docs/CHANGELOG.md`.
+
+No UI, no PLAN-0009 hardware/provider/device orchestration, no printer discovery, no MAUI, no USB
+transport, no new endpoints, and no `printing.manage` permission code were added — all explicitly
+out of scope per this session's kickoff instructions and confirmed in the plan's Milestone E
+kickoff scope note before any code was written.
+
+### Migration created
+
+`20260706000748_AddOutboxWorkItems` — creates `outbox_work_items` (`TenantId`-indexed + fail-closed
+query filter, following every prior entity's precedent; a composite `(Status, NextAttemptAtUtc)`
+index for the poll query). Verified to apply cleanly in sequence from an empty database (all 17
+migrations, disposable throwaway Postgres database, then dropped — not the shared dev database,
+which was migrated separately for the working tree).
+
+### Deviations from the written plan (flagged, not silently made)
+
+1. **No `PrinterDevice` table.** The plan's own Milestone E bullet says "PrinterDevice (if not
+   already covered by PLAN-0003's device model — check before adding a new table)" — checked, and
+   it is: PLAN-0003's `Device` entity already has `DeviceType.Printer`. No second printer-specific
+   table was needed.
+2. **`OutboxWorkItem` lives in `Domain/Entities` + `Persistence/Configurations`, not the plan's
+   originally-named `Infrastructure/Outbox/` folder.** Every real entity Milestones A–D actually
+   built lives in `Domain`/`Persistence`, not `Infrastructure` — this follows that established,
+   now-consistent layering rather than the plan's own draft file list, the same reasoning
+   PLAN-0004/PLAN-0005's planning passes used for the `Modules.*` question. Flagged in the kickoff
+   scope note before writing any code, not discovered mid-implementation.
+3. **ESC/POS byte generation lives in `DaxaPos.Application.Printing` (pure, TDD'd first), not
+   `Infrastructure`.** `Infrastructure.Printing` holds only the I/O-bound transport
+   (`IPrinterTransport`/`NetworkPrinterTransport`). Mirrors `ReceiptRenderer`'s Application-layer,
+   dependency-free placement for the equivalent Milestone D concern.
+4. **`DaxaPos.Workers`' outbox-polling loop is a new, deliberate `IgnoreQueryFilters()` call site**,
+   added to `IgnoreQueryFiltersUsageTests`' approved list. The worker has no HTTP request to derive
+   a tenant from and must see every tenant's pending rows before it can claim one and set
+   `AmbientTenantContext` — this is the same class of bootstrap-style exception as the existing
+   pre-auth call sites (session/device-token validation, pre-auth device registration), just for a
+   background host instead of a pre-auth HTTP request.
+5. **Printer transport is network-only; a single configured host/port, not a
+   per-location/per-terminal printer routing table.** The plan's own Milestone E bullet names
+   network transport first and USB "for Windows terminals per CLAUDE.md" — USB printing is a
+   Windows POS terminal (MAUI) device capability, not this backend service's, so it was not built
+   here (approved Human Decision #1's scope boundary would be violated by reaching into
+   device/hardware territory). Per-printer routing (multiple printers per venue, station-based
+   routing) is likewise deferred — not "printer discovery," simply not yet built, flagged as a
+   follow-up.
+6. **No dedicated `DaxaPos.Workers.Tests` project; no `docker-compose.yml` changes.** The
+   `BackgroundService` polling loop (`OutboxProcessorWorker`) is thin composition-root glue, like
+   `Program.cs`/`BootstrapAdminSeeder` elsewhere in this codebase — neither of which is
+   unit-tested. The actual processing logic (`PrintReceiptOutboxProcessor`) is tested directly from
+   `DaxaPos.Api.Tests` (real Postgres, a fake `IPrinterTransport`) via a new project reference,
+   without needing a running worker host. Adding a `worker` service to `deploy/docker-compose.yml`
+   is deployment/infra scope this milestone's Entities/Migration/Endpoints/Tests/Docs list does not
+   call for — flagged as a follow-up, not silently skipped.
+7. **`PrintReceiptOutboxProcessor` duplicates `ReceiptEndpoints.BuildReceiptDocumentAsync`'s query
+   shape rather than extracting a shared helper.** The two run in different projects/contexts (an
+   authenticated HTTP request vs. a background job with an ambient tenant context), and Milestone
+   D's endpoint code was deliberately left untouched — this milestone must not change receipt
+   rendering semantics. `ReceiptRenderer` itself (the actual rendering logic) is reused verbatim,
+   not duplicated; only the plain EF Core loading queries are repeated.
+
+None of these required backing out or redoing anything — 1–5 were resolved in the kickoff scope
+note before any code was written; 6–7 were conscious trade-offs made while writing the code.
+
+### Tests added
+
+7 new unit tests (`OutboxRetryPolicyTests.cs`): exact-boundary retry/no-retry at the attempt-count
+ceiling, increasing backoff per attempt, backoff capped at `MaxBackoff`, and a determinism proof —
+mirroring `PaymentSettlementTests`/`RefundSettlementTests`' style precisely.
+
+7 new unit tests (`EscPosReceiptFormatterTests.cs`): the AU mixed-basket worked example's GST-free
+marker and legend surviving byte generation, payment/refund lines printing from `ReceiptDocument`
+data, init/cut command structural proof, cash-drawer-kick-present-for-Cash/absent-for-non-Cash pair,
+the exact expected cash-drawer-kick byte sequence, and a determinism proof.
+
+4 new integration tests (`PrintOutboxTests.cs`): a fully-settling cash payment enqueues a `Pending`
+`"PrintReceipt"` outbox row with the correct order id in its payload (the concrete proof of ADR-0014's
+Handler I/O Rule); `PrintReceiptOutboxProcessor.ProcessAsync` success marks the item `Completed` and
+sends bytes through the transport; a transient failure marks it back to `Pending` with a
+later `NextAttemptAtUtc` and a subsequent successful call completes it (retry-on-failure); a
+permanent failure (single-attempt ceiling) marks it `Failed`.
+
+### Commands run
+
+```
+dotnet build tests/DaxaPos.UnitTests/DaxaPos.UnitTests.csproj                        (RED: OutboxRetryPolicy — namespace not found)
+dotnet test tests/DaxaPos.UnitTests/DaxaPos.UnitTests.csproj --filter "FullyQualifiedName~OutboxRetryPolicyTests"        (GREEN: 7/7)
+dotnet build tests/DaxaPos.UnitTests/DaxaPos.UnitTests.csproj                        (RED: EscPosReceiptFormatter — namespace not found)
+dotnet test tests/DaxaPos.UnitTests/DaxaPos.UnitTests.csproj --filter "FullyQualifiedName~EscPosReceiptFormatterTests"   (GREEN: 7/7)
+dotnet build DaxaPos.sln                                                              (0 warnings/errors)
+dotnet ef migrations add AddOutboxWorkItems --project src/DaxaPos.Persistence --startup-project src/DaxaPos.Api
+dotnet ef database update --project src/DaxaPos.Persistence --startup-project src/DaxaPos.Api
+dotnet sln add src/DaxaPos.Workers/DaxaPos.Workers.csproj
+dotnet test tests/DaxaPos.Api.Tests/DaxaPos.Api.Tests.csproj --filter "FullyQualifiedName~PrintOutboxTests"   (4/4)
+dotnet test DaxaPos.sln   (first pass: 1 expected failure — IgnoreQueryFiltersUsageTests, before the allowlist update)
+dotnet test DaxaPos.sln   (1035/1035, after the allowlist update)
+docker exec deploy-db-1 psql -U daxapos -d daxapos -c "CREATE DATABASE daxapos_migration_check;"
+dotnet ef database update --project src/DaxaPos.Persistence --startup-project src/DaxaPos.Api --connection "...daxapos_migration_check..."   (clean-database migration re-verification, all 17)
+docker exec deploy-db-1 psql -U daxapos -d daxapos -c "DROP DATABASE daxapos_migration_check;"
+```
+
+### Build/test result
+
+`dotnet build DaxaPos.sln` — 0 warnings, 0 errors.
+`dotnet test DaxaPos.sln` — **1035/1035 passed** (144 unit tests + 891 API tests, up from 1017
+before this session — 18 new tests, zero regressions), against real Postgres, 0 failed, 0 skipped.
+All 17 migrations verified to apply cleanly in sequence from an empty database. One new
+`IgnoreQueryFilters()` call site (`src/DaxaPos.Workers/OutboxProcessorWorker.cs`), justified and
+added to the allowlist guard (Deviation 4 above) — no other new call sites.
+
+### Scope boundary re-check (approved Human Decision #1)
+
+No hardware coupling was introduced beyond the approved network-transport boundary —
+`NetworkPrinterTransport` is a plain TCP client with no vendor SDK, no printer-model-specific
+handshake, no discovery protocol. No UI, no MAUI, no PLAN-0009 provider/device-orchestration code,
+no printer discovery UI, and no installer/daemon management were added, matching this session's
+explicit hard scope limits.
+
+### OI-0017 status re-check
+
+Not touched. Milestone E never reads `Product`/`ProductVariant` — its only entity interactions are
+`Order`/`OrderLine`/`OrderLineTax`/`Payment`/`Refund` (read, via `PrintReceiptOutboxProcessor`) and
+its own new `OutboxWorkItem` table. OI-0017 remains open, unaffected.
+
+### Blockers before Milestone F
+
+None. The outbox mechanism, `DaxaPos.Workers`, ESC/POS generation, and the network printer
+transport all exist and are exercised end-to-end (payment settlement → outbox row → processor →
+fake transport, proven without a running worker host or physical printer); `dotnet build`/
+`dotnet test` are clean (1035/1035); migrations verified clean from empty. Milestone F
+(consolidation, RBAC sweep, and PLAN-0005 documentation closeout) can start on request.
+
+One heads-up for whoever starts Milestone F: Milestone F's own description says it extends
+`RbacTests.cs`'s and `StaffPinLoginTests.cs`'s endpoint inventories with every Milestone A–E
+`rejectStaffPin: true` route — Milestone E added no endpoints at all, so there is nothing from this
+milestone to add to either inventory. Milestone F should also decide (or explicitly defer) the
+follow-up items this milestone flagged but did not resolve: a `worker` service entry in
+`deploy/docker-compose.yml`, and per-location/per-terminal printer routing (today there is exactly
+one configured network printer endpoint for the whole deployment).

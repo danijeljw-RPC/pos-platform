@@ -31,3 +31,52 @@ See [OI-0004 — First Receipt Printer Reference Device](../issues/closed/OI-000
 ## Related Plans
 
 - [PLAN-0005 — Payments, Receipts, Printing](../plans/active/PLAN-0005-payments-receipts-printing-planning.md)
+- [ADR-0014 — Inter-Module Communication Pattern](../adr/accepted/ADR-0014-inter-module-communication.md) — the Handler I/O Rule this milestone is the first real implementation of.
+
+## Implementation Status (PLAN-0005 Milestone E, 2026-07-06)
+
+ESC/POS printing and the generic outbox/work-item mechanism are implemented. No printer discovery
+UI, USB transport, per-location/per-terminal printer routing, MAUI, or hardware/device
+orchestration yet — those remain PLAN-0009/a later hardware-integration plan's scope (approved
+Human Decision #1).
+
+- **The outbox/work-item mechanism** (`DaxaPos.Domain.Entities.OutboxWorkItem`,
+  `OutboxWorkItemStatus`: `Pending`/`Processing`/`Completed`/`Failed`) is generic, not
+  printing-specific — `WorkType` (currently only `"PrintReceipt"`) distinguishes what a row
+  represents, per ADR-0014's Follow-Up Work ("the two should likely share one outbox table/worker
+  pattern rather than being built twice"). A fully-settling payment's
+  `OrderLifecycleDomainEvent("Completed")` enqueues a `"PrintReceipt"` row
+  (`OrderCompletedPrintOutboxHandler`, `src/DaxaPos.Api/Printing/`) — registered alongside the
+  existing `OrderLifecycleAuditHandler` for the same event, ADR-0014's "one event, several
+  independent reactors" pattern, not a replacement for it.
+- **`DaxaPos.Workers`** (new host project, referenced in CLAUDE.md's suggested solution structure
+  but not built until this milestone) polls the outbox (`OutboxProcessorWorker`, a
+  `BackgroundService`) and dispatches each item by `WorkType`. The poll query is cross-tenant
+  (`IgnoreQueryFilters()`, a documented exception — see `IgnoreQueryFiltersUsageTests`) since the
+  worker has no HTTP-derived tenant context of its own; `AmbientTenantContext`/
+  `AmbientCurrentTenantProvider` (`DaxaPos.Infrastructure.Identity`) scope each claimed item's
+  processing to its own tenant, mirroring what `HttpContextAuthContextAccessor` does for a real
+  request.
+- **`PrintReceiptOutboxProcessor`** (`src/DaxaPos.Workers/Processing/`) loads the order's
+  already-immutable lines/tax snapshots/payments/refunds (the same query shape as
+  `ReceiptEndpoints.BuildReceiptDocumentAsync`, deliberately duplicated rather than shared across
+  the Api/Workers project boundary — see that class's remarks), renders them via Milestone D's
+  `ReceiptRenderer` unchanged, formats ESC/POS bytes, and sends them through `IPrinterTransport`.
+  On failure it defers to `OutboxRetryPolicy` (pure, TDD'd first, exponential backoff capped at
+  5 minutes) to decide retry-with-backoff vs. permanent `Failed`.
+- **ESC/POS byte generation** (`DaxaPos.Application.Printing.EscPosReceiptFormatter`) is pure and
+  DB-independent, mirroring `ReceiptRenderer`'s shape — TDD'd first. Proven byte-for-byte: the
+  GST-free marker and marker legend survive generation, tax summary/payment/refund lines print
+  from the `ReceiptDocument`'s own data, and a cash-drawer kick command
+  (`ESC p 0 25 250`) is appended only when the order's payments include a `Cash` payment.
+- **The printer transport boundary** (`DaxaPos.Infrastructure.Printing.IPrinterTransport`) has one
+  concrete implementation this milestone, `NetworkPrinterTransport` (raw TCP to a single configured
+  host/port, conventionally port 9100) — no per-location/per-terminal printer routing table yet;
+  USB printing is a Windows POS terminal (MAUI) device capability, not this backend service's
+  concern, per CLAUDE.md's device strategy.
+- No new endpoints, no `printing.manage` permission code. Printing is fully automatic
+  (order completion → outbox → `DaxaPos.Workers`); the plan's own Milestone E scope names a manual
+  retry/administration endpoint as optional, not required. `printing.manage` stays reserved for
+  whichever future milestone adds one.
+- See `docs/plans/active/PLAN-0005-worker-notes.md`'s "Milestone E Report" for full detail and
+  deviations.

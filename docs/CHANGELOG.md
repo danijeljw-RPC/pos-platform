@@ -4,6 +4,36 @@ Changes are listed in reverse chronological order.
 
 ---
 
+## 2026-07-06 — PLAN-0005 Milestone E (ESC/POS printing and the generic outbox mechanism)
+
+### Summary
+
+The generic outbox/work-item mechanism (`OutboxWorkItem`, `OutboxWorkItemStatus`) — the concrete, first-of-its-kind proof of ADR-0014's Handler I/O Rule: a fully-settling payment's `OrderLifecycleDomainEvent("Completed")` now enqueues a durable `"PrintReceipt"` outbox row (`OrderCompletedPrintOutboxHandler`, registered alongside the existing `OrderLifecycleAuditHandler` for the same event) instead of printing inline from the request handler. A new `DaxaPos.Workers` host project (referenced in CLAUDE.md's suggested solution structure but not built until now) polls the outbox cross-tenant (`OutboxProcessorWorker`, a documented `IgnoreQueryFilters()` exception since it has no HTTP-derived tenant context of its own — see the new `AmbientTenantContext`/`AmbientCurrentTenantProvider`) and delegates each `"PrintReceipt"` item to `PrintReceiptOutboxProcessor`, which loads the order's immutable snapshots, renders them via Milestone D's `ReceiptRenderer` unchanged, formats ESC/POS bytes via the new pure `DaxaPos.Application.Printing.EscPosReceiptFormatter` (TDD'd first; proves the GST-free marker and tax/payment/refund summary lines survive byte generation, and that a cash-drawer kick command is appended only when the order's payments include `Cash`), and sends them through the new `IPrinterTransport` boundary (`NetworkPrinterTransport`, a single configured network endpoint — network-only for this milestone, per approved Human Decision #1's no-hardware-overreach boundary; USB is a Windows POS terminal/MAUI concern, not this backend service's). Retry/backoff on transport failure is a second pure, TDD'd-first unit (`OutboxRetryPolicy`). No new endpoints and no `printing.manage` permission code this milestone — printing is fully automatic, and the plan's own Milestone E scope marks an admin/retry endpoint as optional, not required.
+
+### Key areas changed
+
+- `src/DaxaPos.Application/Outbox/OutboxRetryPolicy.cs` (new, TDD'd first); `src/DaxaPos.Application/Printing/EscPosReceiptFormatter.cs`, `PrintReceiptWorkPayload.cs` (new, TDD'd first).
+- `src/DaxaPos.Domain/Entities/OutboxWorkItem.cs`, `Enums/OutboxWorkItemStatus.cs` (new); `src/DaxaPos.Persistence/Configurations/OutboxWorkItemConfiguration.cs` (new); `Migrations/20260706000748_AddOutboxWorkItems.cs` (new, one new table); `DaxaDbContext.cs` (new `DbSet`, fail-closed query filter).
+- `src/DaxaPos.Infrastructure/Printing/IPrinterTransport.cs`, `NetworkPrinterTransport.cs`, `NetworkPrinterOptions.cs` (new); `Identity/AmbientTenantContext.cs`, `AmbientCurrentTenantProvider.cs` (new).
+- `src/DaxaPos.Api/Printing/PrintOutboxHandlers.cs` (new `OrderCompletedPrintOutboxHandler`); `Program.cs` (registration).
+- `src/DaxaPos.Workers/` (new project: `Program.cs`, `OutboxProcessorWorker.cs`, `Processing/PrintReceiptOutboxProcessor.cs`, `appsettings*.json`); added to `DaxaPos.sln` and as a `DaxaPos.Api.Tests` project reference.
+- `tests/DaxaPos.UnitTests/Outbox/OutboxRetryPolicyTests.cs` (new, 7 tests), `Printing/EscPosReceiptFormatterTests.cs` (new, 7 tests); `tests/DaxaPos.Api.Tests/PrintOutboxTests.cs` (new, 4 tests); `Architecture/IgnoreQueryFiltersUsageTests.cs` (approved-list addition for `OutboxProcessorWorker.cs`).
+- `docs/modules/printing.md` (implementation-status section); `docs/plans/active/PLAN-0005-payments-receipts-printing-planning.md` (Milestone E kickoff scope note + status); `docs/plans/active/PLAN-0005-worker-notes.md` (Milestone E Report).
+
+### Open issues resolved
+
+None closed or opened. OI-0017 remains open — Milestone E never reads `Product`/`ProductVariant`, so it is unaffected.
+
+### Tests / verification outcome
+
+`dotnet build DaxaPos.sln` — 0 warnings, 0 errors. `dotnet test DaxaPos.sln` — 1035/1035 passed (144 unit tests + 891 API tests, up from 1017 at Milestone D close — 18 new tests, zero regressions), against real Postgres. All 17 migrations verified to apply cleanly in sequence from an empty database. One new `IgnoreQueryFilters()` call site (`src/DaxaPos.Workers/OutboxProcessorWorker.cs`), justified and added to the allowlist guard.
+
+### Next
+
+Milestone F (consolidation, RBAC sweep, and PLAN-0005 documentation closeout) can start on request.
+
+---
+
 ## 2026-07-06 — PLAN-0005 Milestone D (receipt generation foundation)
 
 ### Summary

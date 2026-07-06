@@ -2,7 +2,21 @@
 
 ## Status
 
-Milestones A, B, C, and D done (2026-07-05, 2026-07-05, 2026-07-06, 2026-07-06) — see each milestone's status note below. Milestones E–F not yet started.
+Milestones A, B, C, D, and E done (2026-07-05, 2026-07-05, 2026-07-06, 2026-07-06, 2026-07-06) — see each milestone's status note below. Milestone F not yet started.
+
+### Milestone E kickoff scope note (2026-07-06)
+
+Confirmed before writing code, per CLAUDE.md's planning-before-work rule:
+
+- **No new `PrinterDevice` table.** PLAN-0003's `Device` entity already has `DeviceType.Printer` — a registered printer is just a `Device` row with that type. Nothing in this milestone needs a second printer-specific table.
+- **`OutboxWorkItem` lives in `Domain/Entities` + `Persistence/Configurations`, not a new `Infrastructure/Outbox/` folder.** The plan's original "Files Likely To Change" draft named `Infrastructure/Outbox/`, but every real entity Milestones A–D actually built lives in `Domain`/`Persistence`, matching this codebase's one, consistent layering. Following that established precedent rather than the draft file list, same reasoning PLAN-0004/PLAN-0005's own planning passes used for `Modules.*`.
+- **ESC/POS byte generation is pure and lives in `DaxaPos.Application.Printing`** (mirrors `ReceiptRenderer`'s dependency-free shape, TDD'd first) — not `Infrastructure`. `Infrastructure.Printing` holds only the I/O-bound transport (`IPrinterTransport`/`NetworkPrinterTransport`).
+- **Printer transport is network-only for this milestone.** USB printing is a Windows POS terminal (MAUI) concern per CLAUDE.md's device strategy, not this backend service's — building it here would be exactly the hardware/device-integration overreach approved Human Decision #1 reserves for PLAN-0009/a later hardware plan. A single configured receipt-printer host/port is used (no per-location/per-terminal printer routing table yet — that is deferred, flagged as a follow-up, and is not "printer discovery" or device orchestration, just not yet built).
+- **No new endpoints, no `printing.manage` permission code this milestone.** The plan's own Milestone E endpoint bullet says "none required for MVP printing itself" and names a manual retry/admin endpoint as optional, not required. Printing is fully automatic (order completion → outbox → `DaxaPos.Workers`), so there is no admin/retry surface yet to gate `printing.manage` on. The permission code stays reserved for whichever future milestone adds that endpoint.
+- **Cash drawer kick bytes are appended only when the order's payments include a `Cash` payment** — matching real counter behaviour (no drawer kick on a card-only sale), proven by a dedicated test.
+- **The outbox row is written by the handler's own `SaveChangesAsync` call immediately after the triggering change, not literally inside the same DB transaction as the payment/order-completion write.** This matches every existing audit handler in this codebase (each calls `SaveChangesAsync` independently after the state change that raised the event) and is explicitly permitted by ADR-0014's Handler I/O Rule ("in the same transaction... or immediately after, using the outbox pattern").
+- **`DaxaPos.Workers` needs a non-HTTP `ICurrentTenantProvider`.** The existing `CurrentTenantProvider` derives tenant from `HttpContext`/`AuthContext`, which does not exist in a background host. A new `AmbientCurrentTenantProvider` (`AsyncLocal<Guid?>`-backed, `DaxaPos.Infrastructure.Identity`) is added for Workers; the outbox-polling query itself must cross tenants (it doesn't know which tenant's rows are pending yet) and so uses `IgnoreQueryFilters()` — a new, deliberate, documented bootstrap-style exception, added to `IgnoreQueryFiltersUsageTests`' approved list alongside the existing pre-auth call sites.
+- **No dedicated `DaxaPos.Workers.Tests` project.** The pollable `BackgroundService` loop is thin composition-root glue (like `Program.cs`/`BootstrapAdminSeeder`, neither of which is unit-tested). The actual processing logic (`PrintReceiptOutboxProcessor`) is a plain, DB-and-transport-dependent class with no hosting dependency, tested from `DaxaPos.Api.Tests` (which already has the real-Postgres `WebApplicationFactory` harness and a `FakeCurrentTenantProvider`) via a new project reference to `DaxaPos.Workers`.
 
 ## Goal
 
@@ -170,6 +184,15 @@ No payments, refunds, receipts, or printing. Pure order/order-line/tax-snapshot 
 
 ### Milestone E — ESC/POS printing and the outbox mechanism
 
+**Status: Done (2026-07-06).** Implemented per the plan using strict TDD for the milestone's two
+genuinely pure-logic units: `OutboxRetryPolicy` (retry/backoff decision) and
+`EscPosReceiptFormatter` (ESC/POS byte generation from Milestone D's `ReceiptDocument`) — both
+TDD'd first, both RED-confirmed before implementation. No new endpoints, no `printing.manage`
+permission code (see the kickoff scope note above). 1035/1035 tests passing (18 new: 7 unit
+`OutboxRetryPolicyTests` + 7 unit `EscPosReceiptFormatterTests` + 4 API `PrintOutboxTests`), 17
+migrations verified clean from empty. See `PLAN-0005-worker-notes.md`'s "Milestone E Report" for
+full detail and deviations.
+
 - The generic outbox/work-item table + `DaxaPos.Workers` consumer (ADR-0014's Handler I/O Rule, never built before this milestone) — a durable row written in the same transaction as the triggering domain event, processed asynchronously outside the request path.
 - ESC/POS command generation from a `ReceiptDocument` (Milestone D's output), printer transport (network first, USB for Windows terminals per CLAUDE.md), cash drawer kick command.
 - Print queue with retry on failure; printer health/reachability status.
@@ -187,7 +210,7 @@ Test-and-documentation-only, mirroring PLAN-0004 Milestone H exactly: extend `Rb
 
 ## Permission Catalogue Additions (Summary)
 
-Approved per Human Decisions Needed #5 (Approval Record above) — see that section's table for the full 5-code list including the two receipt/printing codes added by approval (`receipts.reprint`, `printing.manage`). Milestone A implements only `orders.manage`.
+Approved per Human Decisions Needed #5 (Approval Record above) — see that section's table for the full 5-code list including the two receipt/printing codes added by approval (`receipts.reprint`, `printing.manage`). Milestone A implements only `orders.manage`. **`printing.manage` was not added in Milestone E** — no admin/retry/queue-management endpoint was built (printing is fully automatic via the outbox → `DaxaPos.Workers` path), and the code is only needed once such an endpoint exists. It stays reserved in this table for whichever future milestone adds one.
 
 ## Tests To Run Later
 
