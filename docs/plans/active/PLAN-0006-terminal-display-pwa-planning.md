@@ -2,9 +2,13 @@
 
 ## Status
 
-Draft - revised planning pass.
+Milestone A - Complete.
 
-No implementation has started.
+See `docs/plans/active/PLAN-0006-worker-notes.md` for the full Milestone A implementation report.
+Summary: `src/DaxaPos.Web` (standalone Blazor WebAssembly PWA) scaffolded with device-setup, staff
+PIN login, session-backed shell, and route guarding; `tests/DaxaPos.Web.Tests` added (bUnit +
+xunit, 31 tests); one small, documented backend change (CORS) to let the new browser-origin client
+call the API. No migrations. Milestone B (Back Office skeleton, device PIN generation) is next.
 
 This revision records the current human decisions:
 
@@ -12,6 +16,12 @@ This revision records the current human decisions:
 - Blazor is the only approved PWA/frontend framework.
 - MAUI is deferred to a later dedicated Windows terminal plan.
 - PWA can also operate as a terminal on supported devices.
+- Blazor hosting model: **standalone Blazor WebAssembly** (not Blazor Server, not Auto render
+  mode). Confirmed with human 2026-07-06 during Milestone A kickoff. Rationale: real PWA
+  installability and future offline resilience (CLAUDE.md decision 11) require a client that can
+  run without a live connection to a host process; Blazor Server's Interactive Server render mode
+  needs a constant SignalR connection to the host and does not meet that bar. `docs/architecture/overview.md`
+  already flagged "Blazor WASM (TBD)" for the PWA surfaces, so this closes that TBD.
 
 ## Goal
 
@@ -96,7 +106,7 @@ Do not create MAUI projects in PLAN-0006.
 
 ## Milestones
 
-### Milestone A - Blazor/PWA Shell, Auth, Session, Device Context
+### Milestone A - Blazor/PWA Shell, Auth, Session, Device Context — Complete
 
 Scope:
 
