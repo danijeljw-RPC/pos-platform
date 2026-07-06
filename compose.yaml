@@ -1,0 +1,102 @@
+# PLAN-0010 — full local dev stack (db, keycloak, migrations, api, worker, web).
+#
+# Quick start:
+#   cp .env.example .env
+#   docker compose up -d --build
+#
+# Fresh start (wipes the db volume):
+#   docker compose down -v --remove-orphans
+#   docker compose up -d --build
+#
+# This is local-dev only: plain HTTP, no reverse proxy/TLS, dev-only default credentials.
+# Server-side services below use the Compose service name `db` in their connection string.
+# The `web` service is different: it ships static files to the developer's *browser*, which
+# cannot resolve Compose service names — its baked-in ApiBaseUrl points at the host-published
+# `api` address instead (see deploy/web/appsettings.docker.json).
+#
+# This file is the fuller app-layer stack. deploy/docker-compose.yml (PLAN-0002) remains the
+# older infra-only db+keycloak file and is unchanged.
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-daxapos}
+      POSTGRES_USER: ${POSTGRES_USER:-daxapos}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-daxapos_dev_password}
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-daxapos} -d ${POSTGRES_DB:-daxapos}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Not wired into any application code yet (ADR-0013) — the API starts and reports healthy
+  # whether or not this is running. Included because it's still part of the local dev stack.
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.0
+    command: start-dev
+    environment:
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin_dev_password}
+    ports:
+      - "127.0.0.1:8081:8080"
+
+  # One-shot: applies EF Core migrations, then exits. api/worker wait for it to exit 0 before
+  # starting, so a fresh `docker compose up -d --build` always migrates before serving traffic.
+  migrations:
+    build:
+      context: .
+      dockerfile: src/DaxaPos.Api/Dockerfile
+      target: migrator
+    environment:
+      ConnectionStrings__DaxaDb: Host=db;Port=5432;Database=${POSTGRES_DB:-daxapos};Username=${POSTGRES_USER:-daxapos};Password=${POSTGRES_PASSWORD:-daxapos_dev_password}
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    build:
+      context: .
+      dockerfile: src/DaxaPos.Api/Dockerfile
+      target: final
+    environment:
+      # A distinct environment name (not "Development") so appsettings.Development.json's
+      # dotnet-run-dev-port CORS origins (5013/7025) don't leak in here — everything this
+      # container needs is supplied explicitly below.
+      ASPNETCORE_ENVIRONMENT: Docker
+      ConnectionStrings__DaxaDb: Host=db;Port=5432;Database=${POSTGRES_DB:-daxapos};Username=${POSTGRES_USER:-daxapos};Password=${POSTGRES_PASSWORD:-daxapos_dev_password}
+      Cors__AllowedOrigins__0: http://localhost:8080
+      DAXA_BOOTSTRAP_ADMIN_EMAIL: ${DAXA_BOOTSTRAP_ADMIN_EMAIL:-admin@daxapos.local}
+      DAXA_BOOTSTRAP_ADMIN_PASSWORD: ${DAXA_BOOTSTRAP_ADMIN_PASSWORD:-Local-Dev-Only-Passw0rd!}
+    ports:
+      - "5118:8080"
+    depends_on:
+      migrations:
+        condition: service_completed_successfully
+
+  worker:
+    build:
+      context: .
+      dockerfile: src/DaxaPos.Workers/Dockerfile
+    environment:
+      ConnectionStrings__DaxaDb: Host=db;Port=5432;Database=${POSTGRES_DB:-daxapos};Username=${POSTGRES_USER:-daxapos};Password=${POSTGRES_PASSWORD:-daxapos_dev_password}
+    depends_on:
+      migrations:
+        condition: service_completed_successfully
+
+  web:
+    build:
+      context: .
+      dockerfile: src/DaxaPos.Web/Dockerfile
+    ports:
+      - "8080:80"
+    depends_on:
+      - api
+
+volumes:
+  db_data:
