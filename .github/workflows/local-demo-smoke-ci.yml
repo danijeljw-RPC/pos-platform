@@ -1,0 +1,121 @@
+name: Local Demo Smoke Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  local-demo-smoke:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: daxapos
+          POSTGRES_USER: daxapos
+          POSTGRES_PASSWORD: daxapos_dev_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U daxapos -d daxapos"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      API_URL: http://127.0.0.1:5118
+      PWA_URL: http://127.0.0.1:8080
+      ConnectionStrings__DaxaDb: Host=127.0.0.1;Port=5432;Database=daxapos;Username=daxapos;Password=daxapos_dev_password
+      DAXA_BOOTSTRAP_ADMIN_EMAIL: local-demo-ci@daxapos.test
+      DAXA_BOOTSTRAP_ADMIN_PASSWORD: Local-Demo-CI-Only-Passw0rd!
+      ADMIN_EMAIL: local-demo-ci@daxapos.test
+      ADMIN_PASSWORD: Local-Demo-CI-Only-Passw0rd!
+      DEMO_LOCATION_NAME: Local Demo CI Venue
+      DEMO_STAFF_CODE: CI001
+      DEMO_STAFF_NAME: CI Cashier
+      DEMO_STAFF_PIN: "246810"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Install smoke-test dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes curl jq
+          dotnet tool install --global dotnet-ef
+
+      - name: Restore API
+        run: dotnet restore src/DaxaPos.Api/DaxaPos.Api.csproj
+
+      - name: Apply database migrations
+        run: >-
+          "$HOME/.dotnet/tools/dotnet-ef" database update
+          --project src/DaxaPos.Persistence/DaxaPos.Persistence.csproj
+          --startup-project src/DaxaPos.Api/DaxaPos.Api.csproj
+
+      - name: Start API
+        run: |
+          nohup dotnet run \
+            --project src/DaxaPos.Api/DaxaPos.Api.csproj \
+            --no-launch-profile \
+            --urls "$API_URL" \
+            >"$RUNNER_TEMP/daxapos-api.log" 2>&1 &
+          echo "$!" >"$RUNNER_TEMP/daxapos-api.pid"
+
+      - name: Wait for API health
+        run: |
+          for attempt in {1..60}; do
+            if curl --fail --silent --show-error "$API_URL/health" >/dev/null; then
+              echo "API became healthy after ${attempt} attempt(s)."
+              exit 0
+            fi
+            sleep 1
+          done
+
+          echo "API did not become healthy within 60 seconds." >&2
+          exit 1
+
+      - name: Run local demo setup
+        run: |
+          set -euo pipefail
+          ./scripts/setup-local-demo.sh | tee "$RUNNER_TEMP/local-demo-first.log"
+          grep -Fq "Daxa POS local demo environment is ready" \
+            "$RUNNER_TEMP/local-demo-first.log"
+
+      - name: Confirm local demo setup is rerunnable
+        run: |
+          set -euo pipefail
+          ./scripts/setup-local-demo.sh | tee "$RUNNER_TEMP/local-demo-second.log"
+          grep -Fq "Reusing existing active location" \
+            "$RUNNER_TEMP/local-demo-second.log"
+          grep -Fq "Reusing existing active staff member" \
+            "$RUNNER_TEMP/local-demo-second.log"
+          grep -Fq "Daxa POS local demo environment is ready" \
+            "$RUNNER_TEMP/local-demo-second.log"
+          echo "Local demo setup smoke test passed."
+
+      - name: Print API log on failure
+        if: ${{ failure() }}
+        run: |
+          if [[ -f "$RUNNER_TEMP/daxapos-api.log" ]]; then
+            cat "$RUNNER_TEMP/daxapos-api.log"
+          fi
+
+      - name: Stop API
+        if: ${{ always() }}
+        run: |
+          if [[ -f "$RUNNER_TEMP/daxapos-api.pid" ]]; then
+            kill "$(cat "$RUNNER_TEMP/daxapos-api.pid")" 2>/dev/null || true
+          fi
