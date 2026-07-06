@@ -9,6 +9,11 @@ jobs:
   build-and-test:
     runs-on: ubuntu-latest
 
+    # The service health check proves connectivity only. A new Actions database is empty, so the
+    # migration step and integration tests must share this connection string.
+    env:
+      ConnectionStrings__DaxaDb: "Host=localhost;Port=5432;Database=daxapos;Username=daxapos;Password=daxapos_dev_password"
+
     services:
       postgres:
         image: postgres:16-alpine
@@ -39,7 +44,16 @@ jobs:
       - name: Build
         run: dotnet build DaxaPos.sln --no-restore --configuration Release
 
+      # API tests query migrated tables and migration-seeded RBAC data. Apply every migration
+      # explicitly instead of relying on a developer database that may already have the schema.
+      - name: Install EF Core CLI
+        run: dotnet tool install --global dotnet-ef --version 10.0.9
+
+      - name: Apply database migrations
+        run: >-
+          "$HOME/.dotnet/tools/dotnet-ef" database update
+          --project src/DaxaPos.Persistence/DaxaPos.Persistence.csproj
+          --startup-project src/DaxaPos.Api/DaxaPos.Api.csproj
+
       - name: Test
         run: dotnet test DaxaPos.sln --no-build --configuration Release
-        env:
-          ConnectionStrings__DaxaDb: "Host=localhost;Port=5432;Database=daxapos;Username=daxapos;Password=daxapos_dev_password"
