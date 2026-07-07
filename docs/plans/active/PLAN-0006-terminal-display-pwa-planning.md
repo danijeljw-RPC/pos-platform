@@ -3,7 +3,9 @@
 ## Status
 
 Milestone A - Complete. Milestone B - Complete. Milestone C - Complete. Milestone C.1 (TerminalId
-resolution, modifiers, real order wiring) - Complete, see closeout below.
+resolution, modifiers, real order wiring) - Complete. Milestone C.2 (terminal assignment integrity,
+terminal-scoped order authorization) - Complete, see closeout below. **Milestone D
+(payments/receipts) is now unblocked.**
 
 See `docs/plans/active/PLAN-0006-worker-notes.md` for the full Milestone A implementation report.
 Summary: `src/DaxaPos.Web` (standalone Blazor WebAssembly PWA) scaffolded with device-setup, staff
@@ -309,6 +311,146 @@ screen (Milestone C's local draft had a per-line notes input). There is no order
 endpoint — `OrderLine` is append/void-only — so supporting notes-on-an-existing-line would need
 either a modal on every tap or a void+recreate dance; deferred as a documented simplification
 rather than adding either silently. Hold/Resume UI remains unwired (endpoints exist, unused).
+
+### Milestone C.2 kickoff decision (2026-07-07)
+
+**Owner decision**: fix two correctness gaps surfaced by a post-C.1 review before starting
+Milestone D, not file them as open issues. Payments/receipts must not be built against order
+ownership rules that let the wrong terminal touch another terminal's order — a payment or receipt
+bug on top of that would be far more expensive to unwind than fixing the ownership rule now. This
+is Milestone C.2, inserted between C.1 and D.
+
+**Gap 1 — `Terminal.DeviceId` assignment had no DB-level uniqueness.** The C.1 review found
+`AssignDeviceAsync`'s 409-conflict check (`Terminals.AnyAsync(t => t.DeviceId == deviceId && t.Id
+!= terminal.Id)`) was check-then-act with no backing constraint — `TerminalConfiguration.cs` only
+had the index EF Core auto-creates for the `DeviceId` foreign key, not a unique one. Two concurrent
+`assign-device` calls for the same device could both pass the check before either wrote, leaving
+two terminals pointing at the same device — and `StaffPinLoginAsync`'s `.SingleOrDefaultAsync()`
+lookup by `DeviceId` would then throw an unhandled exception at login time instead of degrading.
+
+Fix: a Postgres **partial unique index** — `HasIndex(t => t.DeviceId).IsUnique().HasFilter("\"DeviceId\"
+IS NOT NULL")` — so unassigned terminals (`DeviceId: null`) never collide with each other, but two
+terminals can never share the same non-null `DeviceId`. No data cleanup was needed (checked the dev
+DB directly: zero existing duplicates). `AssignDeviceAsync`'s `SaveChangesAsync()` is wrapped to
+catch the specific `PostgresException` (SQLSTATE `23505`, constraint name
+`IX_terminals_DeviceId`) and return the same 409 the pre-check already returns — the pre-check
+stays as a fast, informative path; the constraint is the actual guarantee.
+`StaffPinLoginAsync`'s lookup is changed from `.SingleOrDefaultAsync()` to loading a list and
+treating more-than-one match as a login failure (`FailAsync(..., "DuplicateTerminalAssignment")`)
+— the same generic-401-but-audited-with-specific-reason shape every other failure in that method
+already uses — rather than crashing, in case pre-migration or manually-inserted data ever violates
+the invariant the new index otherwise enforces.
+
+**Gap 2 — order authorization was location-scoped, not terminal-scoped.** `LoadAuthorizedOrderAsync`
+(duplicated verbatim in `OrderEndpoints.cs`, `PaymentEndpoints.cs`, `ReceiptEndpoints.cs`) checked
+only `OrganisationId` and, for a location-bound session, `LocationId` — never `TerminalId`. This
+predates C.1 (it's how hold/resume/void/add-line were already written for PLAN-0005), but C.1's
+draft-restore (`GetOrderAsync` from a cached, device-scoped `OrderId`) was the first caller where
+the gap has a real, visible consequence: a device at Terminal A could restore, read, mutate, void,
+or (once Milestone D exists) pay/receipt an order that actually belongs to Terminal B, as long as
+both terminals share a location and the caller has *an* `OrderId` for it.
+
+Fix, applied identically in all three `LoadAuthorizedOrderAsync` copies:
+
+```csharp
+if (authContext.LocationId is not null
+    && (authContext.TerminalId is null || authContext.TerminalId != order.TerminalId))
+{
+    return null;
+}
+```
+
+This only ever fires for a **location-bound** session (staff-PIN or device-token) — an
+organisation-scoped admin/Back-Office session (`LocationId: null`) is unrestricted, same as the
+existing location check right above it, preserving "admin/back-office access remains appropriate."
+For a location-bound session: `TerminalId: null` (device not yet assigned to a terminal) is
+rejected outright — satisfies the owner's requirement that an unlinked device cannot mutate any
+terminal order, not just "the wrong one" — and a non-matching `TerminalId` is rejected the same
+way. The same rule is added to `OrderEndpoints.OpenAsync` (which doesn't go through
+`LoadAuthorizedOrderAsync`, since there's no existing order yet) so a location-bound session can't
+open an order for a *different* terminal at its own location by supplying that terminal's id in the
+request body — this is exactly ADR-0015's Context Provenance principle ("a client can never widen
+or redirect its own tenant/location/terminal scope by changing... a JSON field"), finally
+enforceable now that `AuthContext.TerminalId` is ever non-null (before C.1 it was always null, so
+this check would have been meaningless).
+
+**`RefundEndpoints.LoadAuthorizedPaymentAsync` is deliberately NOT changed.** `payments.refund` is
+`AdminSensitive` + `rejectStaffPin: true` — no location-bound session can ever reach it (confirmed:
+`StaffPinLoginAsync` itself refuses to issue a session carrying any `AdminSensitive` permission, so
+a staff-PIN session with `payments.refund` cannot exist; a bare device-token session has no role
+permissions at all). The new guard would be a permanent no-op there. Left out to keep the change
+scoped, not because refunds are exempt in principle.
+
+**Existing test fallout, not a regression**: three pre-C.2 tests (`OrderEndpointsTests
+.Open_Succeeds_ForStaffPinSession`, `PaymentEndpointsTests.RecordPayment_Succeeds_ForStaffPinSession`,
+`ReceiptEndpointsTests.Reprint_Succeeds_ForStaffPinSession`) built a staff-PIN session whose device
+was never assigned to a terminal — which used to work (TerminalId was always null and never
+checked) and now correctly fails closed. Fixed by adding the missing
+`POST /api/v1/terminals/{id}/assign-device` call to each test's setup, matching the real
+precondition these endpoints now require; not a weakening of the new check.
+
+### Files changed
+
+- `src/DaxaPos.Persistence/Configurations/TerminalConfiguration.cs` — unique filtered index.
+- `src/DaxaPos.Persistence/Migrations/20260707023452_AddUniqueTerminalDeviceIdIndex.cs` (+
+  `.Designer.cs`, `DaxaDbContextModelSnapshot.cs`) — drops and recreates `IX_terminals_DeviceId` as
+  `UNIQUE ... WHERE "DeviceId" IS NOT NULL`. Applied cleanly to the dev DB; zero pre-existing
+  duplicates.
+- `src/DaxaPos.Api/Endpoints/Identity/TerminalEndpoints.cs` — `AssignDeviceAsync` catches the
+  specific unique-violation exception; new `IsUniqueDeviceIdViolation` helper.
+- `src/DaxaPos.Api/Endpoints/Identity/AuthEndpoints.cs` — `StaffPinLoginAsync`'s terminal lookup
+  hardened against more-than-one match.
+- `src/DaxaPos.Api/Endpoints/Orders/OrderEndpoints.cs` — `LoadAuthorizedOrderAsync` and `OpenAsync`
+  gain the `TerminalId` check.
+- `src/DaxaPos.Api/Endpoints/Payments/PaymentEndpoints.cs`,
+  `src/DaxaPos.Api/Endpoints/Receipts/ReceiptEndpoints.cs` — their own `LoadAuthorizedOrderAsync`
+  copies get the identical check.
+- `tests/DaxaPos.Api.Tests/TerminalEndpointsTests.cs`, `AuthEndpointsTests`/`StaffPinLoginTests.cs`,
+  `OrderEndpointsTests.cs`, `PaymentEndpointsTests.cs`, `ReceiptEndpointsTests.cs` — new/updated
+  tests (see worker notes for the full list).
+
+### Explicitly out of scope for Milestone C.2
+
+Payments UI, receipts UI, customer display, KDS, MAUI, OI-0018, any change beyond assignment
+integrity and terminal-scoped order authorization — per the owner's hard rules for this milestone.
+
+See worker notes for the full test list and closeout verification.
+
+### Milestone C.2 closeout (2026-07-07)
+
+Implemented as planned above, with one deviation discovered while writing tests (see worker
+notes' "Deviations from the kickoff plan" — the DB-constraint test needed two independent
+`DbContext`s racing a commit rather than one context writing two rows, and the login-hardening
+path has no live-duplicate-row integration test since the new index makes that precondition
+impossible to construct). No other deviations.
+
+Full solution suite: **1152/1152 passing** (144 unit + 78 Web + 930 API), 12 new API tests, no
+regressions against Milestone C.1's 1140-test baseline.
+
+**Live verification**: rebuilt/restarted the `api` container (same local demo stack from C.1;
+migration confirmed already applied, "No migrations were applied" in the `migrations` container
+log) and exercised the full scenario via `curl`:
+
+- Assigning a device to Terminal A succeeded (200); assigning the *same* device to Terminal B
+  was rejected cleanly (409, "This device is already assigned to a different terminal").
+- Staff-PIN login on Terminal A's device resolved `terminalId` to Terminal A in `/auth/me`; a
+  second device assigned to Terminal B and logged in resolved to Terminal B — two independent,
+  correctly-scoped sessions.
+- Terminal A's session opening an order for Terminal B was rejected (404); opening for its own
+  Terminal A succeeded.
+- With an order open on Terminal A: Terminal B's session got 404 on `GET` the order, `POST
+  .../void`, `POST .../payments`, and `GET .../receipt` — every one of them, against a single real
+  order, from a genuinely different terminal session at the same location. Terminal A's own
+  session still succeeded on the same order (`GET` 200, then `POST .../void` 200 to close out the
+  verification).
+
+This is the exact attack the review flagged as possible before this milestone (a device could
+restore/read/mutate another terminal's order at the same location) — now closed and confirmed
+closed against a live, rebuilt API, not just the test suite.
+
+Milestone D (payments/receipts UI) is unblocked: both ownership gaps (TerminalId resolution from
+C.1, terminal-scoped authorization from C.2) that made building payments/receipts on top of order
+ownership unsafe are now closed.
 
 ## Goal
 

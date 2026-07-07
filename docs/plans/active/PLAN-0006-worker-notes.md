@@ -776,11 +776,154 @@ Then open `http://localhost:8080` in a browser and walk through:
 14. Click **Clear order** — the cart should empty; refreshing again should not bring it back (the
     server-side order was voided).
 
-## Recommended Next Session (post-Milestone-C.1)
+## Milestone C.2 Kickoff Notes (before implementation, 2026-07-07)
 
-Start PLAN-0006 Milestone D: Payment and receipt flow in PWA — the `TerminalId` gap that
-previously blocked it is now closed (see closeout above), so a real `Order` can be opened and
-lines added before payment recording begins.
+A post-C.1 review (owner-requested, answering a structured list of questions about the actual
+current implementation) surfaced two gaps serious enough that the owner chose to fix them before
+Milestone D rather than file open issues — see the plan doc's "Milestone C.2 kickoff decision" for
+the full reasoning. Summary below.
+
+### Confirmed current-state facts (read, not assumed)
+
+- `TerminalConfiguration.cs` had no unique index on `DeviceId` — only the index EF Core
+  auto-creates for the FK. `AssignDeviceAsync`'s 409 pre-check was the only protection, and it's
+  check-then-act.
+- `AuthEndpoints.StaffPinLoginAsync`'s terminal lookup used `.SingleOrDefaultAsync()`, which throws
+  if more than one `Terminal` ever matched the same `DeviceId`.
+- `LoadAuthorizedOrderAsync` is duplicated verbatim in `OrderEndpoints.cs`, `PaymentEndpoints.cs`,
+  and `ReceiptEndpoints.cs` (each with its own copy, cross-referencing the others in a doc comment)
+  — none of the three checked `TerminalId`, only `OrganisationId`/`LocationId`.
+  `RefundEndpoints.LoadAuthorizedPaymentAsync` has the same shape but is unreachable from any
+  location-bound session (`payments.refund` is `AdminSensitive` + `rejectStaffPin: true`, and
+  `StaffPinLoginAsync` independently refuses to issue a session carrying any `AdminSensitive`
+  permission) — confirmed, not changed.
+- `OrderEndpoints.OpenAsync` validated the requested `Terminal` belongs to the caller's
+  organisation/location but never cross-checked it against `authContext.TerminalId` — a
+  location-bound session could open an order for *any* terminal at its own location by supplying
+  that terminal's id in the request body.
+
+### Files changed
+
+See the plan doc's kickoff decision for the full list (`TerminalConfiguration.cs` + migration,
+`TerminalEndpoints.cs`, `AuthEndpoints.cs`, `OrderEndpoints.cs`, `PaymentEndpoints.cs`,
+`ReceiptEndpoints.cs`, plus test files).
+
+### Tests expected
+
+- `TerminalEndpointsTests` — a new test proving the DB constraint itself rejects a duplicate
+  assignment even when the pre-check is bypassed (direct `DbContext` write), and that the endpoint
+  surfaces it as 409, not 500.
+- `StaffPinLoginTests` — login does not throw and fails cleanly (audited
+  `DuplicateTerminalAssignment`) when two terminals are seeded (directly via `DbContext`, bypassing
+  the endpoint) with the same `DeviceId`.
+- `OrderEndpointsTests`/`PaymentEndpointsTests`/`ReceiptEndpointsTests` — new
+  cross-terminal-isolation tests: Terminal A's staff session cannot `GET`/add-line/void-line/
+  void-order/hold/resume Terminal B's order, cannot record a payment against it, cannot view or
+  reprint its receipt; Terminal A can still do all of the above to its own order. A no-TerminalId
+  (device not yet assigned) staff session cannot open an order at all.
+- Fix (not new tests, but required): three existing staff-PIN-session-succeeds tests across those
+  three files needed a `POST .../assign-device` call added to their setup, since they previously
+  relied on the now-closed gap (TerminalId always null, never checked).
+
+### Explicitly out of scope for Milestone C.2
+
+Payments UI, receipts UI, customer display, KDS, MAUI, OI-0018, `RefundEndpoints` changes (confirmed
+unreachable from any session the new check would affect).
+
+## Milestone C.2 Implementation Report
+
+Completed 2026-07-07, directly on `main`.
+
+### What was built
+
+- Unique filtered index (`CREATE UNIQUE INDEX ... WHERE "DeviceId" IS NOT NULL`), migration
+  `20260707023452_AddUniqueTerminalDeviceIdIndex`. Checked the dev DB for existing duplicates
+  before applying (`SELECT "DeviceId", COUNT(*) FROM terminals WHERE "DeviceId" IS NOT NULL GROUP
+  BY "DeviceId" HAVING COUNT(*) > 1` — zero rows), so no cleanup path was needed; applied cleanly.
+- `TerminalEndpoints.AssignDeviceAsync` wraps `SaveChangesAsync()` in a `try/catch` for
+  `DbUpdateException` matched against the specific `PostgresException` (SQLSTATE `23505`,
+  `ConstraintName == "IX_terminals_DeviceId"`) and returns the same 409 message the pre-check
+  already returns, rather than letting a race surface as an unhandled 500.
+- `AuthEndpoints.StaffPinLoginAsync` loads matching terminals into a list instead of
+  `.SingleOrDefaultAsync()`; more than one match fails the login the same way every other rejection
+  in that method does (generic 401, audited — new reason `DuplicateTerminalAssignment`).
+- `OrderEndpoints.LoadAuthorizedOrderAsync`, `PaymentEndpoints.LoadAuthorizedOrderAsync`,
+  `ReceiptEndpoints.LoadAuthorizedOrderAsync` each gained the identical
+  `authContext.TerminalId is null || authContext.TerminalId != order.TerminalId` check, scoped to
+  fire only for location-bound sessions (admin/Back-Office sessions, `LocationId: null`, are
+  unaffected). `OrderEndpoints.OpenAsync` gained the matching check against the *requested*
+  terminal (there being no existing order yet to compare against).
+
+### Tests added
+
+- `TerminalEndpointsTests`: `TerminalModel_DeviceId_HasAUniqueIndex` (EF model metadata, no DB
+  round-trip); `Database_Rejects_TwoTerminalsWithTheSameDeviceId_EvenBypassingTheAppCheck` (two
+  independent `DbContext`s each set a different terminal's `DeviceId` to the same value — the first
+  `SaveChangesAsync()` succeeds, the second throws `DbUpdateException`, deterministically proving
+  the DB constraint holds regardless of the app-level pre-check);
+  `AssignDevice_ConcurrentConflictingAssignments_NeverCrash_ExactlyOneSucceeds` (two real concurrent
+  HTTP calls via `Task.WhenAll`; asserts neither ever returns 500 and exactly one 200/one 409 come
+  back, without asserting which layer — pre-check or DB constraint — caught the loser).
+- `OrderEndpointsTests`: `GetById_Blocked_ForDifferentTerminal_SameLocation`,
+  `AddLine_Blocked_ForDifferentTerminal_SameLocation`, `VoidLine_Blocked_ForDifferentTerminal_SameLocation`,
+  `VoidOrder_Blocked_ForDifferentTerminal_SameLocation`, `HoldAndResume_Blocked_ForDifferentTerminal_SameLocation`,
+  `Open_Rejects_WhenSessionHasNoResolvedTerminalId`,
+  `Open_Rejects_WhenRequestedTerminalDiffersFromSessionsResolvedTerminal` — each proves Terminal B's
+  session is rejected (404) and Terminal A's session still succeeds against its own order.
+- `PaymentEndpointsTests.RecordPayment_Blocked_ForDifferentTerminal_SameLocation`,
+  `ReceiptEndpointsTests.GetReceipt_And_Reprint_Blocked_ForDifferentTerminal_SameLocation` — same
+  shape, for payment recording and receipt view/reprint.
+- Fixed (not new tests, required by the new correct behaviour):
+  `OrderEndpointsTests.Open_Succeeds_ForStaffPinSession`,
+  `PaymentEndpointsTests.RecordPayment_Succeeds_ForStaffPinSession`,
+  `ReceiptEndpointsTests.Reprint_Succeeds_ForStaffPinSession` each needed a
+  `POST .../assign-device` call added to their setup.
+
+### Deviations from the kickoff plan
+
+One, discovered while writing tests, not anticipated in the kickoff notes: **the kickoff plan's
+"seed two terminals with the same `DeviceId` directly via `DbContext`, bypassing the endpoint" test
+strategy for both the DB-constraint test and the login-hardening test turned out to be impossible
+once the unique index existed** — that's the fix working correctly, but it means:
+
+- The DB-constraint test (`Database_Rejects_TwoTerminalsWithTheSameDeviceId_EvenBypassingTheAppCheck`)
+  had to use two independent `DbContext`s racing a real commit instead of one context writing two
+  rows outright (a single context's `SaveChangesAsync()` would just throw immediately on the second
+  tracked entity, which is a weaker proof than two genuinely independent commits).
+- **The login-hardening path (`StaffPinLoginAsync` failing cleanly on more-than-one match) has no
+  integration test.** Once the unique index exists, no two `Terminal` rows can ever share a non-null
+  `DeviceId` in a migrated database — there is no way to construct the precondition without
+  dropping the constraint, which risked destabilising other tests running concurrently against the
+  same shared Postgres instance (xUnit runs test classes in parallel by default in this repo). This
+  is documented in-place as a code comment in `StaffPinLoginTests.cs` rather than silently omitted:
+  the hardening remains defense-in-depth for pre-migration/legacy data, proven correct by the same
+  "ambiguous match → generic 401, audited" pattern this file's `DeviceRegistrationTests` already
+  established for a structurally analogous case, not by a live duplicate-row fixture.
+
+### Verification
+
+- `dotnet test DaxaPos.sln` — **1152/1152 passing** (144 unit + 78 Web + 930 API — up from
+  Milestone C.1's 1140; 12 new API tests, no Web changes this milestone). No regressions.
+- Fixed, not a regression: `OrderEndpointsTests.Open_Succeeds_ForStaffPinSession`,
+  `PaymentEndpointsTests.RecordPayment_Succeeds_ForStaffPinSession`,
+  `ReceiptEndpointsTests.Reprint_Succeeds_ForStaffPinSession` each needed a
+  `POST .../assign-device` call added to their setup — see the plan doc's kickoff decision for why
+  this is a fix, not a weakening.
+- Live-verified against the (already-rebuilt, from Milestone C.1) local demo stack via `curl`: see
+  the plan doc's closeout section for the exact sequence.
+- No browser-automation tool was available this session (same constraint as every PLAN-0006
+  session so far); no Web/UI code changed this milestone, so no bUnit changes were needed either.
+
+### Milestone D is now unblocked
+
+The two ownership gaps that made payments/receipts unsafe to build on top of are closed. Start
+PLAN-0006 Milestone D: Payment and receipt flow in PWA.
+
+## Recommended Next Session (post-Milestone-C.2)
+
+Start PLAN-0006 Milestone D: Payment and receipt flow in PWA — both the `TerminalId` gap (closed
+in C.1) and the terminal-scoped-authorization gap (closed in C.2) that would otherwise have let
+the wrong terminal session pay or receipt another terminal's order are now closed.
 
 Do not:
 
