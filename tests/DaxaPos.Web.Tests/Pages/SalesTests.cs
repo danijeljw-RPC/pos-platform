@@ -93,15 +93,16 @@ public class SalesTests : TestContext
     }
 
     [Fact]
-    public void WhenMenuLoadFails_ShowsErrorMessage()
+    public async Task WhenMenuLoadFails_ShowsErrorMessageAsync()
     {
         var deviceStore = new DeviceContextStore(new InMemoryBrowserStorage());
-        deviceStore.SaveAsync(SampleDevice()).AsTask().Wait();
+        //deviceStore.SaveAsync(SampleDevice()).AsTask().Wait();
+        await deviceStore.SaveAsync(SampleDevice());
         Services.AddSingleton<IDeviceContextStore>(deviceStore);
 
         var sessionStore = new AuthSessionStore(new InMemoryBrowserStorage());
-        sessionStore.SaveAsync(new SessionState(
-            "token", DateTimeOffset.UtcNow.AddHours(1), Guid.NewGuid(), "Jane Staff", ["StaffPin"], ["orders.manage"], TerminalId)).AsTask().Wait();
+        await sessionStore.SaveAsync(new SessionState(
+            "token", DateTimeOffset.UtcNow.AddHours(1), Guid.NewGuid(), "Jane Staff", ["StaffPin"], ["orders.manage"], TerminalId));
         Services.AddSingleton<IAuthSessionStore>(sessionStore);
         Services.AddSingleton<IDraftOrderStore>(RegisterDraftStore());
         Services.AddSingleton(FakeDaxaApiClientHandler.BuildFailure(HttpStatusCode.NotFound, out _));
