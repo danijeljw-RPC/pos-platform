@@ -6,6 +6,45 @@ Implemented and verified (2026-07-07). See "Implementation Notes" and "Verificat
 [PLAN-0011-local-demo-setup-helper.md](PLAN-0011-local-demo-setup-helper.md) for full detail;
 this file summarises files changed, commands run, and handoff state.
 
+## Sales Demo Addendum (2026-07-07)
+
+`scripts/setup-local-demo.sh` was confirmed to be intentionally insufficient for PLAN-0006
+manual `/sales` testing: it creates/reuses a location and staff member and issues a device
+registration PIN, but it does not seed venue tax configuration, tax category/definition linkage,
+catalogue, required modifiers, menus, menu sections/items, a terminal, or a Staff-role grant.
+That explains the browser state where device setup and terminal assignment can succeed but
+`/sales` still shows "Could not load the menu for this location."
+
+Added `scripts/setup-local-sales-demo.sh` as the sales-ready local-dev helper. It runs the base
+helper first, then uses existing API endpoints for terminal, venue tax, tax definition/category,
+category-definition, product category, product, modifier group/option, menu, and menu section
+setup. It uses direct SQL only for the gaps where there is no safe rerunnable API surface today:
+assigning the seeded `Staff` role to the demo staff member, linking the product to its required
+modifier group, and linking the product into the menu section. The script verifies
+`GET /api/v1/menus/resolved?locationId=...` contains the demo product with the required modifier
+before printing the manual UI steps.
+
+Live verification against the already-running root Compose stack:
+
+- `test -f scripts/setup-local-sales-demo.sh` failed before implementation, proving the missing
+  dedicated helper path.
+- `bash -n scripts/setup-local-demo.sh` passed.
+- `bash -n scripts/setup-local-sales-demo.sh` passed.
+- First `./scripts/setup-local-sales-demo.sh` run created terminal `Front Counter 1`, venue tax
+  config, AU GST tax definition/category/linkage, `Flat White`, required `Milk -> Full cream`
+  modifier, menu, section, and menu item, then verified the resolved menu projection.
+- Second `./scripts/setup-local-sales-demo.sh` run reused all sales records and only refreshed the
+  registration/staff PINs through the base helper.
+- `git diff --check` passed.
+- `npx markdownlint-cli2 README.md docs/README.md docs/testing/local-smoke-test.md
+  docs/plans/active/PLAN-0011-local-demo-setup-helper.md
+  docs/plans/active/PLAN-0011-worker-notes.md` passed with 0 errors.
+- `dotnet test tests/DaxaPos.Api.Tests/DaxaPos.Api.Tests.csproj --filter
+  "FullyQualifiedName~ResolvedMenuEndpointsTests|FullyQualifiedName~OrderEndpointsTests|FullyQualifiedName~PaymentEndpointsTests"`
+  passed: 59/59 tests. A first sandboxed attempt failed before test execution with MSBuild
+  `System.Net.Sockets.SocketException (13): Permission denied`; rerunning the same command with
+  escalation succeeded.
+
 ## Human Decisions
 
 - Create a runnable script, not only a command reference.

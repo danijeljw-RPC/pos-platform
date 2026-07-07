@@ -104,6 +104,17 @@ docker compose up -d --build
 
 `setup-local-demo.sh` authenticates as the bootstrap admin, creates or reuses a demo location and staff member, and prints a device registration PIN, staff code, and staff PIN so you can sign into the PWA immediately. It's safe to rerun.
 
+For PLAN-0006 `/sales` manual UI testing, run the sales-ready helper instead:
+
+```bash
+./scripts/setup-local-sales-demo.sh
+```
+
+It builds on the base helper and creates the local-dev-only terminal, Staff-role grant, tax,
+product, required modifier, and menu records needed for a product tile to appear on `/sales`.
+It prints the exact device setup, Back Office terminal-assignment, staff login, payment, and
+display steps.
+
 Once running:
 
 - API: `http://localhost:5118` (`GET /health`)

@@ -31,6 +31,49 @@ Keycloak-stopped offline confirmation.
 
 ---
 
+## Sales UI fast path (PLAN-0006 manual testing)
+
+For `/sales` manual testing, use the sales-ready helper instead:
+
+```bash
+./scripts/setup-local-sales-demo.sh
+```
+
+`setup-local-demo.sh` is intentionally only the identity/device fast path. It does not create the
+terminal, Staff-role grant, venue tax configuration, tax category/definition linkage, product,
+required modifier, menu, menu section, or menu item that `/sales` needs. Without those records,
+`GET /api/v1/menus/resolved?locationId=...` can fail closed or return no product tiles, and the
+browser can show "Could not load the menu for this location."
+
+`setup-local-sales-demo.sh` remains local-dev only. It runs the base helper first, then prepares:
+
+- a terminal for the demo location;
+- the seeded `Staff` role on the demo staff member (`orders.manage`, `payments.record`, and
+  `receipts.reprint`);
+- venue tax configuration;
+- AU GST tax definition, taxable category, and location-scoped category-definition link;
+- one product tile;
+- one required modifier group and option;
+- one location-specific menu, section, and menu item.
+
+Most setup is done through existing API endpoints. The helper uses direct SQL only where the
+current API has no safe rerunnable surface: assigning the seeded Staff role, linking product to
+modifier group, and linking menu section to product. It does not change schema or product
+behaviour.
+
+After the command prints `Daxa POS local sales demo environment is ready`:
+
+1. Open `http://localhost:8080/device-setup` and register the browser with the printed device PIN.
+2. Open `http://localhost:8080/back-office/login` and sign in as `admin@daxapos.local`.
+3. In Back Office Terminals, assign the registered device to `Front Counter 1`.
+4. Open `http://localhost:8080/login` and sign in with the printed staff code and PIN.
+5. Open `http://localhost:8080/sales` and confirm the `Flat White` product tile is visible.
+6. Select the required `Milk` modifier option and add the item to the order.
+7. Use Pay to record Cash or Manual EFTPOS.
+8. Open `http://localhost:8080/display` to view the customer display surface.
+
+---
+
 ## Automated CI smoke test (PLAN-0012)
 
 `.github/workflows/local-demo-smoke-ci.yml` runs the fast path twice against a fresh PostgreSQL

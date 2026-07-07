@@ -127,6 +127,96 @@ The approved design is in
 `docs/superpowers/specs/2026-07-07-local-demo-setup-helper-design.md`. Do not add a Compose seeder
 service or application startup seeding; this helper is an explicit developer action.
 
+## PLAN-0006 Sales Demo Addendum (2026-07-07)
+
+### Goal
+
+Add a local-development-only sales demo setup path that prepares enough data for PLAN-0006 manual UI
+testing: device setup, terminal assignment, staff PIN login, resolved menu loading, required
+modifier selection, real order line creation, cash/manual EFTPOS payment, receipt, and display.
+
+### Scope
+
+- Keep `scripts/setup-local-demo.sh` as the minimal identity/device helper.
+- Add `scripts/setup-local-sales-demo.sh` as the sales-ready helper.
+- Use existing API endpoints for location, device PIN, terminal, tax, catalogue, modifier, menu,
+  and resolved-menu verification.
+- Use a narrow direct database insert only for assigning the seeded `Staff` role to the demo staff
+  member, because no staff-role assignment API exists yet.
+- Document exact commands and manual browser steps.
+
+### Non-goals
+
+- Backend schema changes, migrations, endpoint changes, or product-behaviour shortcuts.
+- Production seeding or automatic application startup seeding.
+- Browser automation.
+- New Back Office role-management UI.
+
+### Files Likely To Change
+
+```text
+scripts/setup-local-sales-demo.sh
+docs/testing/local-smoke-test.md
+README.md
+docs/README.md
+docs/plans/active/PLAN-0011-local-demo-setup-helper.md
+docs/plans/active/PLAN-0011-worker-notes.md
+```
+
+### Architecture Assumptions
+
+- The root Compose stack exposes the API at `http://localhost:5118`, PWA at
+  `http://localhost:8080`, and PostgreSQL at `localhost:5432`.
+- PLAN-0006 `/sales` uses `GET /api/v1/menus/resolved?locationId=...`, which fails closed without
+  `VenueTaxConfiguration` and returns no usable tiles without active product/menu/section/item data.
+- A terminal must be assigned to the registered browser device before staff PIN login can create a
+  session with `terminalId`.
+- The seeded `Staff` role already carries `orders.manage`, `payments.record`, and
+  `receipts.reprint`.
+
+### Domain Assumptions
+
+- The sales demo remains under the bootstrap organisation.
+- AU GST 10% and tax-inclusive pricing are the first local sales demo defaults.
+- A single required modifier group with one option is sufficient to prove the PLAN-0006 modifier
+  flow without creating a full industry template.
+
+### Risks
+
+- Catalogue/menu endpoints do not reject duplicate names, so reruns must reuse active records where
+  list endpoints allow it.
+- The Staff-role grant uses direct SQL and must be clearly documented as local-dev-only because the
+  API currently has no staff-role assignment endpoint.
+- Device-to-terminal assignment cannot be automated until the browser registers the device and
+  produces a device row; the helper must print a Back Office manual step.
+
+### Tests To Run
+
+- `test -f scripts/setup-local-sales-demo.sh` before implementation to prove the missing helper.
+- `bash -n scripts/setup-local-demo.sh`
+- `bash -n scripts/setup-local-sales-demo.sh`
+- `./scripts/setup-local-sales-demo.sh` against the root Compose stack.
+- `git diff --check`
+
+### Documentation To Update
+
+- `docs/testing/local-smoke-test.md`
+- `README.md`
+- `docs/README.md` if needed for index wording.
+- `docs/plans/active/PLAN-0011-worker-notes.md`
+
+### Commit Sequence
+
+```text
+dev: add local sales demo setup helper
+docs: document local sales demo workflow
+```
+
+### Rollback Notes
+
+Remove `scripts/setup-local-sales-demo.sh` and its documentation references. Local demo records can
+be abandoned or removed by recreating the local Compose database volume if explicitly desired.
+
 ## Implementation Notes (2026-07-07)
 
 - `scripts/setup-local-demo.sh` implements the full data flow: health check, admin login,
