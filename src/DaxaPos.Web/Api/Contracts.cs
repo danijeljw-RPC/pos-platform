@@ -78,13 +78,28 @@ public sealed record MenuResult(Guid Id, Guid? LocationId, string Name, bool IsA
 // numeric enum server-side (no JsonStringEnumConverter) and this milestone's UI never needs to
 // interpret it — the resolved Price/IsTaxInclusive is already the full answer for display.
 
+// Milestone C.1: modifier group/option data now included in the resolved-menu projection so the
+// sales screen can prompt for required/optional selections before adding a line.
+
+public sealed record ResolvedModifierResult(Guid Id, string Name, decimal PriceDelta);
+
+public sealed record ResolvedModifierGroupResult(
+    Guid Id,
+    string Name,
+    int SelectionMin,
+    int SelectionMax,
+    bool IsRequired,
+    int DisplayOrder,
+    IReadOnlyList<ResolvedModifierResult> Modifiers);
+
 public sealed record ResolvedMenuItemResult(
     Guid ProductId,
     string ProductName,
     int DisplayOrder,
     decimal Price,
     bool IsTaxInclusive,
-    string TaxCategoryCode);
+    string TaxCategoryCode,
+    IReadOnlyList<ResolvedModifierGroupResult> ModifierGroups);
 
 public sealed record ResolvedMenuSectionResult(
     Guid MenuId,
@@ -94,3 +109,62 @@ public sealed record ResolvedMenuSectionResult(
     IReadOnlyList<ResolvedMenuItemResult> Items);
 
 public sealed record ResolvedMenuResult(Guid LocationId, IReadOnlyList<ResolvedMenuSectionResult> Sections);
+
+// Terminal sales screen real order wiring (PLAN-0006 Milestone C.1) — client mirrors of
+// OrderEndpoints' request/response DTOs. Only the fields the sales screen actually reads/writes
+// are mirrored (no ProductVariantId/tax-line detail — the sales screen shows server totals, it
+// never re-derives them).
+
+public sealed record CreateOrderRequest(Guid TerminalId, string? Notes = null);
+
+public sealed record AddOrderLineRequest(Guid ProductId, int Quantity, IReadOnlyList<Guid>? ModifierIds, string? Notes);
+
+/// <summary>Mirrors <c>DaxaPos.Domain.Enums.OrderStatus</c> ordinal-for-ordinal — the API has no
+/// <c>JsonStringEnumConverter</c> configured, so this serialises as the same integer.</summary>
+public enum OrderStatusResult
+{
+    Open = 0,
+    Held = 1,
+    Completed = 2,
+    Voided = 3,
+    Cancelled = 4,
+}
+
+/// <summary>Mirrors <c>DaxaPos.Domain.Enums.OrderLineStatus</c> ordinal-for-ordinal (see
+/// <see cref="OrderStatusResult"/> remarks).</summary>
+public enum OrderLineStatusResult
+{
+    Active = 0,
+    Voided = 1,
+}
+
+public sealed record OrderLineModifierResult(Guid Id, Guid ModifierId, string NameSnapshot, decimal PriceDeltaSnapshot);
+
+public sealed record OrderLineResult(
+    Guid Id,
+    Guid ProductId,
+    int Quantity,
+    string ProductNameSnapshot,
+    decimal UnitPriceSnapshot,
+    decimal LineTotalAmount,
+    string? Notes,
+    OrderLineStatusResult Status,
+    IReadOnlyList<OrderLineModifierResult> Modifiers);
+
+public sealed record OrderResult(
+    Guid Id,
+    Guid TerminalId,
+    OrderStatusResult Status,
+    decimal SubtotalAmount,
+    decimal TotalTaxAmount,
+    decimal GrandTotalAmount,
+    IReadOnlyList<OrderLineResult> Lines);
+
+// Back Office Terminals page (PLAN-0006 Milestone C.1) — admin-only, explicit-bearer, mirrors
+// TerminalEndpoints' DTOs.
+
+public sealed record TerminalResult(Guid Id, Guid LocationId, Guid? DeviceId, string Name, bool IsActive);
+
+public sealed record CreateTerminalRequest(string Name, Guid LocationId);
+
+public sealed record AssignTerminalDeviceRequest(Guid? DeviceId);

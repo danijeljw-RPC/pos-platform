@@ -19,7 +19,7 @@ public class SalesTests : TestContext
         [
             new ResolvedMenuSectionResult(Guid.NewGuid(), Guid.NewGuid(), "Coffee", 0,
             [
-                new ResolvedMenuItemResult(productId, productName, 0, price, true, "AU_GST_10"),
+                new ResolvedMenuItemResult(productId, productName, 0, price, true, "AU_GST_10", []),
             ]),
         ]);
 

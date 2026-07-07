@@ -38,4 +38,21 @@ public class SessionStateTests
 
         Assert.True(session.IsExpired(now));
     }
+
+    [Fact]
+    public void TerminalId_DefaultsToNull_WhenNotSupplied()
+    {
+        var session = SampleSession(DateTimeOffset.UtcNow.AddHours(1));
+
+        Assert.Null(session.TerminalId);
+    }
+
+    [Fact]
+    public void TerminalId_RoundTrips_WhenSupplied()
+    {
+        var terminalId = Guid.NewGuid();
+        var session = SampleSession(DateTimeOffset.UtcNow.AddHours(1)) with { TerminalId = terminalId };
+
+        Assert.Equal(terminalId, session.TerminalId);
+    }
 }

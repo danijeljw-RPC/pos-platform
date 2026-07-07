@@ -45,6 +45,29 @@ public sealed class DaxaApiClient(HttpClient httpClient)
         GetAsync<ResolvedMenuResult>($"api/v1/menus/resolved?locationId={locationId}", ct);
 
     /// <summary>
+    /// Milestone C.1: real order wiring, replacing the local-only draft. Implicit-auth, same as
+    /// <see cref="GetResolvedMenuAsync"/> — these are Terminal-shell staff-session calls.
+    /// </summary>
+    public Task<ApiResult<OrderResult>> OpenOrderAsync(CreateOrderRequest request, CancellationToken ct = default) =>
+        PostAsync<CreateOrderRequest, OrderResult>("api/v1/orders", request, ct);
+
+    public Task<ApiResult<OrderResult>> GetOrderAsync(Guid orderId, CancellationToken ct = default) =>
+        GetAsync<OrderResult>($"api/v1/orders/{orderId}", ct);
+
+    public Task<ApiResult<OrderResult>> AddOrderLineAsync(Guid orderId, AddOrderLineRequest request, CancellationToken ct = default) =>
+        PostAsync<AddOrderLineRequest, OrderResult>($"api/v1/orders/{orderId}/lines", request, ct);
+
+    /// <summary>Reason is bound from the query string server-side (a plain <c>string?</c> minimal-API parameter, not a body).</summary>
+    public Task<ApiResult<OrderResult>> VoidOrderLineAsync(Guid orderId, Guid lineId, string? reason, CancellationToken ct = default) =>
+        DeleteAsync<OrderResult>($"api/v1/orders/{orderId}/lines/{lineId}{ReasonQuery(reason)}", ct);
+
+    public Task<ApiResult<OrderResult>> VoidOrderAsync(Guid orderId, string? reason, CancellationToken ct = default) =>
+        PostNoBodyAsync<OrderResult>($"api/v1/orders/{orderId}/void{ReasonQuery(reason)}", ct);
+
+    private static string ReasonQuery(string? reason) =>
+        reason is null ? string.Empty : $"?reason={Uri.EscapeDataString(reason)}";
+
+    /// <summary>
     /// Back Office admin login (ADR-0013 local admin portal login). Unauthenticated — the server
     /// endpoint requires no prior context, unlike Staff PIN login which requires a device context.
     /// </summary>
@@ -87,6 +110,21 @@ public sealed class DaxaApiClient(HttpClient httpClient)
 
     public Task<ApiResult<IReadOnlyList<MenuResult>>> ListMenusAsync(string bearerToken, CancellationToken ct = default) =>
         GetAuthorizedAsync<IReadOnlyList<MenuResult>>("api/v1/menus", bearerToken, ct);
+
+    /// <summary>
+    /// Terminals page (Milestone C.1) — the smallest Back Office surface that makes a staff
+    /// session's TerminalId resolvable at all, since every <c>/api/v1/terminals</c> route is
+    /// admin-only.
+    /// </summary>
+    public Task<ApiResult<IReadOnlyList<TerminalResult>>> ListTerminalsAsync(string bearerToken, CancellationToken ct = default) =>
+        GetAuthorizedAsync<IReadOnlyList<TerminalResult>>("api/v1/terminals", bearerToken, ct);
+
+    public Task<ApiResult<TerminalResult>> CreateTerminalAsync(string bearerToken, CreateTerminalRequest request, CancellationToken ct = default) =>
+        PostAuthorizedAsync<CreateTerminalRequest, TerminalResult>("api/v1/terminals", bearerToken, request, ct);
+
+    public Task<ApiResult<TerminalResult>> AssignTerminalDeviceAsync(
+        string bearerToken, Guid terminalId, AssignTerminalDeviceRequest request, CancellationToken ct = default) =>
+        PostAuthorizedAsync<AssignTerminalDeviceRequest, TerminalResult>($"api/v1/terminals/{terminalId}/assign-device", bearerToken, request, ct);
 
     /// <summary>Explicit-bearer counterpart to <see cref="LogoutAsync"/> for the Back Office session.</summary>
     public async Task<ApiResult> LogoutBackOfficeAsync(string bearerToken, CancellationToken ct = default)
@@ -188,6 +226,52 @@ public sealed class DaxaApiClient(HttpClient httpClient)
         try
         {
             using var response = await httpClient.GetAsync(uri, ct);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return ApiResult<TResponse>.FromStatusCode(response.StatusCode);
+            }
+
+            var value = await response.Content.ReadFromJsonAsync<TResponse>(cancellationToken: ct);
+            return value is null
+                ? ApiResult<TResponse>.FromStatusCode(HttpStatusCode.UnprocessableEntity, "Empty response body.")
+                : ApiResult<TResponse>.Success(value, response.StatusCode);
+        }
+        catch (HttpRequestException ex)
+        {
+            return ApiResult<TResponse>.NetworkFailure(ex.Message);
+        }
+    }
+
+    /// <summary>No-request-body POST (e.g. <c>.../void</c>) — matches <see cref="LogoutAsync"/>'s
+    /// null-content style rather than serialising a literal JSON <c>null</c> body.</summary>
+    private async Task<ApiResult<TResponse>> PostNoBodyAsync<TResponse>(string uri, CancellationToken ct)
+    {
+        try
+        {
+            using var response = await httpClient.PostAsync(uri, content: null, ct);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return ApiResult<TResponse>.FromStatusCode(response.StatusCode);
+            }
+
+            var value = await response.Content.ReadFromJsonAsync<TResponse>(cancellationToken: ct);
+            return value is null
+                ? ApiResult<TResponse>.FromStatusCode(HttpStatusCode.UnprocessableEntity, "Empty response body.")
+                : ApiResult<TResponse>.Success(value, response.StatusCode);
+        }
+        catch (HttpRequestException ex)
+        {
+            return ApiResult<TResponse>.NetworkFailure(ex.Message);
+        }
+    }
+
+    private async Task<ApiResult<TResponse>> DeleteAsync<TResponse>(string uri, CancellationToken ct)
+    {
+        try
+        {
+            using var response = await httpClient.DeleteAsync(uri, ct);
 
             if (!response.IsSuccessStatusCode)
             {

@@ -90,7 +90,7 @@ public class DaxaApiClientTests
             [
                 new ResolvedMenuSectionResult(Guid.NewGuid(), Guid.NewGuid(), "Coffee", 0,
                 [
-                    new ResolvedMenuItemResult(productId, "Flat White", 0, 5.5m, true, "AU_GST_10"),
+                    new ResolvedMenuItemResult(productId, "Flat White", 0, 5.5m, true, "AU_GST_10", []),
                 ]),
             ])),
         };

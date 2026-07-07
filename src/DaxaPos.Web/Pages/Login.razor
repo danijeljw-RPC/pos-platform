@@ -60,6 +60,13 @@ else
         }
 
         var login = result.Value;
+
+        // Milestone C.1: TerminalId isn't in the login response itself (StaffPinLoginResponse is
+        // unchanged) — it's resolved server-side from this device's Terminal assignment and
+        // surfaced through the already-existing /auth/me endpoint. A failure here degrades to
+        // TerminalId: null (the same "not linked" state a genuinely unassigned device shows on
+        // /sales) rather than blocking login — the server independently re-checks TerminalId at
+        // order-open time regardless of what this client believes.
         await SessionStore.SaveAsync(new SessionState(
             login.SessionToken,
             login.ExpiresAtUtc,
@@ -67,6 +74,19 @@ else
             login.DisplayName,
             login.Roles,
             login.Permissions));
+
+        var me = await ApiClient.GetMeAsync();
+        if (me.Kind == ApiResultKind.Success && me.Value?.TerminalId is { } terminalId)
+        {
+            await SessionStore.SaveAsync(new SessionState(
+                login.SessionToken,
+                login.ExpiresAtUtc,
+                login.StaffMemberId,
+                login.DisplayName,
+                login.Roles,
+                login.Permissions,
+                terminalId));
+        }
 
         AuthStateProvider.NotifyChanged();
         Navigation.NavigateTo("/");

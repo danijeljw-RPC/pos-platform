@@ -17,6 +17,7 @@ builder.Services.AddScoped<IBrowserStorage, LocalStorageBrowserStorage>();
 builder.Services.AddSingleton<IDeviceContextStore, DeviceContextStore>();
 builder.Services.AddSingleton<IAuthSessionStore, AuthSessionStore>();
 builder.Services.AddSingleton<IBackOfficeSessionStore, BackOfficeSessionStore>();
+builder.Services.AddSingleton<IDraftOrderStore, DraftOrderStore>();
 builder.Services.AddTransient<AuthHeaderHandler>();
 
 builder.Services.AddHttpClient<DaxaApiClient>(client => client.BaseAddress = new Uri(apiBaseUrl))

@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Http.Json;
 using Bunit;
 using DaxaPos.Web.Api;
 using DaxaPos.Web.Auth;
@@ -35,6 +36,34 @@ public class LoginTests : TestContext
         Assert.Equal("Jane Staff", sessionStore.Current!.DisplayName);
         var navigation = Services.GetRequiredService<NavigationManager>();
         Assert.Equal(navigation.BaseUri, navigation.Uri);
+    }
+
+    [Fact]
+    public void SubmittingValidCredentials_CapturesTerminalId_FromAuthMe()
+    {
+        var login = new StaffPinLoginResult("session-token", DateTimeOffset.UtcNow.AddHours(1), Guid.NewGuid(), "Jane Staff", ["StaffPin"], ["orders.manage"]);
+        var terminalId = Guid.NewGuid();
+        var stub = new StubHttpMessageHandler
+        {
+            Respond = request => new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = request.RequestUri!.AbsolutePath.EndsWith("/auth/me", StringComparison.Ordinal)
+                    ? JsonContent.Create(new AuthContextResult(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), terminalId, null, Guid.NewGuid(), Guid.NewGuid(), "LocalStaffPin", ["StaffPin"], ["orders.manage"]))
+                    : JsonContent.Create(login),
+            },
+        };
+        Services.AddSingleton(new DaxaApiClient(new HttpClient(stub) { BaseAddress = new Uri("http://test/") }));
+        Services.AddSingleton<IDeviceContextStore>(RegisteredDeviceStore());
+        var sessionStore = new AuthSessionStore(new InMemoryBrowserStorage());
+        Services.AddSingleton<IAuthSessionStore>(sessionStore);
+        Services.AddSingleton(new ApiAuthenticationStateProvider(sessionStore));
+
+        var cut = RenderComponent<Login>();
+        cut.Find("#staffCode").Change("S001");
+        cut.Find("#pin").Change("1234");
+        cut.Find("form").Submit();
+
+        Assert.Equal(terminalId, sessionStore.Current!.TerminalId);
     }
 
     [Fact]

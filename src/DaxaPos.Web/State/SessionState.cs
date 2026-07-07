@@ -13,7 +13,8 @@ public sealed record SessionState(
     Guid StaffMemberId,
     string DisplayName,
     IReadOnlyCollection<string> Roles,
-    IReadOnlyCollection<string> Permissions)
+    IReadOnlyCollection<string> Permissions,
+    Guid? TerminalId = null)
 {
     public bool IsExpired(DateTimeOffset now) => now >= ExpiresAtUtc;
 }
