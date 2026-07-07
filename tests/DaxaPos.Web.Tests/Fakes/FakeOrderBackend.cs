@@ -21,6 +21,11 @@ public sealed class FakeOrderBackend
 
     public OrderResult? Order { get; set; }
 
+    /// <summary>Orders returned by <c>GET /api/v1/orders</c> (KDS board, Milestone F) — independent
+    /// of <see cref="Order"/>, which only ever tracks the single order a Sales/Pay/Display test
+    /// drives through open/add-line/void/pay.</summary>
+    public List<OrderResult> Orders { get; } = [];
+
     public Guid? LastOpenedTerminalId { get; private set; }
 
     /// <summary>Payments recorded against <see cref="Order"/>, mirroring
@@ -166,6 +171,11 @@ public sealed class FakeOrderBackend
             }
 
             return Json(HttpStatusCode.OK, BuildReceipt(Order));
+        }
+
+        if (request.Method == HttpMethod.Get && segments is ["api", "v1", "orders"])
+        {
+            return Json(HttpStatusCode.OK, (IReadOnlyList<OrderResult>)Orders);
         }
 
         if (request.Method == HttpMethod.Get && segments is ["api", "v1", "orders", _])

@@ -5,7 +5,8 @@
 Milestone A - Complete. Milestone B - Complete. Milestone C - Complete. Milestone C.1 (TerminalId
 resolution, modifiers, real order wiring) - Complete. Milestone C.2 (terminal assignment integrity,
 terminal-scoped order authorization) - Complete. Milestone D (payments/receipts) - Complete.
-**Milestone E (customer display) - Complete, see closeout below.**
+Milestone E (customer display) - Complete. **Milestone F (minimal KDS PWA board) - Complete, see
+closeout below.**
 
 See `docs/plans/active/PLAN-0006-worker-notes.md` for the full Milestone A implementation report.
 Summary: `src/DaxaPos.Web` (standalone Blazor WebAssembly PWA) scaffolded with device-setup, staff
@@ -798,6 +799,130 @@ this milestone's code:
    it never shows the first terminal's order (C.2's terminal-scoped authorization applies to
    `/display`'s polling exactly as it does to `/sales`/`/sales/pay`).
 
+### Milestone F kickoff decision (2026-07-07)
+
+**No backend/API changes are required for Milestone F.** `GET /api/v1/orders?locationId=&status=`
+(`OrderEndpoints.ListAsync`) already exists, is `orders.manage`-gated with no `rejectStaffPin`
+(staff-PIN-eligible, same as every other order endpoint since PLAN-0005), and is already
+location-scoped correctly: a location-bound session's `effectiveLocationId` is forced to
+`authContext.LocationId` regardless of the query string, so a KDS device can never see another
+location's orders. `OrderResponse` already carries everything a kitchen board needs — `OrderNumber`,
+`OpenedAtUtc`, `Status`, and every line's `ProductNameSnapshot`/`Quantity`/`Notes`/`Modifiers`. This
+fully satisfies the milestone's own "reuse existing order list/read endpoints if sufficient" rule —
+confirmed by reading `OrderEndpoints.cs` directly, not assumed, so no gap needs documenting and no
+narrow new endpoint is added.
+
+**Client DTO change, additive only**: the existing `OrderResult` client record (used by
+`Sales.razor`/`Pay.razor`/`Display.razor` and their ~15 existing positional
+`new OrderResult(...)` test call sites) gains `OrderNumber`/`OpenedAtUtc` as **trailing optional
+parameters** with defaults, not inserted positionally — every pre-existing call site keeps
+compiling unchanged, matching this project's "don't touch unrelated call sites" instinct even
+though nothing here technically forbade a wider edit.
+
+**Status filtering happens client-side, not via the server's `status` query parameter.** The
+endpoint accepts an optional `OrderStatus? status`, which would let the client ask for exactly
+`Open`/`Held` server-side, but no existing test in `OrderEndpointsTests` exercises how ASP.NET
+Core's minimal-API model binding parses an enum from a query string (name vs. ordinal). Rather than
+bet correctness on an unverified wire format, `Kds.razor` fetches the location's orders with no
+status filter and filters to `Open`/`Held` client-side. **Known simplification, flagged rather than
+silently built around**: this means the unfiltered response includes every historical order at a
+location (Completed/Voided/Cancelled included, just filtered out client-side) — fine for a "minimal"
+board today, but a real deployment with months of order history would be pulling an ever-growing
+list on every poll. A future milestone or open issue should either confirm and use the `status`
+query parameter, or add pagination/date-bounding to `ListAsync`.
+
+**Routes/components**: `src/DaxaPos.Web/Pages/Kds.razor` (`/kds`), **no `@layout` override** — sits
+in the existing Terminal shell (`MainLayout`), reusing Milestone A's device+session route guard with
+zero new code, the same posture as `Sales.razor` (unlike `Display.razor`, which deliberately bypasses
+`MainLayout` because it's customer-facing; a kitchen board is staff-facing, so requiring the existing
+device+staff-PIN session is the right, narrower choice — no new session/auth model is invented).
+Polls on a timer reusing `Display.razor`'s cancellable poll-loop pattern (`[Parameter] TimeSpan
+PollInterval`, test seam for a fast interval). Each open/held order renders as a card: order number,
+status badge, opened time, and its active lines (quantity, product name, modifier names, notes) —
+sorted oldest-first (kitchen FIFO), the opposite of `ListAsync`'s own newest-first ordering.
+
+**Error/empty/auth handling**: no device → the same "no device registered" prompt style as
+`Sales.razor`. A load failure (401/403/network) sets an error banner but **keeps showing the
+last-successfully-loaded board** rather than blanking it — a stale board is more useful to kitchen
+staff than an empty one on a transient blip, and the server remains the authority regardless (a
+genuine session expiry still requires the human to notice and re-authenticate elsewhere; this page
+does not redirect, matching `Display.razor`'s "degrade, don't crash" precedent).
+
+**Nav entry**: one added link in `NavMenu.razor` (Terminal shell sidebar), `target="_blank"`, same
+treatment as the existing "Customer display" link — a KDS board is also meant to run on its own
+device/tab.
+
+**Explicitly out of scope** (per the milestone's hard rules): station/production routing (OI-0018),
+mark-ready/mark-complete or any kitchen-ticket state transition, real-time/SignalR, any Back Office
+expansion, any backend/schema change.
+
+**Tests expected**: `tests/DaxaPos.Web.Tests/Pages/KdsTests.cs` (bUnit, extending
+`FakeOrderBackend` with an independent `Orders` list and a `GET /api/v1/orders` handler branch) — no
+device, loading→empty, an open order's number/lines/modifiers/notes, a held order shown, completed/
+voided/cancelled orders excluded, multiple open orders sorted oldest-first, a load failure showing
+an error without crashing, and a poll picking up a newly-opened order without manual refresh. Two
+new `DaxaApiClientTests` cases for `ListOrdersAsync` (success + `locationId` query-string assertion,
+forbidden → `Forbidden` kind).
+
+### Milestone F closeout (2026-07-07)
+
+Implemented as planned above, **no deviations**. No backend/API/schema changes anywhere in this
+milestone (confirmed: only `src/DaxaPos.Web`, `tests/DaxaPos.Web.Tests`, and these two docs changed).
+
+Summary: `Pages/Kds.razor` (`/kds`, default `MainLayout`) polls `GET /api/v1/orders?locationId=` via
+the new `DaxaApiClient.ListOrdersAsync`, filters to `Open`/`Held` client-side, sorts oldest-first,
+and renders each as a card with order number, status, opened time, and active lines (quantity,
+product name, modifier names, notes). `Contracts.cs`'s `OrderResult` gained `OrderNumber`/
+`OpenedAtUtc` as trailing optional parameters. `NavMenu.razor` gained a `target="_blank"` "Kitchen
+display" link, matching "Customer display"'s treatment. `FakeOrderBackend` gained an independent
+`Orders` list and a `GET /api/v1/orders` (no id) handler branch, used only by the new Kds tests —
+Sales/Pay/Display's existing single-`Order` flow is untouched.
+
+Full solution suite: **1188/1188 passing** (144 unit + 114 Web + 930 API — up from Milestone E's
+1178; 10 new Web tests, 0 API changes). No regressions.
+
+**Test-driven throughout**: `DaxaApiClientTests`'s two `ListOrdersAsync` cases and all 8 `KdsTests`
+cases were written and watched fail for the expected reason (missing method/component — a compile
+error, not a runtime failure) before `ListOrdersAsync`/`Kds.razor` existed, then implemented to
+green in one pass each, with no further changes needed.
+
+**Live/browser verification**: not performed this session, same constraint as every prior PLAN-0006
+milestone (no browser-automation tool available). bUnit component tests exercise real Blazor
+rendering and the poll-loop's timer-driven refresh (using a short `PollInterval` test seam,
+identical mechanism to `Display.razor`'s); the `pos-platform-web-1` container has not been rebuilt
+to serve this code — offered as a next step, not done unprompted, per the standing "ask before
+rebuilding/restarting api/web containers" practice.
+
+**Known gap flagged, not fixed here**: `Kds.razor` fetches every order at the location on each poll
+and filters Open/Held client-side (see the kickoff decision's status-filtering note) — a documented
+simplification, not an oversight, worth a future OI if the unfiltered history ever becomes large
+enough to matter. Also unaddressed, matching the milestone's own explicit non-goals: no station/
+production routing, no mark-ready/complete, no real kitchen-ticket lifecycle, no real-time push (a
+plain poll only).
+
+## Manual UI Test Instructions (Milestone F addendum)
+
+Continues from the Milestone E addendum above (device setup, terminal assignment, staff PIN login,
+adding items, paying, and the customer display all still apply unchanged). Once the `web` container
+is rebuilt to serve this milestone's code:
+
+1. While signed in on the Terminal shell, open the sidebar and click **Kitchen display** — it should
+   open `/kds` in a new browser tab, showing "No open orders right now." if nothing is currently open
+   at this location.
+2. Back in the original tab's `/sales`, open an order and add a couple of items (including one with
+   a modifier and one with a note, if available). Within a few seconds, the KDS tab should show a new
+   card for that order — order number, opened time, and the added lines with their modifiers/notes —
+   without a manual refresh.
+3. Open a second order from a different terminal at the same location (or the same terminal after
+   paying the first) — confirm the KDS board shows both cards, oldest order first.
+4. Pay one of the orders to completion — within a few seconds it should disappear from the KDS board
+   (only `Open`/`Held` orders are shown).
+5. Click **Clear order** on an open order before paying — it should disappear from the KDS board the
+   same way (`Voided`, not `Open`/`Held`).
+6. From a session at a different location (a second tenant/location's device), confirm its `/kds` tab
+   never shows this location's orders (the same `ListAsync` location-scoping every other PLAN-0006
+   milestone already relies on).
+
 ## Goal
 
 Implement the user-facing web/PWA layer that consumes the completed PLAN-0004 and PLAN-0005
@@ -1122,8 +1247,9 @@ Those belong to PLAN-0007.
 
 Recommended next implementation session:
 
-Start PLAN-0006 Milestone A only: Blazor/PWA shell, authentication/session/device context, and
-Staff PIN login.
+Start PLAN-0006 Milestone G only: consolidation, RBAC/UX sweep, and documentation closeout.
+Milestones A through F are all complete — see each milestone's kickoff/closeout notes above and
+`docs/plans/active/PLAN-0006-worker-notes.md` for full implementation detail.
 
 Do not start MAUI.
 

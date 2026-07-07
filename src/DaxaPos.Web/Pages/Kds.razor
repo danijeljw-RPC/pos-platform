@@ -1,0 +1,127 @@
+@page "/kds"
+@inject DaxaApiClient ApiClient
+@inject IDeviceContextStore DeviceContextStore
+@implements IDisposable
+
+<PageTitle>Kitchen Display</PageTitle>
+
+<h1>Kitchen Display</h1>
+
+@if (DeviceContextStore.Current is not { } device)
+{
+    <p>No device is registered on this browser yet. <a href="device-setup">Set up device</a>.</p>
+}
+else
+{
+    @if (_loadError is not null)
+    {
+        <p class="text-danger" role="alert">@_loadError</p>
+    }
+
+    @if (!_loaded)
+    {
+        <p>Loading orders&hellip;</p>
+    }
+    else if (_orders.Count == 0)
+    {
+        <p>No open orders right now.</p>
+    }
+    else
+    {
+        <div class="d-flex flex-wrap gap-3">
+            @foreach (var order in _orders)
+            {
+                <div class="border rounded p-3" style="min-width: 16rem; max-width: 20rem;">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="fw-semibold">Order #@order.OrderNumber</span>
+                        <span class="badge text-bg-secondary">@order.Status</span>
+                    </div>
+                    <div class="text-muted small mb-2">Opened @order.OpenedAtUtc.ToLocalTime().ToString("t")</div>
+                    <ul class="list-unstyled mb-0">
+                        @foreach (var line in order.Lines.Where(l => l.Status == OrderLineStatusResult.Active))
+                        {
+                            <li class="mb-2">
+                                <div>@line.Quantity &times; @line.ProductNameSnapshot</div>
+                                @if (line.Modifiers.Count > 0)
+                                {
+                                    <div class="text-muted small">@string.Join(", ", line.Modifiers.Select(m => m.NameSnapshot))</div>
+                                }
+                                @if (!string.IsNullOrWhiteSpace(line.Notes))
+                                {
+                                    <div class="fst-italic small">@line.Notes</div>
+                                }
+                            </li>
+                        }
+                    </ul>
+                </div>
+            }
+        </div>
+    }
+}
+
+@code {
+    /// <summary>Test seam: bUnit overrides this to a small value so polling tests don't wait
+    /// seconds per assertion. No SignalR/realtime infrastructure, per PLAN-0006's hard rule — a
+    /// plain poll, matching <see cref="Display"/>'s pattern.</summary>
+    [Parameter]
+    public TimeSpan PollInterval { get; set; } = TimeSpan.FromSeconds(5);
+
+    private List<OrderResult> _orders = [];
+    private bool _loaded;
+    private string? _loadError;
+    private CancellationTokenSource? _cts;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (DeviceContextStore.Current is not { } device)
+        {
+            return;
+        }
+
+        await RefreshAsync(device.LocationId);
+
+        _cts = new CancellationTokenSource();
+        _ = PollLoopAsync(device.LocationId, _cts.Token);
+    }
+
+    private async Task PollLoopAsync(Guid locationId, CancellationToken token)
+    {
+        while (!token.IsCancellationRequested)
+        {
+            try
+            {
+                await Task.Delay(PollInterval, token);
+            }
+            catch (TaskCanceledException)
+            {
+                return;
+            }
+
+            await RefreshAsync(locationId);
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task RefreshAsync(Guid locationId)
+    {
+        var result = await ApiClient.ListOrdersAsync(locationId);
+
+        if (result.Kind != ApiResultKind.Success || result.Value is null)
+        {
+            // Kitchen staff seeing the last-known board is more useful than a blank screen on a
+            // transient blip — keep whatever was already loaded and just surface the error.
+            _loadError = "Could not load open orders for this location.";
+            _loaded = true;
+            return;
+        }
+
+        _loadError = null;
+        _loaded = true;
+        _orders = result.Value
+            .Where(o => o.Status is OrderStatusResult.Open or OrderStatusResult.Held)
+            .OrderBy(o => o.OpenedAtUtc)
+            .ToList();
+    }
+
+    public void Dispose() => _cts?.Cancel();
+}

@@ -64,6 +64,16 @@ public sealed class DaxaApiClient(HttpClient httpClient)
     public Task<ApiResult<OrderResult>> VoidOrderAsync(Guid orderId, string? reason, CancellationToken ct = default) =>
         PostNoBodyAsync<OrderResult>($"api/v1/orders/{orderId}/void{ReasonQuery(reason)}", ct);
 
+    /// <summary>
+    /// KDS board (PLAN-0006 Milestone F). Implicit-auth, same as <see cref="GetResolvedMenuAsync"/> —
+    /// a Terminal-shell staff-session call. No status filter is sent: <c>OrderEndpoints.ListAsync</c>'s
+    /// <c>status</c> query parameter binds a bare enum with no existing test coverage proving its
+    /// wire format, so filtering to Open/Held happens client-side instead of depending on unverified
+    /// server-side binding.
+    /// </summary>
+    public Task<ApiResult<IReadOnlyList<OrderResult>>> ListOrdersAsync(Guid locationId, CancellationToken ct = default) =>
+        GetAsync<IReadOnlyList<OrderResult>>($"api/v1/orders?locationId={locationId}", ct);
+
     private static string ReasonQuery(string? reason) =>
         reason is null ? string.Empty : $"?reason={Uri.EscapeDataString(reason)}";
 

@@ -116,6 +116,40 @@ public class DaxaApiClientTests
     }
 
     [Fact]
+    public async Task ListOrdersAsync_OnSuccess_ReturnsOrdersAndAppendsLocationIdQuery()
+    {
+        var (client, stub) = BuildClient();
+        var locationId = Guid.NewGuid();
+        var orderId = Guid.NewGuid();
+        var terminalId = Guid.NewGuid();
+        stub.Respond = _ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = JsonContent.Create<IReadOnlyList<OrderResult>>(
+            [
+                new OrderResult(orderId, terminalId, OrderStatusResult.Open, 10m, 1m, 11m, [], 42, DateTimeOffset.UtcNow),
+            ]),
+        };
+
+        var result = await client.ListOrdersAsync(locationId);
+
+        Assert.Equal(ApiResultKind.Success, result.Kind);
+        Assert.Single(result.Value!);
+        Assert.Equal(orderId, result.Value![0].Id);
+        Assert.Contains($"locationId={locationId}", stub.LastRequest!.RequestUri!.Query);
+    }
+
+    [Fact]
+    public async Task ListOrdersAsync_OnForbidden_ReturnsForbiddenKind()
+    {
+        var (client, stub) = BuildClient();
+        stub.Respond = _ => new HttpResponseMessage(HttpStatusCode.Forbidden);
+
+        var result = await client.ListOrdersAsync(Guid.NewGuid());
+
+        Assert.Equal(ApiResultKind.Forbidden, result.Kind);
+    }
+
+    [Fact]
     public async Task RecordPaymentAsync_OnSuccess_PostsToOrderPaymentsAndReturnsPayment()
     {
         var (client, stub) = BuildClient();

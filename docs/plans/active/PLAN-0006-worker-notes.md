@@ -1290,3 +1290,138 @@ Do not:
 - Implement OI-0018.
 - Start PLAN-0009.
 - Add migrations unless a direct blocker is found.
+
+## Milestone F Kickoff Notes (before implementation, 2026-07-07)
+
+See the plan doc's "Milestone F kickoff decision" for the full reasoning. Summary below.
+
+### Confirmed current-state facts (read, not assumed)
+
+- `GET /api/v1/orders?locationId=&status=` (`OrderEndpoints.ListAsync`) already exists,
+  `orders.manage`-gated with no `rejectStaffPin`, and already forces `effectiveLocationId` to
+  `authContext.LocationId` for a location-bound session regardless of the query string — no backend
+  change needed at all.
+- `OrderResponse` already includes `OrderNumber`, `OpenedAtUtc`, `Status`, and every line's
+  `ProductNameSnapshot`/`Quantity`/`Notes`/`Modifiers` — everything the acceptance criteria ask for.
+- The client `OrderResult`/`OrderLineResult` records are shared by `Sales.razor`/`Pay.razor`/
+  `Display.razor` and their existing positional-constructor tests; `OrderLineResult` already carries
+  everything needed (no change), but `OrderResult` is missing `OrderNumber`/`OpenedAtUtc`.
+- No existing `OrderEndpointsTests` case exercises the `status` query parameter's enum-from-query-string
+  binding — status filtering is done client-side instead of trusting an unverified wire format.
+
+### Files likely to change
+
+- `src/DaxaPos.Web/Api/Contracts.cs` — `OrderResult` gains `OrderNumber`/`OpenedAtUtc` as trailing
+  optional parameters (default values), not inserted positionally.
+- `src/DaxaPos.Web/Api/DaxaApiClient.cs` — add `ListOrdersAsync(locationId)`, implicit-auth, mirroring
+  `GetResolvedMenuAsync`.
+- `src/DaxaPos.Web/Pages/Kds.razor` — new, `/kds`, no `@layout` override (sits in `MainLayout`, same
+  posture as `Sales.razor`).
+- `src/DaxaPos.Web/Layout/NavMenu.razor` — add a `target="_blank"` "Kitchen display" link.
+- `tests/DaxaPos.Web.Tests/Fakes/FakeOrderBackend.cs` — add an independent `Orders` list and a
+  `GET /api/v1/orders` (no id) handler branch.
+- `tests/DaxaPos.Web.Tests/Pages/KdsTests.cs` — new.
+- `tests/DaxaPos.Web.Tests/Api/DaxaApiClientTests.cs` — two new `ListOrdersAsync` cases.
+
+### Existing endpoints reused (no new endpoints, no schema changes)
+
+`GET /api/v1/orders?locationId=`.
+
+### Tests expected
+
+No device → setup prompt; no open orders → empty state; an open order → number/status/opened-time/
+lines/modifiers/notes all render; a held order shown; completed/voided/cancelled orders excluded;
+multiple open orders sorted oldest-first; a load failure (403) shows an error without crashing; a
+poll picks up a newly-opened order without manual refresh. Plus two `DaxaApiClientTests` cases for
+`ListOrdersAsync` (success + query-string assertion, forbidden → `Forbidden` kind).
+
+### Explicitly out of scope for Milestone F
+
+Station/production routing (OI-0018), mark-ready/mark-complete or any kitchen-ticket state
+transition, real-time/SignalR, any Back Office expansion, any backend/schema change.
+
+## Milestone F Implementation Report
+
+Completed 2026-07-07, directly on `main`, test-driven (each new behaviour — the two
+`DaxaApiClientTests.ListOrdersAsync` cases and all 8 `KdsTests` cases — was written and watched to
+fail on a missing method/component before `ListOrdersAsync`/`Kds.razor` existed, then implemented to
+green in one pass with no further test changes needed).
+
+### What was built
+
+No deviations from the kickoff notes above. All new/changed code lives in `src/DaxaPos.Web` and
+`tests/DaxaPos.Web.Tests` — no backend project, schema, or migration changed.
+
+- `src/DaxaPos.Web/Api/Contracts.cs` — `OrderResult` gained `OrderNumber` (`long`, default `0`) and
+  `OpenedAtUtc` (`DateTimeOffset`, default `default`) as trailing optional parameters — every
+  pre-existing positional `new OrderResult(...)` call site in `SalesTests`/`PayTests`/`DisplayTests`
+  kept compiling unchanged.
+- `src/DaxaPos.Web/Api/DaxaApiClient.cs` — added `ListOrdersAsync(Guid locationId)`, implicit-auth
+  (same pattern as `GetResolvedMenuAsync`), no status filter sent (see kickoff notes' reasoning).
+- `src/DaxaPos.Web/Pages/Kds.razor` — new, `/kds`, default layout (`MainLayout`, no `@layout`
+  override — reuses Milestone A's device+session route guard with zero new code). Fetches
+  `GET /api/v1/orders?locationId={device.LocationId}` on init and on a cancellable poll loop
+  (`[Parameter] TimeSpan PollInterval`, default 5s, overridden to 20ms in tests — same mechanism as
+  `Display.razor`), filters to `Open`/`Held` client-side, sorts oldest-first. Each order renders as a
+  card: order number, status badge, opened time (local), and its active lines (quantity, product
+  name, modifier names, notes). A load failure sets an error banner but keeps showing whatever board
+  was already loaded, rather than blanking it.
+- `src/DaxaPos.Web/Layout/NavMenu.razor` — one added link, `target="_blank" rel="noopener"`, opening
+  `/kds`, matching "Customer display"'s existing treatment.
+- `tests/DaxaPos.Web.Tests/Fakes/FakeOrderBackend.cs` — added a `List<OrderResult> Orders` property
+  (independent of the existing single-`Order` property Sales/Pay/Display drive) and a
+  `GET /api/v1/orders` (exactly 3 path segments, no id) handler branch returning it.
+- `tests/DaxaPos.Web.Tests/Pages/KdsTests.cs` — new, 8 bUnit tests: no device → setup prompt; no open
+  orders → empty state; an open order's number/lines/modifiers/notes all render; a held order is
+  shown; completed/voided/cancelled orders are excluded; multiple open orders sort oldest-first; a
+  403 load failure shows an error without crashing; a newly-opened order appears on the next poll
+  without a manual refresh.
+- `tests/DaxaPos.Web.Tests/Api/DaxaApiClientTests.cs` — two new cases for `ListOrdersAsync` (a
+  success case asserting the `locationId` query-string parameter, and a forbidden case asserting the
+  `Forbidden` kind).
+
+### Deviations from the kickoff plan
+
+None.
+
+### Verification
+
+- `dotnet build DaxaPos.sln` — succeeded, 0 errors (same pre-existing `NU1510` warning, unrelated).
+- `dotnet test DaxaPos.sln` — **1188/1188 passing** (144 unit + 114 Web + 930 API — up from
+  Milestone E's 1178; 10 new Web tests, 0 new/changed API tests since no backend code changed
+  anywhere in this milestone). No regressions.
+- No EF Core migrations added or needed; confirmed via `git status`/`git diff --stat` that only
+  `src/DaxaPos.Web`, `tests/DaxaPos.Web.Tests`, and these two docs changed for this milestone.
+- No browser-automation tool was available this session (same constraint as every PLAN-0006 session
+  so far). bUnit component tests exercise real Blazor rendering and the poll-loop's timer-driven
+  refresh (via the short `PollInterval` test seam, identical mechanism to `Display.razor`'s); the
+  `pos-platform-web-1` container has not been rebuilt to serve this code — offered as a next step,
+  not done unprompted, per the standing "ask before rebuilding/restarting api/web containers"
+  practice.
+
+### Remaining gaps / follow-ups
+
+- `Kds.razor` fetches every order at the location on each poll (no status filter sent server-side)
+  and filters to `Open`/`Held` client-side — see the kickoff notes' reasoning (no existing test
+  proves the `status` query parameter's enum-binding wire format). Fine for a "minimal" board today;
+  a future OI should either confirm and use server-side status filtering or add pagination/date-
+  bounding once order history at a location grows large.
+- No station/production routing (OI-0018), mark-ready/mark-complete, real kitchen-ticket lifecycle,
+  or real-time push — all explicitly out of scope per the milestone's own hard rules.
+- Live/browser verification against the rebuilt demo stack has not been performed for this milestone
+  specifically — same as every prior PLAN-0006 milestone, needs the human's confirmation to rebuild/
+  restart the `web` container first.
+
+## Recommended Next Session (post-Milestone-F)
+
+Start PLAN-0006 Milestone G: consolidation, RBAC/UX sweep, and documentation closeout — or, if the
+human wants prior milestones' live/browser verification closed out first, rebuild/restart the `web`
+container (after confirming with the human) and run through the "Manual UI Test Instructions"
+addenda in the plan doc (Milestones C.1 through F).
+
+Do not:
+
+- Start MAUI.
+- Implement OI-0018.
+- Start PLAN-0009.
+- Add migrations unless a direct blocker is found.

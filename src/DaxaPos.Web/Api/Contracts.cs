@@ -151,6 +151,9 @@ public sealed record OrderLineResult(
     OrderLineStatusResult Status,
     IReadOnlyList<OrderLineModifierResult> Modifiers);
 
+/// <summary><c>OrderNumber</c>/<c>OpenedAtUtc</c> were added for the KDS board (Milestone F) as
+/// trailing optional parameters, not inserted positionally, so every pre-existing positional
+/// <c>new OrderResult(...)</c> call site in Sales/Pay/Display tests keeps compiling unchanged.</summary>
 public sealed record OrderResult(
     Guid Id,
     Guid TerminalId,
@@ -158,7 +161,9 @@ public sealed record OrderResult(
     decimal SubtotalAmount,
     decimal TotalTaxAmount,
     decimal GrandTotalAmount,
-    IReadOnlyList<OrderLineResult> Lines);
+    IReadOnlyList<OrderLineResult> Lines,
+    long OrderNumber = 0,
+    DateTimeOffset OpenedAtUtc = default);
 
 // Back Office Terminals page (PLAN-0006 Milestone C.1) — admin-only, explicit-bearer, mirrors
 // TerminalEndpoints' DTOs.
