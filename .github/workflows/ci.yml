@@ -55,5 +55,14 @@ jobs:
           --project src/DaxaPos.Persistence/DaxaPos.Persistence.csproj
           --startup-project src/DaxaPos.Api/DaxaPos.Api.csproj
 
-      - name: Test
-        run: dotnet test DaxaPos.sln --no-build --configuration Release
+      # Run server-side tests (unit + DB-backed API tests) separately from the Blazor bUnit
+      # tests below. DaxaPos.Api.Tests has hundreds of Postgres-backed tests; running it
+      # concurrently with Web.Tests' bUnit renders starves the 2-vCPU runner and makes the
+      # bUnit WaitForAssertion timeouts flaky.
+      - name: Test (server)
+        run: |
+          dotnet test tests/DaxaPos.UnitTests/DaxaPos.UnitTests.csproj --no-build --configuration Release
+          dotnet test tests/DaxaPos.Api.Tests/DaxaPos.Api.Tests.csproj --no-build --configuration Release
+
+      - name: Test (web)
+        run: dotnet test tests/DaxaPos.Web.Tests/DaxaPos.Web.Tests.csproj --no-build --configuration Release

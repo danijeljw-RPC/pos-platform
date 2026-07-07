@@ -138,7 +138,7 @@ public class SalesTests : TestContext
 
         cut.WaitForAssertion(() => Assert.DoesNotContain("No items selected yet.", cut.Markup));
         Assert.Equal(TerminalId, backend.LastOpenedTerminalId);
-        Assert.Contains("$5.50", cut.Markup);
+        cut.WaitForAssertion(() => Assert.Contains("$5.50", cut.Markup));
     }
 
     [Fact]

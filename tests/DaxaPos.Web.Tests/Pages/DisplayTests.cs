@@ -88,7 +88,7 @@ public class DisplayTests : TestContext
         var cut = RenderDisplay();
 
         cut.WaitForAssertion(() => Assert.Contains("Flat White", cut.Markup));
-        Assert.Contains("$11.00", cut.Markup);
+        cut.WaitForAssertion(() => Assert.Contains("$11.00", cut.Markup));
     }
 
     [Fact]
@@ -105,7 +105,9 @@ public class DisplayTests : TestContext
 
         var cut = RenderDisplay();
 
-        cut.WaitForAssertion(() => Assert.Contains("$8.00", cut.Markup));
+        // Needs two poll round-trips (order, then payments) before the balance settles, so give
+        // it more headroom than the 1s bUnit default.
+        cut.WaitForAssertion(() => Assert.Contains("$8.00", cut.Markup), TimeSpan.FromSeconds(3));
     }
 
     [Fact]
