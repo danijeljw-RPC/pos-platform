@@ -59,7 +59,7 @@ else
 
         if (result.Kind != ApiResultKind.Success || result.Value is null)
         {
-            _loadError = "Could not load locations.";
+            _loadError = ApiErrorMessages.ForLoadFailure(result.Kind, "Could not load locations.");
             return;
         }
 

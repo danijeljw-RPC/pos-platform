@@ -108,7 +108,9 @@ else
             productsResult.Kind != ApiResultKind.Success || productsResult.Value is null ||
             menusResult.Kind != ApiResultKind.Success || menusResult.Value is null)
         {
-            _loadError = "Could not load catalog or menu data.";
+            var failedKind = new[] { categoriesResult.Kind, productsResult.Kind, menusResult.Kind }
+                .First(kind => kind != ApiResultKind.Success);
+            _loadError = ApiErrorMessages.ForLoadFailure(failedKind, "Could not load catalog or menu data.");
             return;
         }
 

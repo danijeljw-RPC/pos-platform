@@ -2,7 +2,11 @@
 
 ## Status
 
-Milestone A complete. See "Milestone A Implementation Report" below.
+**PLAN-0006 is fully complete** (Milestones A through G). See the plan doc
+(`docs/plans/active/PLAN-0006-terminal-display-pwa-planning.md`) for the authoritative per-milestone
+kickoff/closeout summary; this file holds the full implementation-report detail for each milestone
+in chronological order, starting with "Milestone A Implementation Report" below and ending with
+"Milestone G Implementation Report" at the end of this file.
 
 ## Purpose Of This Revision
 
@@ -1425,3 +1429,118 @@ Do not:
 - Implement OI-0018.
 - Start PLAN-0009.
 - Add migrations unless a direct blocker is found.
+
+## Milestone G Kickoff Notes (before implementation, 2026-07-07)
+
+See the plan doc's "Milestone G kickoff decision" for the full reasoning; this section is the
+worker-notes-level record of what was reviewed and why.
+
+### What was reviewed (read directly, not assumed from prior closeout text)
+
+Every PLAN-0006 Razor page and layout: `Home.razor`, `Login.razor`, `DeviceSetup.razor`,
+`Sales.razor`, `Pay.razor`, `Display.razor`, `Kds.razor`, all six `Pages/BackOffice/*.razor` files,
+`MainLayout.razor`, `BackOfficeLayout.razor`, `DisplayLayout.razor`, `NavMenu.razor`,
+`BackOfficeNavMenu.razor`. Plus the supporting API/auth plumbing: `Api/ApiResult.cs` (the
+`ApiResultKind` classification every page branches on), `Auth/ApiAuthenticationStateProvider.cs`.
+
+### Baseline before any change
+
+`git status --short --branch` — clean, `main` ahead of `origin/main` by 1 commit (the Milestone F
+KDS board). `dotnet test DaxaPos.sln` — 1188/1188 passing (144 unit + 114 Web + 930 API), exactly
+matching Milestone F's own closeout numbers — confirmed before touching anything.
+
+### Confirmed current-state facts (read, not assumed)
+
+- `MainLayout.EnforceRouteGuard`/`BackOfficeLayout.EnforceRouteGuard` run in each layout's own
+  `OnInitialized`, before the wrapped page's `OnInitializedAsync` can render past its own
+  "Loading…" placeholder — already covered by 4 test cases each in `Layout/MainLayoutTests.cs`/
+  `Layout/BackOfficeLayoutTests.cs` (every device/session-present/absent combination). No page's
+  own `OnInitializedAsync` was found to leave its loading flag/state unset after a completed
+  call — every one sets either `_loadError` or its own "loaded" bool in both the success and
+  failure branch (re-confirmed directly in `Sales.razor`, `Kds.razor`, `Pay.razor`, and all Back
+  Office read pages).
+- `ApiAuthenticationStateProvider.GetAuthenticationStateAsync()` only re-evaluates when
+  `NotifyChanged()` is called (on logout) or on first render — there is no timer/poll that detects
+  a session expiring while the user sits idle on a page. This is why `Home.razor`'s
+  `<NotAuthorized>` branch could render "Redirecting to login…" without anything actually
+  redirecting: nothing re-triggers the check until the next navigation, and even then it's
+  `MainLayout`'s guard (not `AuthorizeView`) that performs the actual `NavigateTo`.
+- `Pay.razor`'s payment-*action* failure path already had its own `ApiResultKind`-based
+  distinct-message branch (Milestone D) — the *load* paths across every other page did not; this
+  was the actual gap, not an inconsistency in `Pay.razor` itself.
+- `Display.razor`/`Kds.razor`'s existing degrade-to-idle / keep-last-known-good behaviour on
+  401/403/404 is unchanged Milestone E/F design, re-confirmed by direct reading, not modified.
+
+### Files likely to change
+
+- `src/DaxaPos.Web/Api/ApiErrorMessages.cs` — new, `ForLoadFailure(ApiResultKind, string)` helper.
+- `src/DaxaPos.Web/Pages/Home.razor` — reworded `<NotAuthorized>` text.
+- `src/DaxaPos.Web/Pages/Sales.razor`, `Kds.razor`, `Pages/BackOffice/Devices.razor`,
+  `Locations.razor`, `DeviceRegistrationPins.razor`, `Terminals.razor`, `CatalogSetup.razor` — wire
+  the new helper into each page's existing load-failure `_loadError` assignment.
+- `tests/DaxaPos.Web.Tests/Api/ApiErrorMessagesTests.cs` — new. `SalesTests.cs`, `KdsTests.cs`,
+  `Pages/BackOffice/TerminalsTests.cs`, `Pages/BackOffice/DeviceRegistrationPinsTests.cs` — new/
+  updated cases.
+- `docs/modules/customer-display.md`, `docs/modules/devices.md`, `docs/architecture/overview.md` —
+  documentation-accuracy fixes unrelated to code behaviour (see plan doc's kickoff decision item 5
+  under "Docs").
+
+### Explicitly out of scope for Milestone G
+
+New product features; starting PLAN-0007/PLAN-0009; implementing OI-0018; MAUI; Stripe Terminal;
+printer discovery; KDS station routing or mark-ready/complete; offline/sync behaviour; changing
+`Display.razor`/`Kds.razor`'s degrade-to-idle/keep-last-good behaviour (no bug found); a general
+documentation audit beyond the PLAN-0006 UI surfaces (the stale pre-PLAN-0006 order-state-machine
+diagram in `docs/modules/orders.md` was noted, not fixed — see plan doc's kickoff decision).
+
+## Milestone G Implementation Report
+
+Completed 2026-07-07, directly on `main`.
+
+### What was built
+
+No deviations from the kickoff notes above. See the plan doc's "Milestone G closeout" for the
+full file list and reasoning behind each fix; summary:
+
+- `ApiErrorMessages.ForLoadFailure` maps `Unauthorized` → "Your session has expired. Please log in
+  again." and `Forbidden` → "You don't have permission to view this.", else the caller's existing
+  generic message — wired into every previously-single-generic-message load-failure site across
+  `Sales.razor`, `Kds.razor`, and five Back Office pages.
+- `Home.razor`'s `<NotAuthorized>` branch now reads "You're not signed in. Go to staff login." with
+  a real link, instead of claiming a redirect that never happened.
+- No change to `Display.razor`/`Kds.razor`'s degrade-to-idle/keep-last-good behaviour, and no
+  backend/API/schema change anywhere in this milestone.
+
+### Verification
+
+- `dotnet build DaxaPos.sln` — succeeded, 0 errors (same pre-existing `NU1510` warning, unrelated).
+- `dotnet test DaxaPos.sln` — **1196/1196 passing** (144 unit + 122 Web + 930 API — up from
+  Milestone F's 1188; 8 new Web tests, 0 API changes). No regressions.
+- `npx markdownlint-cli2 "**/*.md"` — run after all doc edits; see the commit for the result.
+- No browser-automation tool was available this session (same constraint as every PLAN-0006
+  session so far) — the wording/messaging changes were verified via bUnit (real Blazor rendering)
+  rather than a live browser walkthrough; none of this milestone's changes touch layout, routing,
+  or visual structure, only conditional message strings, so the risk of a bUnit/real-browser
+  behavioural mismatch is low.
+
+### Remaining gaps / follow-ups (carried forward, not fixed this milestone)
+
+- `Devices.razor` silently drops a failed locations-list call (empty filter dropdown, no visible
+  error) while still loading devices — pre-existing, narrow, not a Milestone G regression.
+- No bUnit test coverage exists for `Devices.razor`, `Locations.razor`, or `CatalogSetup.razor`
+  (pre-existing gap; the `ApiErrorMessages` wiring in those three pages is proven correct by direct
+  code review plus the shared helper's own full-branch unit tests, not by a page-level test).
+- `docs/modules/orders.md`'s top-of-file order-state-machine diagram (`Open → Paid → Voided →
+  Refunded`) is stale against the real enum described later in the same file — predates PLAN-0006,
+  flagged rather than fixed to avoid scope creep into PLAN-0004/0005 documentation.
+- Every other Milestone A–F gap already recorded in this file (Hold/Resume UI unwired, generic
+  payment-record error text, `Kds.razor`'s unfiltered-then-client-filtered order fetch, `Display.razor`'s
+  merge-by-product-name-only grouping, no live/browser verification in any PLAN-0006 session) is
+  unaffected by Milestone G and remains exactly as previously documented.
+
+### PLAN-0006 completion
+
+All seven milestones (A, B, C, C.1, C.2, D, E, F, G) are complete. See the plan doc's "Handoff
+Notes" section for the consolidated handoff to PLAN-0007 (offline/sync), PLAN-0009
+(hardware/provider/device orchestration), a future dedicated MAUI terminal plan, and OI-0018
+(production printer routing) — none of which PLAN-0006 started, per its own non-goals.

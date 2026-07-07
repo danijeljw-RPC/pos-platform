@@ -54,6 +54,20 @@ public class DeviceRegistrationPinsTests : TestContext
     }
 
     [Fact]
+    public async Task LoadFailure_Unauthorized_ShowsSessionExpiredMessage()
+    {
+        var stub = new StubHttpMessageHandler { Respond = _ => new HttpResponseMessage(HttpStatusCode.Unauthorized) };
+        Services.AddSingleton(new DaxaApiClient(new HttpClient(stub) { BaseAddress = new Uri("http://test/") }));
+        var sessionStore = new BackOfficeSessionStore(new InMemoryBrowserStorage());
+        await sessionStore.SaveAsync(SampleSession());
+        Services.AddSingleton<IBackOfficeSessionStore>(sessionStore);
+
+        var cut = RenderComponent<DeviceRegistrationPins>();
+
+        cut.WaitForAssertion(() => Assert.Contains("Your session has expired", cut.Markup));
+    }
+
+    [Fact]
     public async Task GeneratePin_ShowsRawPinOnceAndOffersRevoke()
     {
         var locationId = Guid.NewGuid();

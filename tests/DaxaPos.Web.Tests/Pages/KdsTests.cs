@@ -143,7 +143,7 @@ public class KdsTests : TestContext
     }
 
     [Fact]
-    public void LoadFailure_ShowsErrorMessage_NotACrash()
+    public void LoadFailure_Forbidden_ShowsPermissionMessage_NotACrash()
     {
         RegisterDeviceStore(withDevice: true);
 
@@ -152,7 +152,20 @@ public class KdsTests : TestContext
 
         var cut = RenderKds();
 
-        cut.WaitForAssertion(() => Assert.Contains("Could not load", cut.Markup));
+        cut.WaitForAssertion(() => Assert.Contains("You don't have permission", cut.Markup));
+    }
+
+    [Fact]
+    public void LoadFailure_Unauthorized_ShowsSessionExpiredMessage_NotACrash()
+    {
+        RegisterDeviceStore(withDevice: true);
+
+        var stub = new StubHttpMessageHandler { Respond = _ => new HttpResponseMessage(System.Net.HttpStatusCode.Unauthorized) };
+        Services.AddSingleton(new DaxaApiClient(new HttpClient(stub) { BaseAddress = new Uri("http://test/") }));
+
+        var cut = RenderKds();
+
+        cut.WaitForAssertion(() => Assert.Contains("Your session has expired", cut.Markup));
     }
 
     [Fact]

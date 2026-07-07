@@ -39,7 +39,21 @@ Device registration PINs and device credentials are implemented per ADR-0008's a
 - `POST /api/v1/devices/{deviceId}/rotate-credential` retires the old credential immediately and returns a new secret once; `POST /api/v1/devices/{deviceId}/revoke` revokes all of the device's credentials (terminal — a revoked/lost device re-registers as a **new** `Device`; there is no `Device.IsActive`, revocation lives on `DeviceCredential.Status`). `GET /api/v1/devices?locationId=` lists the caller's organisation's devices with a credential-status flag.
 - All lifecycle actions are audited (`DeviceRegistrationPinCreated`/`Revoked`, `DeviceRegistered`, `DeviceRegistrationFailed`, `DeviceCredentialRotated`, `DeviceRevoked`). An **unknown**-PIN attempt writes no audit row — there is no tenant for the non-nullable `AuditEvent.TenantId`; rate limiting covers that abuse path, and a tenant-less global security-event store is a flagged future need.
 
-Not yet implemented from the responsibilities above: terminal assignment/pairing, printer and payment-terminal mapping, display configuration, health/version tracking, remote configuration — later plans.
+Not yet implemented from the responsibilities above: printer and payment-terminal mapping, display configuration, health/version tracking, remote configuration — later plans.
+
+## Implementation status (PLAN-0006 Milestone C.1, 2026-07-07)
+
+Terminal assignment/pairing (deferred above) is now implemented: `Terminal.DeviceId` (a real
+migrated column from earlier work, previously unused) is written via a new
+`POST /api/v1/terminals/{terminalId}/assign-device` (admin-only, `terminals.manage` +
+`rejectStaffPin: true`) and read back at staff-PIN-login time into `AuthSession.TerminalId`,
+surfaced to clients via the existing `GET /api/v1/auth/me`. A unique filtered index
+(`IX_terminals_DeviceId`, `WHERE "DeviceId" IS NOT NULL`, added PLAN-0006 Milestone C.2) guarantees
+a device can never be linked to two terminals at once, backing the endpoint's own 409-conflict
+check. Back Office's `src/DaxaPos.Web/Pages/BackOffice/Terminals.razor` is the one admin surface
+that performs this assignment. See `docs/modules/orders.md` and
+`docs/plans/active/PLAN-0006-worker-notes.md`'s Milestone C.1/C.2 reports for the full detail,
+including why terminal-scoped order authorization (Milestone C.2) had to follow immediately after.
 
 ## Implementation status (PLAN-0003 Milestone H closeout, 2026-07-03)
 

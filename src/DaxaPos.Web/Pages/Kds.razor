@@ -110,7 +110,7 @@ else
         {
             // Kitchen staff seeing the last-known board is more useful than a blank screen on a
             // transient blip — keep whatever was already loaded and just surface the error.
-            _loadError = "Could not load open orders for this location.";
+            _loadError = ApiErrorMessages.ForLoadFailure(result.Kind, "Could not load open orders for this location.");
             _loaded = true;
             return;
         }

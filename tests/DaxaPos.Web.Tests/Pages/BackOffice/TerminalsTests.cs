@@ -86,6 +86,20 @@ public class TerminalsTests : TestContext
     }
 
     [Fact]
+    public async Task LoadFailure_Forbidden_ShowsPermissionMessage()
+    {
+        var stub = new StubHttpMessageHandler { Respond = _ => new HttpResponseMessage(HttpStatusCode.Forbidden) };
+        Services.AddSingleton(new DaxaApiClient(new HttpClient(stub) { BaseAddress = new Uri("http://test/") }));
+        var sessionStore = new BackOfficeSessionStore(new InMemoryBrowserStorage());
+        await sessionStore.SaveAsync(SampleSession());
+        Services.AddSingleton<IBackOfficeSessionStore>(sessionStore);
+
+        var cut = RenderComponent<Terminals>();
+
+        cut.WaitForAssertion(() => Assert.Contains("You don't have permission", cut.Markup));
+    }
+
+    [Fact]
     public async Task NoTerminalsYet_ShowsEmptyState()
     {
         await RegisterAsync();

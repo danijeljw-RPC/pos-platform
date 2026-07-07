@@ -144,7 +144,7 @@ else
         var locationsResult = await ApiClient.ListLocationsAsync(session.SessionToken);
         if (locationsResult.Kind != ApiResultKind.Success || locationsResult.Value is null)
         {
-            _loadError = "Could not load locations.";
+            _loadError = ApiErrorMessages.ForLoadFailure(locationsResult.Kind, "Could not load locations.");
             return;
         }
 
@@ -157,7 +157,7 @@ else
         var terminalsResult = await ApiClient.ListTerminalsAsync(session.SessionToken);
         if (terminalsResult.Kind != ApiResultKind.Success || terminalsResult.Value is null)
         {
-            _loadError = "Could not load terminals.";
+            _loadError = ApiErrorMessages.ForLoadFailure(terminalsResult.Kind, "Could not load terminals.");
             return;
         }
 

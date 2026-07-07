@@ -49,9 +49,13 @@ Payment Providers (via adapter)
 ```text
 src/
   DaxaPos.Api/                   ASP.NET Core Web API host
-  DaxaPos.AdminPwa/              Daxa Back Office (React/Blazor PWA)
-  DaxaPos.PosMaui/               Daxa Terminal (.NET MAUI, Windows)
-  DaxaPos.KdsPwa/                Daxa KDS (PWA)
+  DaxaPos.Web/                   Standalone Blazor WebAssembly PWA (PLAN-0006): Terminal shell
+                                 (sales, payments, customer display, KDS) and Back Office, all in
+                                 one project under separate route trees/sessions — not split into
+                                 per-surface projects as originally sketched below.
+  DaxaPos.PosMaui/               Daxa Terminal (.NET MAUI, Windows) — future dedicated Windows
+                                 terminal plan, not started; DaxaPos.Web's Terminal PWA is the
+                                 interim implementation.
   DaxaPos.Workers/               Background workers (sync, reporting, jobs)
 
   DaxaPos.Domain/                Entities, value objects, domain events
@@ -83,6 +87,7 @@ tests/
   DaxaPos.UnitTests/
   DaxaPos.IntegrationTests/
   DaxaPos.Api.Tests/
+  DaxaPos.Web.Tests/            bUnit component tests for DaxaPos.Web (PLAN-0006)
   DaxaPos.Tax.Tests/
   DaxaPos.Receipt.Tests/
   DaxaPos.Sync.Tests/
@@ -98,8 +103,8 @@ tests/
 | Backend API | ASP.NET Core Web API (.NET 9+) |
 | Database | PostgreSQL (EF Core) |
 | Identity | Keycloak (or equivalent) |
-| Windows POS app | .NET MAUI |
-| PWA (admin, KDS, fallback) | React or Blazor WASM (TBD) |
+| Windows POS app | .NET MAUI (future; PWA is the interim Terminal implementation) |
+| PWA (Terminal, Back Office, Display, KDS) | Standalone Blazor WebAssembly (decided PLAN-0006 Milestone A, 2026-07-06 — no React/Vue/Angular) |
 | Realtime updates | SignalR / WebSockets |
 | Background workers | ASP.NET Core hosted services |
 | Local deployment | Docker + Docker Compose |

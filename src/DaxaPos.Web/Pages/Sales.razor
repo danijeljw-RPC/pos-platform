@@ -193,7 +193,7 @@ else
         var menuResult = await ApiClient.GetResolvedMenuAsync(device.LocationId);
         if (menuResult.Kind != ApiResultKind.Success || menuResult.Value is null)
         {
-            _loadError = "Could not load the menu for this location.";
+            _loadError = ApiErrorMessages.ForLoadFailure(menuResult.Kind, "Could not load the menu for this location.");
             return;
         }
 

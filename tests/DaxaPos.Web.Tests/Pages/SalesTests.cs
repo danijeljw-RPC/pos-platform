@@ -112,6 +112,44 @@ public class SalesTests : TestContext
     }
 
     [Fact]
+    public async Task WhenMenuLoadFailsWithUnauthorized_ShowsSessionExpiredMessageAsync()
+    {
+        var deviceStore = new DeviceContextStore(new InMemoryBrowserStorage());
+        await deviceStore.SaveAsync(SampleDevice());
+        Services.AddSingleton<IDeviceContextStore>(deviceStore);
+
+        var sessionStore = new AuthSessionStore(new InMemoryBrowserStorage());
+        await sessionStore.SaveAsync(new SessionState(
+            "token", DateTimeOffset.UtcNow.AddHours(1), Guid.NewGuid(), "Jane Staff", ["StaffPin"], ["orders.manage"], TerminalId));
+        Services.AddSingleton<IAuthSessionStore>(sessionStore);
+        Services.AddSingleton<IDraftOrderStore>(RegisterDraftStore());
+        Services.AddSingleton(FakeDaxaApiClientHandler.BuildFailure(HttpStatusCode.Unauthorized, out _));
+
+        var cut = RenderComponent<Sales>();
+
+        cut.WaitForAssertion(() => Assert.Contains("Your session has expired", cut.Markup));
+    }
+
+    [Fact]
+    public async Task WhenMenuLoadFailsWithForbidden_ShowsPermissionMessageAsync()
+    {
+        var deviceStore = new DeviceContextStore(new InMemoryBrowserStorage());
+        await deviceStore.SaveAsync(SampleDevice());
+        Services.AddSingleton<IDeviceContextStore>(deviceStore);
+
+        var sessionStore = new AuthSessionStore(new InMemoryBrowserStorage());
+        await sessionStore.SaveAsync(new SessionState(
+            "token", DateTimeOffset.UtcNow.AddHours(1), Guid.NewGuid(), "Jane Staff", ["StaffPin"], ["orders.manage"], TerminalId));
+        Services.AddSingleton<IAuthSessionStore>(sessionStore);
+        Services.AddSingleton<IDraftOrderStore>(RegisterDraftStore());
+        Services.AddSingleton(FakeDaxaApiClientHandler.BuildFailure(HttpStatusCode.Forbidden, out _));
+
+        var cut = RenderComponent<Sales>();
+
+        cut.WaitForAssertion(() => Assert.Contains("You don't have permission", cut.Markup));
+    }
+
+    [Fact]
     public void WhenMenuHasNoItems_ShowsEmptyState()
     {
         var backend = new FakeOrderBackend { Menu = new ResolvedMenuResult(LocationId, []) };

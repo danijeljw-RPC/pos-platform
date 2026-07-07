@@ -100,7 +100,7 @@ else
 
         if (result.Kind != ApiResultKind.Success || result.Value is null)
         {
-            _loadError = "Could not load devices.";
+            _loadError = ApiErrorMessages.ForLoadFailure(result.Kind, "Could not load devices.");
             return;
         }
 

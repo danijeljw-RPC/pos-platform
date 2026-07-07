@@ -5,8 +5,9 @@
 Milestone A - Complete. Milestone B - Complete. Milestone C - Complete. Milestone C.1 (TerminalId
 resolution, modifiers, real order wiring) - Complete. Milestone C.2 (terminal assignment integrity,
 terminal-scoped order authorization) - Complete. Milestone D (payments/receipts) - Complete.
-Milestone E (customer display) - Complete. **Milestone F (minimal KDS PWA board) - Complete, see
-closeout below.**
+Milestone E (customer display) - Complete. Milestone F (minimal KDS PWA board) - Complete.
+**Milestone G (consolidation, RBAC/UX sweep, documentation closeout) - Complete, see closeout
+below. PLAN-0006 is fully complete.**
 
 See `docs/plans/active/PLAN-0006-worker-notes.md` for the full Milestone A implementation report.
 Summary: `src/DaxaPos.Web` (standalone Blazor WebAssembly PWA) scaffolded with device-setup, staff
@@ -923,6 +924,118 @@ is rebuilt to serve this milestone's code:
    never shows this location's orders (the same `ListAsync` location-scoping every other PLAN-0006
    milestone already relies on).
 
+### Milestone G kickoff decision (2026-07-07)
+
+**Read-only review first, per the task's own instruction.** Every PLAN-0006 page/layout/API-client
+file was read directly (not assumed from prior closeout summaries) before any change: `Home.razor`,
+`Login.razor`, `DeviceSetup.razor`, `Sales.razor`, `Pay.razor`, `Display.razor`, `Kds.razor`, every
+`Pages/BackOffice/*.razor`, `MainLayout.razor`, `BackOfficeLayout.razor`, `NavMenu.razor`/
+`BackOfficeNavMenu.razor`, `ApiResult.cs`, `ApiAuthenticationStateProvider.cs`. Baseline confirmed
+green before touching anything: `dotnet test DaxaPos.sln` — 1188/1188 (144 unit + 114 Web + 930
+API), matching Milestone F's closeout exactly, working tree clean.
+
+**Findings, and what was fixed vs. left alone:**
+
+1. **`Home.razor`'s `<NotAuthorized>` branch said "Redirecting to login…" but nothing ever
+   navigates from that branch** — `MainLayout.EnforceRouteGuard` is what actually redirects
+   on-init/on-navigation, not `AuthorizeView`'s `NotAuthorized` render fragment, so the text
+   promised an action that wasn't happening (most visible if a session expires while sitting on
+   `/` with no subsequent navigation — `ApiAuthenticationStateProvider` only re-evaluates on
+   `NotifyChanged()`, i.e. logout, not on a timer). **Fixed**: reworded to an honest, actionable
+   state — "You're not signed in. Go to staff login." with a real link — rather than inventing a
+   new session-expiry-polling mechanism (out of scope; the same accepted limitation already
+   applies to `MainLayout`'s own guard and is not new to this milestone).
+2. **Every load-failure path across Terminal-shell and Back Office pages collapsed 401
+   (session expired), 403 (forbidden), and every other failure into one identical generic
+   message** (e.g. `Sales.razor`'s "Could not load the menu for this location.", every Back
+   Office page's "Could not load X."). A staff member with a valid session but missing
+   `orders.manage`/`terminals.manage`/etc. would see the same wording as a network blip or a
+   404 — the main RBAC-UX gap this milestone exists to close. **Fixed**: new
+   `src/DaxaPos.Web/Api/ApiErrorMessages.cs` (`ForLoadFailure(ApiResultKind, string genericMessage)`)
+   maps `Unauthorized` → "Your session has expired. Please log in again." and `Forbidden` → "You
+   don't have permission to view this.", falling through to the caller's existing generic message
+   otherwise. Wired into every load-failure site that previously had one generic string:
+   `Sales.razor`, `Kds.razor`, and Back Office's `Devices.razor`, `Locations.razor`,
+   `DeviceRegistrationPins.razor`, `Terminals.razor` (both its locations- and terminals-load
+   calls), `CatalogSetup.razor` (picks the first non-`Success` kind among its three parallel
+   calls). `Pay.razor` already had its own distinct 401/403-vs-generic branch for the
+   payment-*action* failure path (Milestone D) — left untouched, matching precedent rather than
+   forcing it through the new shared helper for a call site that already did the right thing.
+3. **`Display.razor`/`Kds.razor`'s deliberate "degrade to idle" / "keep last-known-good board"
+   behaviour on 401/403/404 is unchanged** — re-confirmed by reading both files directly that this
+   is the documented Milestone E/F design (server remains authoritative; a stale board beats a
+   blank one for kitchen staff), not a bug. Per the task's explicit instruction, this was left
+   alone since no direct bug was found.
+4. **"Can any page get stuck on 'Loading…' forever if the layout guard redirects away?"** — reviewed,
+   not changed. `MainLayout`/`BackOfficeLayout`'s route guards run in `OnInitialized` (before the
+   wrapped page's own `OnInitializedAsync` can render anything past its own "Loading…" placeholder)
+   and are already exercised by `Layout/MainLayoutTests.cs`/`Layout/BackOfficeLayoutTests.cs` (4
+   cases each, covering every device/session-present/absent combination). Every page that reaches
+   an actual API call sets either `_loadError` or its "loaded" flag in both its success *and*
+   failure branches (re-confirmed by reading `Sales.razor`, `Kds.razor`, `Pay.razor`, and every
+   Back Office page directly) — none of them can leave `_menu`/`_devices`/`_terminals`/etc. `null`
+   after a call completes without also setting an error string. No fix needed; documenting the
+   finding per the task's own instruction rather than forcing a change.
+5. **Two minor, out-of-scope observations, left alone and flagged here rather than fixed
+   silently** (neither is a "stuck loading" or RBAC bug, and fixing either would be a small
+   feature change, not consolidation): `Devices.razor` silently drops a failed locations-list call
+   (no `_loadError` set, just an empty filter dropdown) while still proceeding to load devices;
+   `Terminals.razor`'s device-assignment action already distinguishes a 409 conflict from a
+   generic failure (`AssignDeviceAsync`'s `_assignError`) but no other action anywhere in Back
+   Office does the same — both are pre-existing, narrow inconsistencies, not new gaps introduced
+   by this milestone.
+
+**Tests**: `tests/DaxaPos.Web.Tests/Api/ApiErrorMessagesTests.cs` (new, 3 cases — one per
+`ApiResultKind` branch). `SalesTests.cs` gained two cases (`Unauthorized`/`Forbidden` menu-load
+failure, alongside the existing generic-404 case). `KdsTests.cs`'s existing 403 load-failure test
+was updated to assert the new, more specific message (it previously asserted only the generic
+"Could not load" substring, which is no longer what a 403 renders) and a new `Unauthorized` case
+was added. `TerminalsTests.cs` and `DeviceRegistrationPinsTests.cs` each gained one new
+load-failure case proving the shared helper is wired correctly for Back Office. **Not added**:
+equivalent new test files for `Devices.razor`/`Locations.razor`/`CatalogSetup.razor`, which had no
+bUnit coverage at all before this milestone — the helper is wired into their code (confirmed by
+direct code review and the shared `ApiErrorMessagesTests.cs` proving the mapping itself is
+correct), but scaffolding three brand-new test files' worth of `bUnit`/session/API-client setup
+for pages with zero pre-existing test infrastructure was judged disproportionate to a
+consolidation milestone; flagged here as a pre-existing test-coverage gap this milestone did not
+originate.
+
+**Docs**: `docs/modules/customer-display.md` gained an "Implementation Status" section — it
+previously described only the target MAUI-second-window design with no mention that a working PWA
+interim implementation (`Display.razor`, Milestone E) already exists and behaves differently in
+several concrete ways (browser-tab polling of shared `localStorage`, not an in-process
+`CurrentOrderService`; only 3 of the 10 listed display states are implemented). `docs/modules/devices.md`'s
+"not yet implemented" line incorrectly still listed "terminal assignment/pairing", which Milestone
+C.1/C.2 implemented; corrected with a new Implementation Status paragraph. `docs/architecture/overview.md`
+still described the PWA framework as "React or Blazor WASM (TBD)" and the solution structure as
+separate `DaxaPos.AdminPwa`/`DaxaPos.KdsPwa` projects — both resolved since Milestone A (standalone
+Blazor WebAssembly, one `DaxaPos.Web` project spanning Terminal/Back Office/Display/KDS); updated
+to match. `docs/modules/orders.md`, `payments.md`, `receipts.md`, `kds.md` were re-read in full:
+their "Implementation Status" sections describe the PLAN-0005 backend accurately, and PLAN-0006
+added no new backend endpoints/schema for orders, payments, or receipts (Milestones D/E/F's own
+closeouts already confirm this) — **no change needed**, explicitly recorded here rather than left
+ambiguous. (`orders.md`'s very first "Order State Machine" diagram, `Open → Paid → Voided →
+Refunded`, is stale against the real `Open`/`Held`/`Completed`/`Voided`/`Cancelled` enum described
+two sections later in the same file — but that diagram predates PLAN-0006 entirely, and Milestone
+G's scope is the PLAN-0006 UI surfaces, not a general PLAN-0004/0005 documentation audit; flagged
+here rather than fixed, to avoid unbounded scope creep into unrelated docs.)
+
+### Milestone G closeout (2026-07-07)
+
+Implemented as planned above, no deviations from the kickoff decision. Full solution suite:
+**1196/1196 passing** (144 unit + 122 Web + 930 API — up from Milestone F's 1188; 8 new Web tests,
+0 API changes, no schema/migration changes anywhere in this milestone). No regressions.
+
+Files changed: `src/DaxaPos.Web/Api/ApiErrorMessages.cs` (new); `src/DaxaPos.Web/Pages/Home.razor`,
+`Sales.razor`, `Kds.razor`, `Pages/BackOffice/Devices.razor`, `Locations.razor`,
+`DeviceRegistrationPins.razor`, `Terminals.razor`, `CatalogSetup.razor`; test files listed above;
+`docs/modules/customer-display.md`, `docs/modules/devices.md`, `docs/architecture/overview.md`;
+this plan doc and `docs/plans/active/PLAN-0006-worker-notes.md`.
+
+**PLAN-0006 is now fully complete** — Milestones A through G are all done. See the Handoff Notes
+section below and `docs/plans/active/PLAN-0006-worker-notes.md`'s Milestone G report for the
+consolidated handoff to PLAN-0007, PLAN-0009, the future MAUI terminal plan, and OI-0018.
+
 ## Goal
 
 Implement the user-facing web/PWA layer that consumes the completed PLAN-0004 and PLAN-0005
@@ -1245,11 +1358,47 @@ Those belong to PLAN-0007.
 
 ## Handoff Notes
 
-Recommended next implementation session:
+**PLAN-0006 is fully complete.** Milestones A through G are all done — see each milestone's
+kickoff/closeout notes above and `docs/plans/active/PLAN-0006-worker-notes.md` for full
+implementation detail. Recommended next implementation session picks from the plans below; none
+of them are started by PLAN-0006.
 
-Start PLAN-0006 Milestone G only: consolidation, RBAC/UX sweep, and documentation closeout.
-Milestones A through F are all complete — see each milestone's kickoff/closeout notes above and
-`docs/plans/active/PLAN-0006-worker-notes.md` for full implementation detail.
+### Handoff to PLAN-0007 (offline/sync/local-hybrid)
+
+PLAN-0006 deliberately built no offline queueing, conflict resolution, local authoritative
+database, or sync engine (see "PWA / Offline Considerations" above) — every PWA surface assumes a
+live connection to the API and degrades to an error/idle state without one. `IDraftOrderStore`'s
+device-scoped localStorage `OrderId` pointer (Milestone C.1) is the only client-side persistence
+that exists; it is a UI convenience for restoring which order a device was last working on, not an
+offline data store, and PLAN-0007 should not assume it can be extended into one without review.
+
+### Handoff to PLAN-0009 (hardware/provider/device orchestration)
+
+`PaymentMethod.Integrated` is rejected 400 server-side with no adapter (PLAN-0005); PLAN-0006's
+`Pay.razor` deliberately offers only Cash/Manual EFTPOS, no Card/Integrated button at all (not even
+disabled) so as not to imply a capability that doesn't exist. `IPaymentTerminalProvider`
+(`DaxaPos.Application.Payments`) is an inert interface with no concrete adapter and no DI
+registration — PLAN-0009 is where a first adapter (Stripe Terminal, per the payment provider
+roadmap) would be implemented and wired to it. No printer discovery or payment-terminal pairing UI
+exists anywhere in PLAN-0006.
+
+### Handoff to a future dedicated MAUI terminal plan
+
+`src/DaxaPos.Web`'s Terminal shell (`Sales.razor`/`Pay.razor`/`Display.razor`) is the PWA interim
+implementation of Daxa Terminal/Daxa Display, not the target MAUI implementation described in
+`docs/modules/customer-display.md`/`docs/architecture/device-strategy.md`. When MAUI work starts:
+the same API contracts (`GET/POST /api/v1/orders`, `.../payments`, `.../receipt`) are already
+proven against a real UI by this PWA, so a MAUI client can reuse the same endpoints without any
+backend change; `Display.razor`'s browser-tab/localStorage-polling model should **not** be ported
+as-is — the target MAUI design (`CurrentOrderService` shared in-process between two `Window`s of
+one app) is materially simpler once both screens are one process, and should replace the polling
+approach rather than reproduce it.
+
+### Handoff to OI-0018 (location-scoped production printer routing)
+
+Still open, untouched by PLAN-0006. `Kds.razor` (Milestone F) is a read-only order board with no
+station/production routing, confirming OI-0018's routing model is still needed for a real kitchen
+workflow — PLAN-0006 did not reduce or reshape that issue's scope.
 
 Do not start MAUI.
 
