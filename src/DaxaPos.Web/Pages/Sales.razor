@@ -1,6 +1,8 @@
 @page "/sales"
 @inject DaxaApiClient ApiClient
 @inject IDeviceContextStore DeviceContextStore
+@inject IAuthSessionStore SessionStore
+@inject IDraftOrderStore DraftOrderStore
 
 <PageTitle>Sales</PageTitle>
 
@@ -9,6 +11,13 @@
 @if (DeviceContextStore.Current is not { } device)
 {
     <p>No device is registered on this browser yet. <a href="device-setup">Set up device</a>.</p>
+}
+else if (SessionStore.Current?.TerminalId is null)
+{
+    <p class="text-danger" role="alert">
+        This device isn't linked to a POS terminal yet. Ask an admin to assign it to a terminal in
+        Back Office &rarr; Terminals, then log in again.
+    </p>
 }
 else if (_loadError is not null)
 {
@@ -20,6 +29,11 @@ else if (_menu is null)
 }
 else
 {
+    @if (_actionError is not null)
+    {
+        <p class="text-danger" role="alert">@_actionError</p>
+    }
+
     <div class="row">
         <div class="col-12 col-lg-8">
             @if (_menu.Sections.Count == 0)
@@ -38,7 +52,8 @@ else
                             <button type="button"
                                     class="btn btn-outline-primary text-start"
                                     style="min-width: 8rem; max-width: 12rem;"
-                                    @onclick="() => AddOrIncrement(item)">
+                                    disabled="@_isBusy"
+                                    @onclick="() => TileTapped(item)">
                                 <div class="fw-semibold text-wrap">@item.ProductName</div>
                                 <div>@FormatPrice(item.Price)</div>
                             </button>
@@ -52,118 +67,376 @@ else
             <div class="border rounded p-3">
                 <div class="d-flex justify-content-between align-items-center mb-2">
                     <h2 class="h5 mb-0">Order</h2>
-                    @if (_lines.Count > 0)
+                    @if (_order is { Lines.Count: > 0 })
                     {
-                        <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="ClearOrder">Clear order</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" disabled="@_isBusy" @onclick="ClearOrder">Clear order</button>
                     }
                 </div>
 
-                @if (_lines.Count == 0)
+                @{
+                    var groups = BuildGroups();
+                }
+
+                @if (groups.Count == 0)
                 {
                     <p class="text-muted">No items selected yet. Tap a menu item to add it.</p>
                 }
                 else
                 {
-                    @foreach (var line in _lines)
+                    @foreach (var group in groups)
                     {
                         <div class="border-bottom pb-2 mb-2">
                             <div class="d-flex justify-content-between">
-                                <span class="fw-semibold">@line.ProductName</span>
-                                <span>@FormatPrice(line.UnitPrice * line.Quantity)</span>
+                                <span class="fw-semibold">@group.ProductName</span>
+                                <span>@FormatPrice(group.TotalAmount)</span>
                             </div>
+                            @if (group.ModifierNames.Count > 0)
+                            {
+                                <div class="text-muted small">@string.Join(", ", group.ModifierNames)</div>
+                            }
                             <div class="d-flex align-items-center gap-2 mt-1">
-                                <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => Decrement(line)">-</button>
-                                <span>@line.Quantity</span>
-                                <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => Increment(line)">+</button>
-                                <button type="button" class="btn btn-sm btn-link text-danger ms-auto" @onclick="() => Remove(line)">Remove</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" disabled="@_isBusy" @onclick="() => Decrement(group)">-</button>
+                                <span>@group.Quantity</span>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" disabled="@_isBusy" @onclick="() => Increment(group)">+</button>
+                                <button type="button" class="btn btn-sm btn-link text-danger ms-auto" disabled="@_isBusy" @onclick="() => Remove(group)">Remove</button>
                             </div>
-                            <input class="form-control form-control-sm mt-1"
-                                   placeholder="Note (e.g. no onion)"
-                                   value="@line.Notes"
-                                   @onchange="e => line.Notes = e.Value?.ToString()" />
                         </div>
                     }
 
-                    <div class="d-flex justify-content-between fw-semibold mt-2">
-                        <span>Draft subtotal (estimate)</span>
-                        <span>@FormatPrice(DraftSubtotal)</span>
+                    <div class="d-flex justify-content-between mt-2">
+                        <span>Subtotal</span>
+                        <span>@FormatPrice(_order!.SubtotalAmount)</span>
                     </div>
-                    <p class="text-muted small mb-0">
-                        This is a local draft only — no order has been created on the server, and
-                        this total is not a final price. Payment is not part of this screen yet.
-                    </p>
+                    <div class="d-flex justify-content-between">
+                        <span>Tax</span>
+                        <span>@FormatPrice(_order!.TotalTaxAmount)</span>
+                    </div>
+                    <div class="d-flex justify-content-between fw-semibold">
+                        <span>Total</span>
+                        <span>@FormatPrice(_order!.GrandTotalAmount)</span>
+                    </div>
                 }
             </div>
         </div>
     </div>
+
+    @if (_selectingItem is { } selecting)
+    {
+        <div class="modal d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);" role="dialog">
+            <div class="modal-dialog" role="document">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">@selecting.ProductName</h5>
+                    </div>
+                    <div class="modal-body">
+                        @foreach (var group in selecting.ModifierGroups.OrderBy(g => g.DisplayOrder))
+                        {
+                            var selected = _modalSelections.GetValueOrDefault(group.Id, []);
+                            <fieldset class="mb-3">
+                                <legend class="h6">
+                                    @group.Name
+                                    @if (group.IsRequired)
+                                    {
+                                        <span class="text-danger">*</span>
+                                    }
+                                    <span class="text-muted small">(choose @DescribeSelectionRange(group))</span>
+                                </legend>
+                                @foreach (var modifier in group.Modifiers)
+                                {
+                                    var isChecked = selected.Contains(modifier.Id);
+                                    var atMax = selected.Count >= group.SelectionMax && !isChecked;
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="@($"mod-{modifier.Id}")"
+                                               checked="@isChecked" disabled="@atMax"
+                                               @onchange="e => ToggleModifier(group.Id, modifier.Id, e.Value is true)" />
+                                        <label class="form-check-label" for="@($"mod-{modifier.Id}")">
+                                            @modifier.Name
+                                            @if (modifier.PriceDelta != 0)
+                                            {
+                                                <text> (@FormatPrice(modifier.PriceDelta))</text>
+                                            }
+                                        </label>
+                                    </div>
+                                }
+                            </fieldset>
+                        }
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" @onclick="CancelModal">Cancel</button>
+                        <button type="button" class="btn btn-primary" disabled="@(!CanConfirmModal(selecting) || _isBusy)" @onclick="() => ConfirmModal(selecting)">Add</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
 }
 
 @code {
     private ResolvedMenuResult? _menu;
     private string? _loadError;
-    private readonly List<OrderDraftLine> _lines = [];
+    private string? _actionError;
+    private OrderResult? _order;
+    private bool _isBusy;
 
-    private decimal DraftSubtotal => _lines.Sum(l => l.UnitPrice * l.Quantity);
+    private ResolvedMenuItemResult? _selectingItem;
+    private readonly Dictionary<Guid, List<Guid>> _modalSelections = [];
 
     protected override async Task OnInitializedAsync()
     {
-        if (DeviceContextStore.Current is not { } device)
+        if (DeviceContextStore.Current is not { } device || SessionStore.Current?.TerminalId is null)
         {
             return;
         }
 
-        var result = await ApiClient.GetResolvedMenuAsync(device.LocationId);
-
-        if (result.Kind != ApiResultKind.Success || result.Value is null)
+        var menuResult = await ApiClient.GetResolvedMenuAsync(device.LocationId);
+        if (menuResult.Kind != ApiResultKind.Success || menuResult.Value is null)
         {
             _loadError = "Could not load the menu for this location.";
             return;
         }
 
-        _menu = result.Value;
-    }
+        _menu = menuResult.Value;
 
-    private void AddOrIncrement(ResolvedMenuItemResult item)
-    {
-        var existing = _lines.FirstOrDefault(l => l.ProductId == item.ProductId);
-
-        if (existing is not null)
+        // Milestone C.1: restore the draft from the server, never from a local cache — a stored
+        // OrderId that's gone (404) or already closed (Completed/Voided/Cancelled) is cleared so
+        // the screen starts empty rather than showing stale/wrong state.
+        var storedOrderId = await DraftOrderStore.GetOrderIdAsync(device.DeviceId);
+        if (storedOrderId is not { } orderId)
         {
-            existing.Quantity++;
             return;
         }
 
-        _lines.Add(new OrderDraftLine(item.ProductId, item.ProductName, item.Price) { Quantity = 1 });
-    }
-
-    private void Increment(OrderDraftLine line) => line.Quantity++;
-
-    private void Decrement(OrderDraftLine line)
-    {
-        line.Quantity--;
-
-        if (line.Quantity <= 0)
+        var orderResult = await ApiClient.GetOrderAsync(orderId);
+        if (orderResult.Kind == ApiResultKind.Success
+            && orderResult.Value is { Status: OrderStatusResult.Open or OrderStatusResult.Held } restored)
         {
-            _lines.Remove(line);
+            _order = restored;
+        }
+        else
+        {
+            await DraftOrderStore.ClearAsync(device.DeviceId);
         }
     }
 
-    private void Remove(OrderDraftLine line) => _lines.Remove(line);
+    private void TileTapped(ResolvedMenuItemResult item)
+    {
+        if (item.ModifierGroups.Count == 0)
+        {
+            _ = AddLineAsync(item.ProductId, []);
+            return;
+        }
 
-    private void ClearOrder() => _lines.Clear();
+        _selectingItem = item;
+        _modalSelections.Clear();
+    }
+
+    private void ToggleModifier(Guid groupId, Guid modifierId, bool isChecked)
+    {
+        var selected = _modalSelections.TryGetValue(groupId, out var existing) ? existing : _modalSelections[groupId] = [];
+
+        if (isChecked)
+        {
+            if (!selected.Contains(modifierId))
+            {
+                selected.Add(modifierId);
+            }
+        }
+        else
+        {
+            selected.Remove(modifierId);
+        }
+    }
+
+    private bool CanConfirmModal(ResolvedMenuItemResult item) =>
+        item.ModifierGroups.All(group =>
+        {
+            var count = _modalSelections.GetValueOrDefault(group.Id, []).Count;
+            return count >= group.SelectionMin && count <= group.SelectionMax;
+        });
+
+    private static string DescribeSelectionRange(ResolvedModifierGroupResult group) =>
+        group.SelectionMin == group.SelectionMax
+            ? group.SelectionMin.ToString()
+            : $"{group.SelectionMin}-{group.SelectionMax}";
+
+    private async Task ConfirmModal(ResolvedMenuItemResult item)
+    {
+        var modifierIds = _modalSelections.Values.SelectMany(ids => ids).ToList();
+        _selectingItem = null;
+        await AddLineAsync(item.ProductId, modifierIds);
+    }
+
+    private void CancelModal() => _selectingItem = null;
+
+    private async Task AddLineAsync(Guid productId, IReadOnlyList<Guid> modifierIds)
+    {
+        if (DeviceContextStore.Current is not { } device || SessionStore.Current?.TerminalId is not { } terminalId)
+        {
+            return;
+        }
+
+        _isBusy = true;
+        _actionError = null;
+
+        if (_order is null)
+        {
+            var openResult = await ApiClient.OpenOrderAsync(new CreateOrderRequest(terminalId));
+            if (openResult.Kind != ApiResultKind.Success || openResult.Value is null)
+            {
+                _actionError = "Could not open an order for this terminal.";
+                _isBusy = false;
+                return;
+            }
+
+            _order = openResult.Value;
+            await DraftOrderStore.SaveOrderIdAsync(device.DeviceId, _order.Id);
+        }
+
+        var addResult = await ApiClient.AddOrderLineAsync(
+            _order.Id, new AddOrderLineRequest(productId, 1, modifierIds.Count > 0 ? modifierIds : null, null));
+
+        if (addResult.Kind != ApiResultKind.Success || addResult.Value is null)
+        {
+            _actionError = "Could not add that item to the order.";
+            _isBusy = false;
+            return;
+        }
+
+        _order = addResult.Value;
+        _isBusy = false;
+    }
+
+    private async Task Increment(CartGroup group) => await AddLineAsync(group.ProductId, group.ModifierIds);
+
+    private async Task Decrement(CartGroup group)
+    {
+        if (_order is null || group.LineIds.Count == 0)
+        {
+            return;
+        }
+
+        _isBusy = true;
+        _actionError = null;
+
+        var result = await ApiClient.VoidOrderLineAsync(_order.Id, group.LineIds[^1], "Decremented by staff");
+        if (result.Kind == ApiResultKind.Success && result.Value is not null)
+        {
+            _order = result.Value;
+        }
+        else
+        {
+            _actionError = "Could not update that item's quantity.";
+        }
+
+        _isBusy = false;
+    }
+
+    private async Task Remove(CartGroup group)
+    {
+        if (_order is null)
+        {
+            return;
+        }
+
+        _isBusy = true;
+        _actionError = null;
+
+        foreach (var lineId in group.LineIds)
+        {
+            var result = await ApiClient.VoidOrderLineAsync(_order.Id, lineId, "Removed by staff");
+            if (result.Kind == ApiResultKind.Success && result.Value is not null)
+            {
+                _order = result.Value;
+            }
+            else
+            {
+                _actionError = "Could not remove that item.";
+                break;
+            }
+        }
+
+        _isBusy = false;
+    }
+
+    private async Task ClearOrder()
+    {
+        if (_order is null || DeviceContextStore.Current is not { } device)
+        {
+            return;
+        }
+
+        _isBusy = true;
+        _actionError = null;
+
+        var result = await ApiClient.VoidOrderAsync(_order.Id, "Cleared by staff");
+        if (result.Kind == ApiResultKind.Success)
+        {
+            await DraftOrderStore.ClearAsync(device.DeviceId);
+            _order = null;
+        }
+        else
+        {
+            _actionError = "Could not clear the order.";
+        }
+
+        _isBusy = false;
+    }
+
+    private List<CartGroup> BuildGroups()
+    {
+        if (_order is null)
+        {
+            return [];
+        }
+
+        var groups = new List<CartGroup>();
+
+        // Preserve the server's own line order (already CreatedAtUtc-ascending, see
+        // BuildOrderResponseAsync) — LineIds[^1] below relies on it to mean "most recently added".
+        foreach (var line in _order.Lines.Where(l => l.Status == OrderLineStatusResult.Active))
+        {
+            var modifierIds = line.Modifiers.Select(m => m.ModifierId).OrderBy(id => id).ToList();
+            var existing = groups.FirstOrDefault(g => g.ProductId == line.ProductId && g.ModifierIds.SequenceEqual(modifierIds));
+
+            if (existing is not null)
+            {
+                existing.Quantity += line.Quantity;
+                existing.TotalAmount += line.LineTotalAmount;
+                existing.LineIds.Add(line.Id);
+                continue;
+            }
+
+            groups.Add(new CartGroup(
+                line.ProductId,
+                line.ProductNameSnapshot,
+                modifierIds,
+                line.Modifiers.Select(m => m.NameSnapshot).ToList())
+            {
+                Quantity = line.Quantity,
+                TotalAmount = line.LineTotalAmount,
+                LineIds = [line.Id],
+            });
+        }
+
+        return groups;
+    }
 
     private static string FormatPrice(decimal amount) => amount.ToString("C");
 
-    private sealed class OrderDraftLine(Guid productId, string productName, decimal unitPrice)
+    private sealed class CartGroup(Guid productId, string productName, IReadOnlyList<Guid> modifierIds, IReadOnlyList<string> modifierNames)
     {
         public Guid ProductId { get; } = productId;
 
         public string ProductName { get; } = productName;
 
-        public decimal UnitPrice { get; } = unitPrice;
+        public IReadOnlyList<Guid> ModifierIds { get; } = modifierIds;
+
+        public IReadOnlyList<string> ModifierNames { get; } = modifierNames;
 
         public int Quantity { get; set; }
 
-        public string? Notes { get; set; }
+        public decimal TotalAmount { get; set; }
+
+        public List<Guid> LineIds { get; set; } = [];
     }
 }
