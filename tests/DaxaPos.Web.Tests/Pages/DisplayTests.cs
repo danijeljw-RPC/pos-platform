@@ -105,9 +105,7 @@ public class DisplayTests : TestContext
 
         var cut = RenderDisplay();
 
-        // Needs two poll round-trips (order, then payments) before the balance settles, so give
-        // it more headroom than the 1s bUnit default.
-        cut.WaitForAssertion(() => Assert.Contains("$8.00", cut.Markup), TimeSpan.FromSeconds(3));
+        cut.WaitForAssertion(() => Assert.Contains("$8.00", cut.Markup));
     }
 
     [Fact]
