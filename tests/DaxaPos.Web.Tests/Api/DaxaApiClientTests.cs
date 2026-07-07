@@ -114,4 +114,123 @@ public class DaxaApiClientTests
 
         Assert.Equal(ApiResultKind.Failed, result.Kind);
     }
+
+    [Fact]
+    public async Task RecordPaymentAsync_OnSuccess_PostsToOrderPaymentsAndReturnsPayment()
+    {
+        var (client, stub) = BuildClient();
+        var orderId = Guid.NewGuid();
+        var paymentId = Guid.NewGuid();
+        var idempotencyKey = Guid.NewGuid();
+        stub.Respond = _ => new HttpResponseMessage(HttpStatusCode.Created)
+        {
+            Content = JsonContent.Create(new PaymentResult(
+                paymentId, orderId, Guid.NewGuid(), PaymentMethodResult.Cash, PaymentStatusResult.Recorded,
+                11.00m, 11.00m, idempotencyKey, null, Guid.NewGuid(), DateTimeOffset.UtcNow, null)),
+        };
+
+        var result = await client.RecordPaymentAsync(orderId, new RecordPaymentRequest(PaymentMethodResult.Cash, 11.00m, idempotencyKey));
+
+        Assert.Equal(ApiResultKind.Success, result.Kind);
+        Assert.Equal(paymentId, result.Value!.Id);
+        Assert.Equal(PaymentStatusResult.Recorded, result.Value.Status);
+        Assert.Equal($"http://test/api/v1/orders/{orderId}/payments", stub.LastRequest!.RequestUri!.ToString());
+        Assert.Equal(HttpMethod.Post, stub.LastRequest.Method);
+    }
+
+    [Fact]
+    public async Task RecordPaymentAsync_OnOverpaymentRejection_ReturnsFailedKind()
+    {
+        var (client, stub) = BuildClient();
+        stub.Respond = _ => new HttpResponseMessage(HttpStatusCode.BadRequest);
+
+        var result = await client.RecordPaymentAsync(Guid.NewGuid(), new RecordPaymentRequest(PaymentMethodResult.Cash, 999m, Guid.NewGuid()));
+
+        Assert.Equal(ApiResultKind.Failed, result.Kind);
+    }
+
+    [Fact]
+    public async Task GetPaymentsAsync_OnSuccess_ReturnsPaymentList()
+    {
+        var (client, stub) = BuildClient();
+        var orderId = Guid.NewGuid();
+        var payment = new PaymentResult(
+            Guid.NewGuid(), orderId, Guid.NewGuid(), PaymentMethodResult.ManualEftpos, PaymentStatusResult.Recorded,
+            8.00m, 8.00m, Guid.NewGuid(), null, Guid.NewGuid(), DateTimeOffset.UtcNow, null);
+        stub.Respond = _ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = JsonContent.Create<IReadOnlyList<PaymentResult>>([payment]),
+        };
+
+        var result = await client.GetPaymentsAsync(orderId);
+
+        Assert.Equal(ApiResultKind.Success, result.Kind);
+        Assert.Single(result.Value!);
+        Assert.Equal($"http://test/api/v1/orders/{orderId}/payments", stub.LastRequest!.RequestUri!.ToString());
+        Assert.Equal(HttpMethod.Get, stub.LastRequest.Method);
+    }
+
+    [Fact]
+    public async Task GetReceiptAsync_OnSuccess_ReturnsReceipt()
+    {
+        var (client, stub) = BuildClient();
+        var orderId = Guid.NewGuid();
+        stub.Respond = _ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = JsonContent.Create(new ReceiptResult(
+                orderId, 42, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow,
+                [new ReceiptLineResult("Flat White", 1, 5.50m, null)],
+                5.50m, "Total", 5.50m, [], "Includes GST", 0.50m, [], [], [])),
+        };
+
+        var result = await client.GetReceiptAsync(orderId);
+
+        Assert.Equal(ApiResultKind.Success, result.Kind);
+        Assert.Equal(orderId, result.Value!.OrderId);
+        Assert.Single(result.Value.Lines);
+        Assert.Equal($"http://test/api/v1/orders/{orderId}/receipt", stub.LastRequest!.RequestUri!.ToString());
+        Assert.Equal(HttpMethod.Get, stub.LastRequest.Method);
+    }
+
+    [Fact]
+    public async Task GetReceiptAsync_OnNotFound_ReturnsFailedKind()
+    {
+        var (client, stub) = BuildClient();
+        stub.Respond = _ => new HttpResponseMessage(HttpStatusCode.NotFound);
+
+        var result = await client.GetReceiptAsync(Guid.NewGuid());
+
+        Assert.Equal(ApiResultKind.Failed, result.Kind);
+    }
+
+    [Fact]
+    public async Task ReprintReceiptAsync_OnSuccess_PostsWithNoBodyAndReturnsReceipt()
+    {
+        var (client, stub) = BuildClient();
+        var orderId = Guid.NewGuid();
+        stub.Respond = _ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = JsonContent.Create(new ReceiptResult(
+                orderId, 42, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow,
+                [], 0m, "Total", 0m, [], "Includes GST", 0m, [], [], [])),
+        };
+
+        var result = await client.ReprintReceiptAsync(orderId);
+
+        Assert.Equal(ApiResultKind.Success, result.Kind);
+        Assert.Equal($"http://test/api/v1/orders/{orderId}/receipt/reprint", stub.LastRequest!.RequestUri!.ToString());
+        Assert.Equal(HttpMethod.Post, stub.LastRequest.Method);
+        Assert.Null(stub.LastRequest.Content);
+    }
+
+    [Fact]
+    public async Task ReprintReceiptAsync_OnForbidden_ReturnsForbiddenKind()
+    {
+        var (client, stub) = BuildClient();
+        stub.Respond = _ => new HttpResponseMessage(HttpStatusCode.Forbidden);
+
+        var result = await client.ReprintReceiptAsync(Guid.NewGuid());
+
+        Assert.Equal(ApiResultKind.Forbidden, result.Kind);
+    }
 }

@@ -1,0 +1,237 @@
+@page "/display"
+@layout DisplayLayout
+@inject DaxaApiClient ApiClient
+@inject IDeviceContextStore DeviceContextStore
+@inject IDraftOrderStore DraftOrderStore
+@implements IDisposable
+
+<PageTitle>Customer Display</PageTitle>
+
+@if (_receipt is { } receipt)
+{
+    <div class="display-state">
+        <h1>Payment approved &mdash; Thank you!</h1>
+        <ul class="display-lines">
+            @foreach (var line in receipt.Lines)
+            {
+                <li><span>@line.Quantity &times; @line.ProductName</span><span>@FormatPrice(line.LineTotalAmount)</span></li>
+            }
+        </ul>
+        <div class="display-total">
+            <span>@receipt.TotalLabel</span>
+            <span>@FormatPrice(receipt.GrandTotalAmount)</span>
+        </div>
+    </div>
+}
+else if (_order is { Status: OrderStatusResult.Open or OrderStatusResult.Held } order)
+{
+    <div class="display-state">
+        <h1>Your order</h1>
+        <ul class="display-lines">
+            @foreach (var line in BuildLines(order))
+            {
+                <li><span>@line.Quantity &times; @line.ProductName</span><span>@FormatPrice(line.Amount)</span></li>
+            }
+        </ul>
+        <div class="display-total">
+            <span>Total</span>
+            <span>@FormatPrice(order.GrandTotalAmount)</span>
+        </div>
+        @if (_payments.Count > 0)
+        {
+            <div class="display-balance">
+                <span>Balance due</span>
+                <span>@FormatPrice(AmountDue)</span>
+            </div>
+        }
+    </div>
+}
+else
+{
+    <div class="display-state">
+        <h1>Daxa POS</h1>
+        <p>Welcome &mdash; please wait to be served.</p>
+    </div>
+}
+
+@code {
+    /// <summary>Test seam: bUnit overrides this to a small value so polling tests don't wait
+    /// seconds per assertion. Production default is deliberately conservative — no
+    /// SignalR/realtime infrastructure, just a plain poll.</summary>
+    [Parameter]
+    public TimeSpan PollInterval { get; set; } = TimeSpan.FromSeconds(4);
+
+    private OrderResult? _order;
+    private IReadOnlyList<PaymentResult> _payments = [];
+    private ReceiptResult? _receipt;
+
+    /// <summary>The order id this component is currently tracking, kept in memory independently of
+    /// <see cref="IDraftOrderStore"/>'s pointer. Needed because <c>Pay.razor</c> clears the store's
+    /// pointer the instant an order completes — without this, the receipt would vanish exactly when
+    /// a customer most needs to see it (see the Milestone E kickoff decision's "sticky-completed"
+    /// rule).</summary>
+    private Guid? _trackedOrderId;
+
+    private Guid? _deviceId;
+    private CancellationTokenSource? _cts;
+
+    private decimal AmountPaid => _payments.Where(p => p.Status == PaymentStatusResult.Recorded).Sum(p => p.AmountApproved ?? 0m);
+
+    private decimal AmountDue => _order is null ? 0m : _order.GrandTotalAmount - AmountPaid;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (DeviceContextStore.Current is not { } device)
+        {
+            return;
+        }
+
+        _deviceId = device.DeviceId;
+        await RefreshAsync();
+
+        _cts = new CancellationTokenSource();
+        _ = PollLoopAsync(_cts.Token);
+    }
+
+    private async Task PollLoopAsync(CancellationToken token)
+    {
+        while (!token.IsCancellationRequested)
+        {
+            try
+            {
+                await Task.Delay(PollInterval, token);
+            }
+            catch (TaskCanceledException)
+            {
+                return;
+            }
+
+            await RefreshAsync();
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task RefreshAsync()
+    {
+        if (_deviceId is not { } deviceId)
+        {
+            return;
+        }
+
+        var storedOrderId = await DraftOrderStore.GetOrderIdAsync(deviceId);
+
+        if (storedOrderId is { } newId && newId != _trackedOrderId)
+        {
+            _trackedOrderId = newId;
+            _receipt = null;
+            await LoadOrderAsync(newId);
+            return;
+        }
+
+        if (storedOrderId is not null)
+        {
+            await LoadOrderAsync(storedOrderId.Value);
+            return;
+        }
+
+        // The stored pointer is gone. Pay.razor clears it the instant an order settles, which can
+        // race with this poll — so re-check the tracked order's authoritative status rather than
+        // trusting a possibly-stale in-memory _order.Status before deciding idle vs sticky-completed.
+        if (_trackedOrderId is { } lastId)
+        {
+            await LoadOrderAsync(lastId);
+
+            if (_order is not { Status: OrderStatusResult.Completed })
+            {
+                ResetToIdle();
+            }
+
+            return;
+        }
+
+        ResetToIdle();
+    }
+
+    private async Task LoadOrderAsync(Guid orderId)
+    {
+        var orderResult = await ApiClient.GetOrderAsync(orderId);
+        if (orderResult.Kind != ApiResultKind.Success || orderResult.Value is null)
+        {
+            ResetToIdle();
+            return;
+        }
+
+        _order = orderResult.Value;
+
+        if (_order.Status == OrderStatusResult.Completed)
+        {
+            if (_receipt is null)
+            {
+                var receiptResult = await ApiClient.GetReceiptAsync(orderId);
+                if (receiptResult.Kind == ApiResultKind.Success && receiptResult.Value is not null)
+                {
+                    _receipt = receiptResult.Value;
+                }
+            }
+
+            return;
+        }
+
+        if (_order.Status is OrderStatusResult.Open or OrderStatusResult.Held)
+        {
+            var paymentsResult = await ApiClient.GetPaymentsAsync(orderId);
+            _payments = paymentsResult.Kind == ApiResultKind.Success && paymentsResult.Value is not null
+                ? paymentsResult.Value
+                : [];
+            return;
+        }
+
+        // Voided/Cancelled shouldn't normally still be pointed at by the draft store, but degrade
+        // to idle rather than showing a dead order if it happens.
+        ResetToIdle();
+    }
+
+    private void ResetToIdle()
+    {
+        _trackedOrderId = null;
+        _order = null;
+        _payments = [];
+        _receipt = null;
+    }
+
+    /// <summary>Groups active lines by product name only (not by modifier combination like
+    /// <c>Sales.razor</c>'s cart) — a deliberate simplification for a read-only customer overview;
+    /// two different modifier combinations of the same product merge into one row here.</summary>
+    private static List<DisplayLine> BuildLines(OrderResult order)
+    {
+        var groups = new List<DisplayLine>();
+
+        foreach (var line in order.Lines.Where(l => l.Status == OrderLineStatusResult.Active))
+        {
+            var existing = groups.Find(g => g.ProductName == line.ProductNameSnapshot);
+            if (existing is not null)
+            {
+                existing.Quantity += line.Quantity;
+                existing.Amount += line.LineTotalAmount;
+                continue;
+            }
+
+            groups.Add(new DisplayLine(line.ProductNameSnapshot) { Quantity = line.Quantity, Amount = line.LineTotalAmount });
+        }
+
+        return groups;
+    }
+
+    private static string FormatPrice(decimal amount) => amount.ToString("C");
+
+    public void Dispose() => _cts?.Cancel();
+
+    private sealed class DisplayLine(string productName)
+    {
+        public string ProductName { get; } = productName;
+
+        public int Quantity { get; set; }
+
+        public decimal Amount { get; set; }
+    }
+}

@@ -4,6 +4,7 @@ using DaxaPos.Web.Api;
 using DaxaPos.Web.Pages;
 using DaxaPos.Web.State;
 using DaxaPos.Web.Tests.Fakes;
+using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace DaxaPos.Web.Tests.Pages;
@@ -229,6 +230,28 @@ public class SalesTests : TestContext
         cut.WaitForAssertion(() => Assert.Contains("No items selected yet.", cut.Markup));
         Assert.Equal(OrderStatusResult.Voided, backend.Order!.Status);
         Assert.Null(draftStore.GetOrderIdAsync(DeviceId).AsTask().GetAwaiter().GetResult());
+    }
+
+    [Fact]
+    public void WhenOrderHasLines_PayButtonNavigatesToThePayPage()
+    {
+        var productId = Guid.NewGuid();
+        var backend = new FakeOrderBackend { Menu = SimpleMenu(productId, "Flat White", 5.5m) };
+        backend.RegisterProduct(productId, "Flat White", 5.5m);
+        RegisterCommonServices(backend);
+
+        var cut = RenderComponent<Sales>();
+        cut.WaitForAssertion(() => Assert.Contains("Flat White", cut.Markup));
+
+        Assert.DoesNotContain("Pay", cut.FindAll("button").Select(b => b.TextContent.Trim()));
+
+        cut.Find("button.btn-outline-primary").Click();
+        cut.WaitForAssertion(() => Assert.Contains("Clear order", cut.Markup));
+
+        cut.FindAll("button").Single(b => b.TextContent.Trim() == "Pay").Click();
+
+        var navigation = Services.GetRequiredService<NavigationManager>();
+        Assert.EndsWith($"/sales/pay/{backend.Order!.Id}", navigation.Uri);
     }
 
     [Fact]

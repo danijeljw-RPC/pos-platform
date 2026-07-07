@@ -4,8 +4,8 @@
 
 Milestone A - Complete. Milestone B - Complete. Milestone C - Complete. Milestone C.1 (TerminalId
 resolution, modifiers, real order wiring) - Complete. Milestone C.2 (terminal assignment integrity,
-terminal-scoped order authorization) - Complete, see closeout below. **Milestone D
-(payments/receipts) is now unblocked.**
+terminal-scoped order authorization) - Complete. Milestone D (payments/receipts) - Complete.
+**Milestone E (customer display) - Complete, see closeout below.**
 
 See `docs/plans/active/PLAN-0006-worker-notes.md` for the full Milestone A implementation report.
 Summary: `src/DaxaPos.Web` (standalone Blazor WebAssembly PWA) scaffolded with device-setup, staff
@@ -451,6 +451,352 @@ closed against a live, rebuilt API, not just the test suite.
 Milestone D (payments/receipts UI) is unblocked: both ownership gaps (TerminalId resolution from
 C.1, terminal-scoped authorization from C.2) that made building payments/receipts on top of order
 ownership unsafe are now closed.
+
+### Milestone D kickoff decision (2026-07-07)
+
+**No backend/API changes are required for Milestone D.** Every endpoint the payment/receipt flow
+needs already exists and is terminal-scoped as of C.2: `POST`/`GET /api/v1/orders/{orderId}/payments`,
+`GET /api/v1/orders/{orderId}/receipt`, `POST /api/v1/orders/{orderId}/receipt/reprint`. Confirmed by
+reading `PaymentEndpoints.cs`/`ReceiptEndpoints.cs` directly, not assumed from
+`docs/modules/payments.md`'s aspirational lifecycle (`Created → SentToTerminal → AwaitingCustomer →
+Approved/Declined/Cancelled/TimedOut → Recorded → OrderClosed/PaymentRetry`) — Cash/ManualEftpos jump
+straight to `Recorded`, so only `Created` (unreachable) and `Recorded` ever matter for this milestone.
+
+Key confirmed facts driving the design:
+
+- `Order`/`OrderResponse` has **no balance/amount-due/total-paid field** — `GrandTotalAmount` is the
+  only total. The payment screen computes
+  `amountDue = order.GrandTotalAmount - payments.Where(p => p.Status == Recorded).Sum(p => p.AmountApproved ?? 0)`
+  client-side from two already-server-computed numbers (`GET .../orders/{id}` +
+  `GET .../orders/{id}/payments`). This is arithmetic over server-authoritative amounts, not a
+  tax/pricing recalculation — the same reasoning Milestone C used for its (now-replaced) draft
+  subtotal.
+- `PaymentSettlement` (unchanged) rejects any payment that would push the running `Recorded` total
+  over `Order.GrandTotalAmount` (400, plain string body, no structured error DTO) and flips
+  `Order.Status` to `Completed` only on **exact** equality — the UI must treat "order still
+  Open/Held after a successful payment" as a normal partial-payment outcome, not an error.
+- `PaymentMethod` only has `Cash = 0`, `ManualEftpos = 1`, `Integrated = 2` in code
+  (`docs/modules/payments.md`'s GiftCard/StoreCredit are aspirational, not implemented);
+  `Integrated` is rejected 400 server-side with no adapter. Milestone D's UI offers only Cash and
+  Manual EFTPOS — no Card/Integrated button at all, not even disabled, so as not to imply a
+  capability that would just 400.
+- `ReceiptResponse` has no persisted `Receipt` row — every `GET .../receipt` and
+  `POST .../receipt/reprint` call re-renders live from `Order`/`OrderLine`/`Payment`/`Refund`; reprint
+  returns the identical `ReceiptResponse` shape as the plain view and is independently audited
+  (`GetAsync` is not).
+- `Sales.razor`'s existing Milestone C.1 restore logic already clears `IDraftOrderStore` if a
+  restored order's status isn't `Open`/`Held` — `/sales` already can't show a completed order as
+  active on a fresh mount. Milestone D adds an **explicit** clear the moment a payment completes the
+  order (in the new Pay page), rather than relying solely on that pre-existing defensive check.
+
+**Routes/components**: a new `Pages/Pay.razor` (`@page "/sales/pay/{OrderId:guid}"`), inside the
+existing Terminal shell (`MainLayout`, no new layout/session — identical posture to `Sales.razor`).
+`Sales.razor` gets one new "Pay" button next to the existing "Clear order" button (same
+`_order is { Lines.Count: > 0 }` guard), navigating via
+`NavigationManager.NavigateTo($"/sales/pay/{_order.Id}")`.
+
+`Pay.razor` is a single page with two states, not two routes:
+
+1. **Paying** (`order.Status` is `Open`/`Held`): balance-due banner, a payment-history table (from
+   `GET .../payments`), a Cash amount field + button and a Manual EFTPOS amount field + button (both
+   prefilled with the current balance due, both call `POST .../payments` with a fresh
+   `Guid.NewGuid()` idempotency key per submit — see idempotency note below), inline server-error
+   display (overpayment, wrong order state, 401/403/404).
+2. **Paid/receipt** (`order.Status` is `Completed`, reached either immediately after a payment
+   settles it or by loading a `/sales/pay/{id}` URL for an already-completed order): renders the
+   `ReceiptResponse` verbatim (lines + marker legend, tax summary, payments, refunds, totals — no
+   client math beyond what's already in the DTO), a "Reprint receipt" button
+   (`POST .../receipt/reprint`, shows a transient success/failure note), and a "New sale" link back
+   to `/sales`.
+
+A `Voided`/`Cancelled` order (only reachable via a stale/shared link — `Sales.razor` itself can't
+produce one) shows a plain "This order is no longer payable" message with a link back to `/sales` —
+not a crash, not a payment form.
+
+**Idempotency key handling** (documented simplification, not silently glossed over): a new `Guid` is
+generated per button click, not persisted/reused across clicks. Submit buttons are disabled while a
+request is in flight (`_isBusy`, matching every existing `Sales.razor` handler), which prevents a
+double-click from creating two payments for one click. The unhandled edge case is a client-observed
+network failure *after* the server already committed the payment (e.g. a dropped response) —
+retrying would use a new key and could record a second real payment. No retry-with-same-key UI is
+built this milestone; flagged here rather than adding a hidden "remember last key" cache, which would
+need its own state-cleanup story.
+
+**Explicitly out of scope** (per the task's hard rules): Stripe/Square/Tap to Pay/integrated card,
+provider/device pairing, refund UI, local/USB printer integration, customer display, KDS, any Back
+Office expansion, any backend/schema change.
+
+**Existing endpoints consumed** (no new endpoints, no schema changes):
+
+- `GET /api/v1/orders/{orderId}` (existing `GetOrderAsync`)
+- `POST /api/v1/orders/{orderId}/payments` (new client method `RecordPaymentAsync`)
+- `GET /api/v1/orders/{orderId}/payments` (new client method `GetPaymentsAsync`)
+- `GET /api/v1/orders/{orderId}/receipt` (new client method `GetReceiptAsync`)
+- `POST /api/v1/orders/{orderId}/receipt/reprint` (new client method `ReprintReceiptAsync`)
+
+**New client DTOs in `Contracts.cs`** (field-for-field mirrors of the server DTOs, confirmed by
+reading `PaymentEndpoints.cs`/`ReceiptEndpoints.cs` and their tests directly): `PaymentMethodResult`/
+`PaymentStatusResult` (ordinal-matching mirrors of `PaymentMethod`/`PaymentStatus`, same convention as
+`OrderStatusResult`), `RecordPaymentRequest`, `PaymentResult`, `ReceiptLineResult`,
+`ReceiptTaxSummaryResult`, `ReceiptPaymentResult`, `ReceiptRefundResult`, `ReceiptResult`. The client
+`RecordPaymentRequest` omits `TenantId` entirely (never supplied by the client, matching the server's
+own "reject client-supplied TenantId" rule) — `ProviderReference` is included but always sent `null`
+from the cash/manual EFTPOS UI.
+
+**Draft-clearing strategy**: `Pay.razor` calls `IDraftOrderStore.ClearAsync(device.DeviceId)` the
+moment it observes `order.Status == Completed` (whether that's immediately after a payment call or
+on initial page load for an already-completed order) — belt-and-braces alongside `Sales.razor`'s
+pre-existing on-mount check.
+
+**Tests expected**: `DaxaApiClientTests` (4 new methods × success/401/403/network-failure, matching
+the existing pattern); `Pages/PayTests.cs` (new, bUnit) covering: balance-due calculation from
+order+payments, full cash payment reaching the receipt state, partial cash payment staying in the
+paying state with updated balance and a visible history row, manual EFTPOS payment, a server-rejected
+overpayment shown as an inline error, reprint button success/failure, a `Completed`-status initial
+load going straight to the receipt state, a `Voided`/404/403 order showing the "not
+payable"/error state, draft-store clearing on completion; `Pages/SalesTests.cs` gets one new case
+(the "Pay" button navigates to `/sales/pay/{id}` when the order has lines, absent otherwise).
+
+### Milestone D closeout (2026-07-07)
+
+Implemented as planned above, **no deviations**. No backend/API/schema changes anywhere in this
+milestone (confirmed: `git diff --stat` touches only `src/DaxaPos.Web`, `tests/DaxaPos.Web.Tests`,
+and these two docs).
+
+Summary: `Pages/Pay.razor` (`/sales/pay/{OrderId:guid}`) added to the existing Terminal shell, with
+two states — paying (balance-due banner computed client-side from `GetOrderAsync` +
+`GetPaymentsAsync`, payment history, Cash/Manual-EFTPOS amount fields prefilled with the balance
+due) and paid/receipt (renders `ReceiptResult` verbatim, reprint action, "New sale" link). `Sales.razor`
+gained a "Pay" button next to "Clear order" (same `_order is { Lines.Count: > 0 }` guard),
+navigating via `NavigationManager`. `Contracts.cs` gained `PaymentMethodResult`/`PaymentStatusResult`
+(ordinal-matching mirrors) and `RecordPaymentRequest`/`PaymentResult`/`ReceiptLineResult`/
+`ReceiptTaxSummaryResult`/`ReceiptPaymentResult`/`ReceiptRefundResult`/`ReceiptResult`, field-for-field
+mirrors confirmed against `PaymentEndpoints.cs`/`ReceiptEndpoints.cs` and their tests directly.
+`DaxaApiClient` gained `RecordPaymentAsync`/`GetPaymentsAsync`/`GetReceiptAsync`/`ReprintReceiptAsync`,
+all implicit-auth, matching the existing order methods exactly.
+
+`FakeOrderBackend` (the bUnit test double `SalesTests`/`PayTests` both drive) was extended to
+simulate payment settlement (rejects a payment that would exceed `GrandTotalAmount`, flips
+`Order.Status` to `Completed` on exact settlement) and receipt rendering, so `PayTests.cs` exercises
+the same state machine the real API enforces without needing a live backend.
+
+Full solution suite: **1169/1169 passing** (144 unit + 95 Web + 930 API — up from Milestone C.2's
+1152; 17 new Web tests, 0 new/changed API tests since no backend code changed). No regressions.
+
+**Test-driven throughout**: each new behaviour (the 4 `DaxaApiClient` methods, `Pay.razor`'s states,
+the `Sales.razor` "Pay" button) was written test-first — watched fail for the expected reason (missing
+method/component, not a typo), then implemented minimally. One micro-refactor during the green phase:
+an initial redundant `orderResult.StatusCode == HttpStatusCode.NotFound ? "..." : "..."` ternary with
+identical branches in `Pay.razor` was simplified to a plain string assignment, and the now-unused
+`@using System.Net` was removed; both kept the test suite green throughout.
+
+**Known gap flagged, not fixed here**: the payment-record failure path in `Pay.razor` shows one
+generic message ("This payment could not be recorded. It may exceed the amount owing.") for every
+non-success `RecordPaymentAsync` outcome except 401/403, rather than surfacing the server's actual
+message text (e.g. "This payment would exceed the order's grand total." vs. "Payments can only be
+recorded against an order that is open or held."). `PaymentEndpoints.cs` returns these as plain-string
+`Results.BadRequest(...)`/`Results.Conflict(...)` bodies, not a structured `ProblemDetails`/error DTO
+— parsing free-text response bodies client-side felt fragile enough to defer rather than build
+silently. A future milestone could add a structured error response server-side (or read the plain
+string through `ApiResult<T>.Error` and display it directly) if more precise in-UI messaging becomes
+a real need; flagged here rather than adding either silently.
+
+Other gaps carried over from earlier milestones, unaffected by this one: Hold/Resume UI remains
+unwired (Milestone C.1); a freshly-provisioned staff member still needs `payments.record` /
+`receipts.reprint` granted via a role (unchanged since Milestone C.1's `orders.manage` note — same
+`Staff` role already carries all three).
+
+**Live/browser verification**: not performed this session. No browser-automation tool has been
+available in any PLAN-0006 session; this milestone's Blazor rendering/event-handling (both `Pay`'s
+states and `Sales`'s new button) is exercised via bUnit component tests only, and the state machine
+they exercise is proven equivalent to the real server via `FakeOrderBackend`'s settlement logic —
+but the `pos-platform-web-1` container has not been rebuilt to serve this code, and no live `curl`
+walkthrough against the real API has been run for this milestone specifically (unlike C.1/C.2, which
+did rebuild and curl-verify). Rebuilding/restarting the `web` container needs the human's
+confirmation first, per this project's standing "ask before rebuilding/restarting api/web containers"
+practice — offered as a next step, not done unprompted.
+
+## Manual UI Test Instructions (Milestone D addendum)
+
+Continues from Milestone C.1's manual walkthrough (`docs/plans/active/PLAN-0006-worker-notes.md`'s
+"Manual UI Test Instructions" — device setup, terminal assignment, staff PIN login, and adding items
+via `/sales` all still apply unchanged). Once the `web` container is rebuilt to serve this milestone's
+code:
+
+1. On `/sales` with at least one item in the cart, confirm a **Pay** button appears next to **Clear
+   order** — click it. You should land on `/sales/pay/{orderId}` showing "Balance due" equal to the
+   order's grand total, with the Cash and Manual EFTPOS amount fields prefilled to that same value.
+2. Reduce the Cash amount to less than the balance and click **Record cash payment** — the balance
+   due should drop by that amount, the payment should appear under "Payments so far", and the screen
+   should stay in the payment-entry state (order not yet fully settled).
+3. Enter the remaining balance in Manual EFTPOS and click **Record manual EFTPOS payment** — the
+   page should switch to the **Receipt** view automatically (order fully settled server-side).
+4. Confirm the receipt shows the correct line items, total, tax summary, and both payments listed.
+5. Click **Reprint receipt** — confirm a "Receipt reprinted." confirmation appears.
+6. Click **New sale** — you should land back on `/sales` with an empty cart (the draft pointer was
+   cleared when the order completed, so a stale/completed order is never restored).
+7. Re-navigate to the same `/sales/pay/{orderId}` URL directly (e.g. paste it back into the address
+   bar) — you should see the **Receipt** view immediately, not a payment form, since the order is
+   already `Completed`.
+8. From a second terminal/device session at the same location, attempt to open the first terminal's
+   `/sales/pay/{orderId}` URL — you should see "This order could not be found." (C.2's terminal-scoped
+   404), not the receipt or payment form.
+9. Open a fresh order, attempt to pay more than the balance due in Cash — confirm you see "This
+   payment could not be recorded. It may exceed the amount owing." and the order remains unpaid/open.
+
+### Milestone E kickoff decision (2026-07-07)
+
+**No backend/API changes are required for Milestone E.** Every endpoint the display needs already
+exists and is already terminal-scoped as of C.2: `GET /api/v1/orders/{orderId}`,
+`GET /api/v1/orders/{orderId}/payments`, `GET /api/v1/orders/{orderId}/receipt`. All three already
+have `DaxaApiClient` methods from Milestone D (`GetOrderAsync`, `GetPaymentsAsync`,
+`GetReceiptAsync`) — no new client DTOs, no new endpoints.
+
+**How the display finds "the current order"**: it reads the same device-scoped `IDraftOrderStore`
+pointer (`daxa.sales-draft.v1.{deviceId}`) that `Sales.razor`/`Pay.razor` already read/write. This
+only works if the display is a second browser tab/window on the *same device/browser profile* as
+the terminal — which matches the product framing directly (Daxa Display is the second screen at the
+same counter, sharing the same physical device's browser storage, the PWA analogue of the MAUI
+second-window/shared-process model in `docs/modules/customer-display.md`). `localStorage` is shared
+across tabs of the same origin, so a second tab's own `DraftOrderStore` instance (each tab is a
+separate WASM app instance with its own DI container — singletons do not cross tabs) still reads the
+same on-disk value the terminal tab wrote. This is why polling the store each cycle works
+cross-tab without any event/broadcast mechanism.
+
+**Display state model**: idle (no device, or device present but no order currently tracked) →
+order-building/payment (stored `OrderId` resolves to an `Open`/`Held` order — server-computed line
+items/subtotal/tax/total from `GetOrderAsync`, balance-due/paid-so-far from `GetPaymentsAsync`) →
+completed/receipt (`Completed` order — renders `GetReceiptAsync` verbatim, same fields `Pay.razor`
+already renders). No client-side tax/pricing recalculation anywhere, per architecture rule.
+
+**The "completed orders and cleared drafts behave sensibly" requirement is handled with a
+sticky-completed rule.** `Pay.razor` clears the draft pointer the instant an order reaches
+`Completed` (Milestone D's belt-and-braces clear) — if the display only ever trusted the store's
+current pointer, it would lose the receipt the moment it disappears, right when a customer most
+needs to see it. So the display keeps its own in-memory "last displayed order" state, independent of
+the store: each poll compares the store's current `OrderId` against what's already shown — a new/
+different id switches to it immediately (discarding whatever was shown before, including a still-
+displayed receipt); the store going empty is only treated as "reset to idle" if the last known order
+was **not** `Completed` (i.e. voided/cleared mid-sale); if it was `Completed`, the receipt keeps
+showing until a genuinely new order starts.
+
+**Authorization**: no separate customer login is added. The display rides on whatever
+device/session context is already active in that browser tab (there is no other option — a bare
+device-token session has `TerminalId: null`, which C.2's `LoadAuthorizedOrderAsync` already rejects
+outright for any location-bound session). A 401/403/404 from any poll (mismatched terminal, expired
+session, order genuinely gone) degrades to the idle state, never a crash or an error banner — this
+is also the real security boundary: the server remains authoritative, matching "UI permission
+checks are only UX hints" (CLAUDE.md).
+
+**Routes/components**: `src/DaxaPos.Web/Pages/Display.razor` (`/display`), using a new
+`src/DaxaPos.Web/Layout/DisplayLayout.razor` (no staff sidebar/nav — visually distinct per the hard
+rule) instead of `MainLayout`. This deliberately bypasses `MainLayout`'s device/session
+redirect-to-login guard: forcing a customer-facing screen into the staff PIN/login form would be
+wrong UX, and the guard's actual purpose (don't show order data without a valid session) is already
+enforced server-side by the same 401/403/404-degrades-to-idle handling above.
+
+**Polling**: a `[Parameter] TimeSpan PollInterval` (default a few seconds) drives a simple
+cancellable poll loop over the three read-only endpoints above — no SignalR/realtime infrastructure
+added, consistent with the hard rule. Tests override the interval to a small value for speed.
+
+**How staff opens it**: one added link in `NavMenu.razor` (Terminal shell sidebar), `target="_blank"`,
+opening `/display` as a second tab/window — `Sales.razor`'s existing (tested) button layout is left
+untouched.
+
+**Explicitly out of scope** (per the task's hard rules): MAUI second window, customer input,
+loyalty/tip prompts, KDS, printing, any Back Office expansion, any backend/schema change.
+
+**Tests expected**: `tests/DaxaPos.Web.Tests/Pages/DisplayTests.cs` (bUnit, reusing the existing
+`FakeOrderBackend`/`InMemoryBrowserStorage` fakes from Milestone D) — no device → idle; device but no
+tracked order → idle; an `Open` order with lines → grouped line items and server totals; a partial
+payment → balance-due reflects the remainder; a `Completed` order → receipt view; draft cleared
+after completion → receipt stays showing (sticky-completed); an order voided and its draft cleared →
+resets to idle; a new order starting while an old receipt is showing → switches to the new order; a
+terminal-mismatched/404 order → degrades to idle, not an error.
+
+### Milestone E closeout (2026-07-07)
+
+Implemented as planned above, **no deviations**. No backend/API/schema changes anywhere in this
+milestone (confirmed: `git diff --stat` touches only `src/DaxaPos.Web` and
+`tests/DaxaPos.Web.Tests`, plus these two docs and the pre-existing uncommitted Milestone D files
+already in the working tree at session start).
+
+Summary: `Pages/Display.razor` (`/display`, `@layout DisplayLayout`) polls the same device-scoped
+`IDraftOrderStore` pointer `Sales.razor`/`Pay.razor` already read/write, resolving it against the
+already-terminal-scoped `GetOrderAsync`/`GetPaymentsAsync`/`GetReceiptAsync`. Three states: idle (no
+device, or nothing tracked), order-building/payment (grouped line items, server-computed total,
+balance-due once a payment is recorded), and completed/receipt (renders the same `ReceiptResult`
+fields `Pay.razor` already shows). A new `Layout/DisplayLayout.razor` (no staff sidebar/nav, dark
+full-screen styling) keeps it visually distinct from the Terminal shell, and deliberately does not
+reimplement `MainLayout`'s redirect-to-login guard — a 401/403/404 from any poll degrades to idle
+instead, which is both the correct customer-facing UX (no staff login form on a customer screen) and
+the real security boundary (the server remains authoritative). `NavMenu.razor` gained one
+`target="_blank"` link to open `/display` as a second tab/window; `Sales.razor`'s existing
+Pay/Clear-order buttons were not touched.
+
+The **sticky-completed** rule (the task's explicit "ensure completed orders and cleared drafts
+behave sensibly" requirement) tracks the displayed order id in the component's own memory,
+independent of the store's pointer: a new/different stored id always switches immediately
+(discarding anything currently shown, including a still-visible receipt); the stored pointer
+disappearing is only treated as "reset to idle" if the tracked order's **freshly re-fetched**
+status isn't `Completed` — re-fetching rather than trusting a possibly-stale in-memory status
+matters because `Pay.razor` can clear the pointer in the same tick the order settles, and a poll
+landing exactly then must not misread a stale "still Open" snapshot as a voided/abandoned sale.
+
+Full solution suite: **1178/1178 passing** (144 unit + 104 Web + 930 API — up from Milestone D's
+1169; 9 new Web tests, 0 API changes). No regressions.
+
+**Test-driven throughout**: `DisplayTests.cs` was written and watched to fail (missing `Display`
+type) before `Display.razor`/`DisplayLayout.razor` existed, then implemented to green in one pass —
+all 9 cases (idle with/without a device, an open order's line items and total, partial-payment
+balance due, a completed order's receipt, sticky-completed after the draft clears, voided-and-
+cleared resetting to idle, a new order replacing an old shown receipt, and a 404'd/mismatched order
+degrading to idle) passed without further changes.
+
+**Known simplification, not fixed here**: `Display.razor`'s line-item grouping merges by product
+name only, not by product+modifier combination like `Sales.razor`'s cart does — two different
+modifier selections of the same product would merge into one row on the display (still correct
+totals, since those come straight from the server, just a coarser breakdown). Flagged as a
+deliberate choice for a read-only customer overview rather than duplicating `Sales.razor`'s
+`CartGroup` machinery; a future pass could share a single grouping helper if this ever needs to
+match exactly.
+
+**Live/browser verification**: not performed this session, same constraint as every prior PLAN-0006
+milestone (no browser-automation tool available). bUnit component tests exercise real Blazor
+rendering and the poll-loop's timer-driven state transitions (using a short `PollInterval` test
+seam); the `pos-platform-web-1` container has not been rebuilt to serve this code — offered as a
+next step, not done unprompted, per the standing "ask before rebuilding/restarting api/web
+containers" practice.
+
+## Manual UI Test Instructions (Milestone E addendum)
+
+Continues from the Milestone D addendum above (device setup, terminal assignment, staff PIN login,
+adding items, and paying all still apply unchanged). Once the `web` container is rebuilt to serve
+this milestone's code:
+
+1. While signed in on the Terminal shell, open the sidebar and click **Customer display** — it
+   should open `/display` in a new browser tab. With no active order yet, it should show a plain
+   "Daxa POS" / "Welcome — please wait to be served" idle screen (dark, full-screen, no staff
+   sidebar/nav — visually distinct from the Sales screen in the other tab).
+2. Back in the original tab's `/sales`, add an item to the cart. Within a few seconds, the customer
+   display tab should update on its own (no manual refresh) to show that item, its quantity, and the
+   order's total.
+3. Add a couple more items (including a repeat tap on the same item, and one with a modifier if
+   available) — confirm the display's line list and total keep updating.
+4. Click **Pay**, record a **partial** cash payment less than the total — within a few seconds the
+   display tab should show a **Balance due** line reflecting the remaining amount.
+5. Record the remaining balance (Cash or Manual EFTPOS) so the order settles — the display tab
+   should switch to "Payment approved — Thank you!" with the same line items/total as the receipt
+   view, without needing a manual refresh, even though completing the payment clears the sales
+   draft pointer in the other tab.
+6. Click **New sale** in the Sales tab and start a fresh order — the display tab should drop the old
+   "Thank you" screen and switch to the new order's items once the first item is added, without
+   ever flashing back to idle in between (per the "sticky until a new order starts" rule).
+7. Start an order, then click **Clear order** *before* paying — the display tab should return to the
+   idle "Daxa POS" screen (not stay showing the abandoned cart).
+8. From a second terminal/device session at the same location with its own `/display` tab, confirm
+   it never shows the first terminal's order (C.2's terminal-scoped authorization applies to
+   `/display`'s polling exactly as it does to `/sales`/`/sales/pay`).
 
 ## Goal
 

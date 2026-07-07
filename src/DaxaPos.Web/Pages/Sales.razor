@@ -3,6 +3,7 @@
 @inject IDeviceContextStore DeviceContextStore
 @inject IAuthSessionStore SessionStore
 @inject IDraftOrderStore DraftOrderStore
+@inject NavigationManager Navigation
 
 <PageTitle>Sales</PageTitle>
 
@@ -69,6 +70,7 @@ else
                     <h2 class="h5 mb-0">Order</h2>
                     @if (_order is { Lines.Count: > 0 })
                     {
+                        <button type="button" class="btn btn-sm btn-primary" disabled="@_isBusy" @onclick="GoToPay">Pay</button>
                         <button type="button" class="btn btn-sm btn-outline-secondary" disabled="@_isBusy" @onclick="ClearOrder">Clear order</button>
                     }
                 </div>
@@ -356,6 +358,14 @@ else
         }
 
         _isBusy = false;
+    }
+
+    private void GoToPay()
+    {
+        if (_order is not null)
+        {
+            Navigation.NavigateTo($"/sales/pay/{_order.Id}");
+        }
     }
 
     private async Task ClearOrder()

@@ -68,6 +68,22 @@ public sealed class DaxaApiClient(HttpClient httpClient)
         reason is null ? string.Empty : $"?reason={Uri.EscapeDataString(reason)}";
 
     /// <summary>
+    /// Payment and receipt flow (PLAN-0006 Milestone D). Implicit-auth, same as the order methods
+    /// above — these are Terminal-shell staff-session calls, not Back Office.
+    /// </summary>
+    public Task<ApiResult<PaymentResult>> RecordPaymentAsync(Guid orderId, RecordPaymentRequest request, CancellationToken ct = default) =>
+        PostAsync<RecordPaymentRequest, PaymentResult>($"api/v1/orders/{orderId}/payments", request, ct);
+
+    public Task<ApiResult<IReadOnlyList<PaymentResult>>> GetPaymentsAsync(Guid orderId, CancellationToken ct = default) =>
+        GetAsync<IReadOnlyList<PaymentResult>>($"api/v1/orders/{orderId}/payments", ct);
+
+    public Task<ApiResult<ReceiptResult>> GetReceiptAsync(Guid orderId, CancellationToken ct = default) =>
+        GetAsync<ReceiptResult>($"api/v1/orders/{orderId}/receipt", ct);
+
+    public Task<ApiResult<ReceiptResult>> ReprintReceiptAsync(Guid orderId, CancellationToken ct = default) =>
+        PostNoBodyAsync<ReceiptResult>($"api/v1/orders/{orderId}/receipt/reprint", ct);
+
+    /// <summary>
     /// Back Office admin login (ADR-0013 local admin portal login). Unauthenticated — the server
     /// endpoint requires no prior context, unlike Staff PIN login which requires a device context.
     /// </summary>

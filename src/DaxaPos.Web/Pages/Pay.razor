@@ -1,0 +1,264 @@
+@page "/sales/pay/{OrderId:guid}"
+@inject DaxaApiClient ApiClient
+@inject IDeviceContextStore DeviceContextStore
+@inject IDraftOrderStore DraftOrderStore
+@inject NavigationManager Navigation
+
+<PageTitle>Payment</PageTitle>
+
+<h1>Payment</h1>
+
+@if (_loadError is not null)
+{
+    <p class="text-danger" role="alert">@_loadError</p>
+    <a href="/sales">Back to sales</a>
+}
+else if (_receipt is { } receipt)
+{
+    <h2 class="h5">Receipt</h2>
+
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Item</th>
+                <th class="text-end">Qty</th>
+                <th class="text-end">Amount</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var line in receipt.Lines)
+            {
+                <tr>
+                    <td>@line.ProductName @(line.TaxMarkerCode is { } marker ? $"({marker})" : "")</td>
+                    <td class="text-end">@line.Quantity</td>
+                    <td class="text-end">@FormatPrice(line.LineTotalAmount)</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    <div class="d-flex justify-content-between">
+        <span>@receipt.TotalLabel</span>
+        <span>@FormatPrice(receipt.GrandTotalAmount)</span>
+    </div>
+    <div class="d-flex justify-content-between">
+        <span>@receipt.TaxInclusiveSummaryLabel</span>
+        <span>@FormatPrice(receipt.TotalTaxAmount)</span>
+    </div>
+
+    @if (receipt.MarkerLegend.Count > 0)
+    {
+        <p class="text-muted small">@string.Join(", ", receipt.MarkerLegend)</p>
+    }
+
+    @if (receipt.Payments.Count > 0)
+    {
+        <h3 class="h6 mt-3">Payments</h3>
+        <ul class="list-unstyled">
+            @foreach (var payment in receipt.Payments)
+            {
+                <li>@payment.Method &mdash; @FormatPrice(payment.AmountApproved)</li>
+            }
+        </ul>
+    }
+
+    @if (receipt.Refunds.Count > 0)
+    {
+        <h3 class="h6 mt-3">Refunds</h3>
+        <ul class="list-unstyled">
+            @foreach (var refund in receipt.Refunds)
+            {
+                <li>@FormatPrice(refund.Amount) &mdash; @refund.ReasonCode</li>
+            }
+        </ul>
+    }
+
+    @if (_reprintMessage is not null)
+    {
+        <p role="status">@_reprintMessage</p>
+    }
+
+    <div class="d-flex gap-2 mt-3">
+        <button type="button" id="reprint" class="btn btn-outline-secondary" disabled="@_isBusy" @onclick="ReprintAsync">Reprint receipt</button>
+        <a href="/sales" class="btn btn-primary">New sale</a>
+    </div>
+}
+else if (_order is null)
+{
+    <p>Loading order&hellip;</p>
+}
+else
+{
+    @if (_actionError is not null)
+    {
+        <p class="text-danger" role="alert">@_actionError</p>
+    }
+
+    <div class="d-flex justify-content-between fw-semibold mb-3">
+        <span>Balance due</span>
+        <span>@FormatPrice(AmountDue)</span>
+    </div>
+
+    @if (_payments.Count > 0)
+    {
+        <h2 class="h6">Payments so far</h2>
+        <ul class="list-unstyled">
+            @foreach (var payment in _payments)
+            {
+                <li>@payment.Method &mdash; @FormatPrice(payment.AmountApproved ?? 0m)</li>
+            }
+        </ul>
+    }
+
+    <div class="row g-3">
+        <div class="col-12 col-md-6">
+            <div class="border rounded p-3">
+                <h2 class="h6">Cash</h2>
+                <input id="cash-amount" type="number" step="0.01" class="form-control mb-2" value="@_cashAmount.ToString("0.00")" @onchange="e => _cashAmount = ParseAmount(e.Value)" />
+                <button type="button" id="record-cash" class="btn btn-primary" disabled="@_isBusy" @onclick="() => RecordPaymentAsync(PaymentMethodResult.Cash, _cashAmount)">Record cash payment</button>
+            </div>
+        </div>
+        <div class="col-12 col-md-6">
+            <div class="border rounded p-3">
+                <h2 class="h6">Manual EFTPOS</h2>
+                <input id="eftpos-amount" type="number" step="0.01" class="form-control mb-2" value="@_eftposAmount.ToString("0.00")" @onchange="e => _eftposAmount = ParseAmount(e.Value)" />
+                <button type="button" id="record-eftpos" class="btn btn-primary" disabled="@_isBusy" @onclick="() => RecordPaymentAsync(PaymentMethodResult.ManualEftpos, _eftposAmount)">Record manual EFTPOS payment</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public Guid OrderId { get; set; }
+
+    private OrderResult? _order;
+    private IReadOnlyList<PaymentResult> _payments = [];
+    private ReceiptResult? _receipt;
+    private string? _loadError;
+    private string? _actionError;
+    private string? _reprintMessage;
+    private bool _isBusy;
+    private decimal _cashAmount;
+    private decimal _eftposAmount;
+
+    private decimal AmountPaid => _payments.Where(p => p.Status == PaymentStatusResult.Recorded).Sum(p => p.AmountApproved ?? 0m);
+
+    private decimal AmountDue => _order is null ? 0m : _order.GrandTotalAmount - AmountPaid;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var orderResult = await ApiClient.GetOrderAsync(OrderId);
+        if (orderResult.Kind != ApiResultKind.Success || orderResult.Value is null)
+        {
+            _loadError = "This order could not be found.";
+            return;
+        }
+
+        _order = orderResult.Value;
+
+        if (_order.Status == OrderStatusResult.Completed)
+        {
+            await EnterReceiptStateAsync();
+            return;
+        }
+
+        if (_order.Status is not (OrderStatusResult.Open or OrderStatusResult.Held))
+        {
+            _loadError = "This order is no longer payable.";
+            return;
+        }
+
+        await LoadPaymentsAsync();
+        _cashAmount = AmountDue;
+        _eftposAmount = AmountDue;
+    }
+
+    private async Task LoadPaymentsAsync()
+    {
+        var paymentsResult = await ApiClient.GetPaymentsAsync(OrderId);
+        _payments = paymentsResult.Kind == ApiResultKind.Success && paymentsResult.Value is not null
+            ? paymentsResult.Value
+            : [];
+    }
+
+    private async Task RecordPaymentAsync(PaymentMethodResult method, decimal amount)
+    {
+        if (_order is null || amount <= 0)
+        {
+            return;
+        }
+
+        _isBusy = true;
+        _actionError = null;
+
+        var result = await ApiClient.RecordPaymentAsync(_order.Id, new RecordPaymentRequest(method, amount, Guid.NewGuid()));
+        if (result.Kind != ApiResultKind.Success || result.Value is null)
+        {
+            _actionError = result.Kind switch
+            {
+                ApiResultKind.Unauthorized or ApiResultKind.Forbidden => "You don't have permission to record payments.",
+                _ => "This payment could not be recorded. It may exceed the amount owing.",
+            };
+            _isBusy = false;
+            return;
+        }
+
+        var refreshed = await ApiClient.GetOrderAsync(_order.Id);
+        if (refreshed.Kind == ApiResultKind.Success && refreshed.Value is not null)
+        {
+            _order = refreshed.Value;
+        }
+
+        await LoadPaymentsAsync();
+
+        if (_order.Status == OrderStatusResult.Completed)
+        {
+            await EnterReceiptStateAsync();
+        }
+        else
+        {
+            _cashAmount = AmountDue;
+            _eftposAmount = AmountDue;
+        }
+
+        _isBusy = false;
+    }
+
+    private async Task EnterReceiptStateAsync()
+    {
+        var receiptResult = await ApiClient.GetReceiptAsync(OrderId);
+        if (receiptResult.Kind == ApiResultKind.Success && receiptResult.Value is not null)
+        {
+            _receipt = receiptResult.Value;
+        }
+
+        if (DeviceContextStore.Current is { } device)
+        {
+            await DraftOrderStore.ClearAsync(device.DeviceId);
+        }
+    }
+
+    private async Task ReprintAsync()
+    {
+        _isBusy = true;
+
+        var result = await ApiClient.ReprintReceiptAsync(OrderId);
+        if (result.Kind == ApiResultKind.Success && result.Value is not null)
+        {
+            _receipt = result.Value;
+            _reprintMessage = "Receipt reprinted.";
+        }
+        else
+        {
+            _reprintMessage = "Could not reprint the receipt.";
+        }
+
+        _isBusy = false;
+    }
+
+    private static decimal ParseAmount(object? value) =>
+        decimal.TryParse(value?.ToString(), out var amount) ? amount : 0m;
+
+    private static string FormatPrice(decimal amount) => amount.ToString("C");
+}

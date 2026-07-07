@@ -168,3 +168,76 @@ public sealed record TerminalResult(Guid Id, Guid LocationId, Guid? DeviceId, st
 public sealed record CreateTerminalRequest(string Name, Guid LocationId);
 
 public sealed record AssignTerminalDeviceRequest(Guid? DeviceId);
+
+// Payment and receipt flow (PLAN-0006 Milestone D) — client mirrors of PaymentEndpoints' and
+// ReceiptEndpoints' request/response DTOs. Terminal-shell calls, implicit-auth (same pattern as the
+// order methods above), no backend changes.
+
+/// <summary>Mirrors <c>DaxaPos.Domain.Enums.PaymentMethod</c> ordinal-for-ordinal (see
+/// <see cref="OrderStatusResult"/> remarks). Only Cash/ManualEftpos are offered by this milestone's
+/// UI — Integrated is rejected 400 server-side with no adapter yet (PLAN-0009).</summary>
+public enum PaymentMethodResult
+{
+    Cash = 0,
+    ManualEftpos = 1,
+    Integrated = 2,
+}
+
+/// <summary>Mirrors <c>DaxaPos.Domain.Enums.PaymentStatus</c> ordinal-for-ordinal. Cash/ManualEftpos
+/// always settle straight to <see cref="Recorded"/> — the other values are unreachable until
+/// PLAN-0009's integrated-adapter work exists.</summary>
+public enum PaymentStatusResult
+{
+    Created = 0,
+    Approved = 1,
+    Declined = 2,
+    Cancelled = 3,
+    TimedOut = 4,
+    Recorded = 5,
+}
+
+/// <summary>TenantId is deliberately omitted — the client must never supply it (the server rejects a
+/// client-supplied TenantId with 400). ProviderReference is always sent <c>null</c> from the
+/// cash/manual EFTPOS UI (it exists for future provider integrations).</summary>
+public sealed record RecordPaymentRequest(PaymentMethodResult Method, decimal AmountRequested, Guid IdempotencyKey, string? ProviderReference = null);
+
+public sealed record PaymentResult(
+    Guid Id,
+    Guid OrderId,
+    Guid LocationId,
+    PaymentMethodResult Method,
+    PaymentStatusResult Status,
+    decimal AmountRequested,
+    decimal? AmountApproved,
+    Guid IdempotencyKey,
+    Guid? TakenByUserId,
+    Guid? TakenByStaffMemberId,
+    DateTimeOffset RecordedAtUtc,
+    string? ProviderReference);
+
+public sealed record ReceiptLineResult(string ProductName, int Quantity, decimal LineTotalAmount, string? TaxMarkerCode);
+
+public sealed record ReceiptTaxSummaryResult(string TaxName, decimal RatePercent, decimal TaxableAmount, decimal TaxAmount);
+
+/// <summary>Method here is a plain string (the server renders <c>payment.Method.ToString()</c>), not
+/// <see cref="PaymentMethodResult"/> — the receipt DTO and the payment DTO deliberately don't share a
+/// Method type, matching the server's own two distinct shapes.</summary>
+public sealed record ReceiptPaymentResult(Guid PaymentId, string Method, decimal AmountApproved, DateTimeOffset RecordedAtUtc);
+
+public sealed record ReceiptRefundResult(Guid RefundId, Guid PaymentId, decimal Amount, string ReasonCode, DateTimeOffset RecordedAtUtc);
+
+public sealed record ReceiptResult(
+    Guid OrderId,
+    long OrderNumber,
+    DateTimeOffset OpenedAtUtc,
+    DateTimeOffset? ClosedAtUtc,
+    IReadOnlyList<ReceiptLineResult> Lines,
+    decimal SubtotalAmount,
+    string TotalLabel,
+    decimal GrandTotalAmount,
+    IReadOnlyList<ReceiptTaxSummaryResult> TaxSummary,
+    string TaxInclusiveSummaryLabel,
+    decimal TotalTaxAmount,
+    IReadOnlyList<string> MarkerLegend,
+    IReadOnlyList<ReceiptPaymentResult> Payments,
+    IReadOnlyList<ReceiptRefundResult> Refunds);

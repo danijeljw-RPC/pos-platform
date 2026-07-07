@@ -23,6 +23,14 @@ public sealed class FakeOrderBackend
 
     public Guid? LastOpenedTerminalId { get; private set; }
 
+    /// <summary>Payments recorded against <see cref="Order"/>, mirroring
+    /// <c>PaymentEndpoints</c>'s settlement rule (Milestone D): a payment that would push the running
+    /// <c>Recorded</c> total over <c>GrandTotalAmount</c> is rejected 400; reaching it exactly flips
+    /// <see cref="Order"/> to <c>Completed</c>.</summary>
+    public List<PaymentResult> Payments { get; } = [];
+
+    public int ReprintCount { get; private set; }
+
     public void RegisterProduct(Guid id, string name, decimal price) => _products[id] = (name, price);
 
     public void RegisterModifier(Guid id, string name, decimal priceDelta) => _modifiers[id] = (name, priceDelta);
@@ -92,6 +100,74 @@ public sealed class FakeOrderBackend
             return Json(HttpStatusCode.OK, Order);
         }
 
+        if (request.Method == HttpMethod.Post && path.EndsWith("/payments", StringComparison.Ordinal))
+        {
+            var orderId = Guid.Parse(segments[3]);
+            if (Order is null || Order.Id != orderId)
+            {
+                return new HttpResponseMessage(HttpStatusCode.NotFound);
+            }
+
+            if (Order.Status is not (OrderStatusResult.Open or OrderStatusResult.Held))
+            {
+                return new HttpResponseMessage(HttpStatusCode.Conflict);
+            }
+
+            var body = ReadBody<RecordPaymentRequest>(request)!;
+            var existingRecordedTotal = Payments.Where(p => p.Status == PaymentStatusResult.Recorded).Sum(p => p.AmountApproved ?? 0m);
+            if (existingRecordedTotal + body.AmountRequested > Order.GrandTotalAmount)
+            {
+                return new HttpResponseMessage(HttpStatusCode.BadRequest);
+            }
+
+            var payment = new PaymentResult(
+                Guid.NewGuid(), orderId, Guid.NewGuid(), body.Method, PaymentStatusResult.Recorded,
+                body.AmountRequested, body.AmountRequested, body.IdempotencyKey, null, Guid.NewGuid(),
+                DateTimeOffset.UtcNow, body.ProviderReference);
+            Payments.Add(payment);
+
+            if (existingRecordedTotal + body.AmountRequested == Order.GrandTotalAmount)
+            {
+                Order = Order with { Status = OrderStatusResult.Completed };
+            }
+
+            return Json(HttpStatusCode.Created, payment);
+        }
+
+        if (request.Method == HttpMethod.Get && path.EndsWith("/payments", StringComparison.Ordinal))
+        {
+            var orderId = Guid.Parse(segments[3]);
+            if (Order is null || Order.Id != orderId)
+            {
+                return new HttpResponseMessage(HttpStatusCode.NotFound);
+            }
+
+            return Json(HttpStatusCode.OK, (IReadOnlyList<PaymentResult>)[.. Payments.OrderBy(p => p.RecordedAtUtc)]);
+        }
+
+        if (request.Method == HttpMethod.Post && path.EndsWith("/receipt/reprint", StringComparison.Ordinal))
+        {
+            var orderId = Guid.Parse(segments[3]);
+            if (Order is null || Order.Id != orderId)
+            {
+                return new HttpResponseMessage(HttpStatusCode.NotFound);
+            }
+
+            ReprintCount++;
+            return Json(HttpStatusCode.OK, BuildReceipt(Order));
+        }
+
+        if (request.Method == HttpMethod.Get && path.EndsWith("/receipt", StringComparison.Ordinal))
+        {
+            var orderId = Guid.Parse(segments[3]);
+            if (Order is null || Order.Id != orderId)
+            {
+                return new HttpResponseMessage(HttpStatusCode.NotFound);
+            }
+
+            return Json(HttpStatusCode.OK, BuildReceipt(Order));
+        }
+
         if (request.Method == HttpMethod.Get && segments is ["api", "v1", "orders", _])
         {
             var orderId = Guid.Parse(segments[3]);
@@ -101,6 +177,24 @@ public sealed class FakeOrderBackend
         }
 
         return new HttpResponseMessage(HttpStatusCode.NotFound);
+    }
+
+    private ReceiptResult BuildReceipt(OrderResult order)
+    {
+        var lines = order.Lines
+            .Where(l => l.Status == OrderLineStatusResult.Active)
+            .Select(l => new ReceiptLineResult(l.ProductNameSnapshot, l.Quantity, l.LineTotalAmount, null))
+            .ToList();
+
+        var payments = Payments
+            .OrderBy(p => p.RecordedAtUtc)
+            .Select(p => new ReceiptPaymentResult(p.Id, p.Method.ToString(), p.AmountApproved ?? 0m, p.RecordedAtUtc))
+            .ToList();
+
+        return new ReceiptResult(
+            order.Id, 1, DateTimeOffset.UtcNow, order.Status == OrderStatusResult.Completed ? DateTimeOffset.UtcNow : null,
+            lines, order.SubtotalAmount, "Total", order.GrandTotalAmount, [], "Includes GST", order.TotalTaxAmount,
+            [], payments, []);
     }
 
     private static OrderResult RecomputeTotals(OrderResult order)
