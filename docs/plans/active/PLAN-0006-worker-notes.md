@@ -236,3 +236,469 @@ Do not:
 - Implement OI-0018.
 - Start PLAN-0009.
 - Add migrations unless a direct blocker is found.
+
+## Milestone B Kickoff Notes (before implementation, 2026-07-07)
+
+### Files likely to change
+
+- `src/DaxaPos.Web/State/BackOfficeSessionState.cs`, `IBackOfficeSessionStore.cs`,
+  `BackOfficeSessionStore.cs` — new, mirrors `SessionState`/`AuthSessionStore`, own localStorage
+  key (`daxa.backoffice-session.v1`).
+- `src/DaxaPos.Web/Api/Contracts.cs` — add client-side DTOs for local login, locations, devices,
+  device-registration-pins, product categories, products, menus.
+- `src/DaxaPos.Web/Api/DaxaApiClient.cs` — add `LocalLoginAsync` (unauthenticated) plus
+  explicit-bearer-token overloads for the Back Office read/PIN endpoints.
+- `src/DaxaPos.Web/Api/AuthHeaderHandler.cs` — one-line, documented change: skip implicit
+  Bearer/Device resolution when the request already carries an explicit `Authorization` header.
+- `src/DaxaPos.Web/Layout/BackOfficeLayout.razor`, `BackOfficeNavMenu.razor` — new, separate from
+  `MainLayout`/`NavMenu`.
+- `src/DaxaPos.Web/Pages/BackOffice/*.razor` — new: `BackOfficeLogin`, `BackOfficeHome`,
+  `DeviceRegistrationPins`, `Devices`, `Locations`, `CatalogSetup`.
+- Matching new tests under `tests/DaxaPos.Web.Tests/...`.
+
+### Existing endpoints expected to be consumed (all pre-existing, no backend changes)
+
+- `POST /api/v1/auth/local/login`
+- `POST /api/v1/device-registration-pins`, `POST /api/v1/device-registration-pins/{id}/revoke`
+- `GET /api/v1/locations`
+- `GET /api/v1/devices?locationId=`
+- `GET /api/v1/product-categories`, `GET /api/v1/products`
+- `GET /api/v1/menus`
+
+### Routes to be added
+
+`/back-office/login`, `/back-office`, `/back-office/device-registration-pins`,
+`/back-office/devices`, `/back-office/locations`, `/back-office/catalog`.
+
+### Authorization assumptions
+
+- Back Office requires a live Back Office session (issued by `local/login`); no device context is
+  needed to reach it at all — ADR-0013's local admin portal login is username/password, independent
+  of device registration.
+- The Terminal shell (`MainLayout`, `/`, `/login`, `/device-setup`) is untouched; no cross-navigation
+  is added between Terminal and Back Office (hard rule: keep them clearly separate).
+- Server remains the permission authority; Back Office pages only branch on 401/403 for UX, matching
+  Milestone A's convention.
+
+### Tests expected
+
+bUnit tests for `BackOfficeLogin`, `BackOfficeLayout`'s route guard, and `DeviceRegistrationPins`
+(generate shows the raw PIN once, revoke); unit tests for the new store and the new `DaxaApiClient`
+methods (including that an explicit bearer token is attached and not overwritten by
+`AuthHeaderHandler`); a regression test confirming Milestone A's implicit Bearer/Device resolution
+still works unchanged when no explicit header is set.
+
+### Known gap flagged, not fixed here
+
+No `GET`/list endpoint exists for `DeviceRegistrationPin` (only create + revoke — the raw PIN is
+deliberately never persisted in retrievable form, per ADR-0015). Back Office can therefore only show
+the PIN just generated in the current session, not a durable list of previously issued PINs. Adding
+a list-metadata endpoint is a backend contract change outside Milestone B's scope; flagging here
+rather than adding it silently. A future milestone/OI can pick this up if day-2 PIN visibility
+becomes a real operational need.
+
+## Milestone B Implementation Report
+
+Completed 2026-07-07, directly on `main` (no worktree used for this milestone).
+
+### What was built
+
+No deviations from the kickoff notes above. All new code lives in `src/DaxaPos.Web`; no backend
+project, schema, or migration changed.
+
+- `src/DaxaPos.Web/State/BackOfficeSessionState.cs`, `IBackOfficeSessionStore.cs`,
+  `BackOfficeSessionStore.cs` — new session type/store, own localStorage key
+  (`daxa.backoffice-session.v1`), mirrors `SessionState`/`AuthSessionStore`'s shape. `Email` is
+  stored client-side only (from the login form) purely for the "Signed in as…" display — the
+  server's `LocalLoginResponse` doesn't return one.
+- `src/DaxaPos.Web/Api/Contracts.cs` — added `LocalLoginRequest`/`LocalLoginResult`,
+  `LocationResult`, `DeviceResult`, `CreateDeviceRegistrationPinRequest`,
+  `DeviceRegistrationPinCreatedResult`, `DeviceRegistrationPinResult`, `ProductCategoryResult`,
+  `ProductResult`, `MenuResult`.
+- `src/DaxaPos.Web/Api/DaxaApiClient.cs` — added `LocalLoginAsync` (unauthenticated, matching
+  `POST /api/v1/auth/local/login`'s own lack of a `RequireAuthorization()` gate) plus
+  explicit-bearer-token methods (`CreateDeviceRegistrationPinAsync`, `RevokeDeviceRegistrationPinAsync`,
+  `ListLocationsAsync`, `ListDevicesAsync`, `ListProductCategoriesAsync`, `ListProductsAsync`,
+  `ListMenusAsync`, `LogoutBackOfficeAsync`) backed by two new private helpers
+  (`PostAuthorizedAsync`/`GetAuthorizedAsync`) that build an `HttpRequestMessage` and set
+  `Authorization` directly, rather than relying on `AuthHeaderHandler`'s implicit resolution.
+- `src/DaxaPos.Web/Api/AuthHeaderHandler.cs` — one added guard clause: if
+  `request.Headers.Authorization` is already set, return immediately without touching it. This is
+  the only change to Milestone A's auth plumbing; a regression test
+  (`AuthHeaderHandlerTests.SendAsync_WithExplicitAuthorizationHeaderAndLiveStaffSession_DoesNotOverwriteExplicitHeader`)
+  locks in that a live Terminal staff session still doesn't leak onto an explicit Back Office call.
+- `src/DaxaPos.Web/Layout/BackOfficeLayout.razor`, `BackOfficeNavMenu.razor` — new, structurally
+  separate from `MainLayout`/`NavMenu`. Own route guard: only `/back-office/login` is public: no
+  device-context requirement at all (ADR-0013 local admin login needs no device).
+- `src/DaxaPos.Web/Pages/BackOffice/BackOfficeLogin.razor` (`/back-office/login`),
+  `BackOfficeHome.razor` (`/back-office`), `DeviceRegistrationPins.razor`
+  (`/back-office/device-registration-pins`), `Devices.razor` (`/back-office/devices`, optional
+  location filter), `Locations.razor` (`/back-office/locations`), `CatalogSetup.razor`
+  (`/back-office/catalog`, read-only products joined with category name + menus).
+- `src/DaxaPos.Web/Program.cs` — registered `IBackOfficeSessionStore`/`BackOfficeSessionStore` and
+  added it to the startup `EnsureLoadedAsync()` sequence alongside the existing two stores.
+- Tests: `tests/DaxaPos.Web.Tests/State/BackOfficeSessionStoreTests.cs`,
+  `Api/BackOfficeApiClientTests.cs`, `Layout/BackOfficeLayoutTests.cs`,
+  `Pages/BackOffice/BackOfficeLoginTests.cs`, `Pages/BackOffice/DeviceRegistrationPinsTests.cs`,
+  plus the `AuthHeaderHandlerTests` regression case above and a store-equality note (see
+  Verification below).
+
+### Deviations from the kickoff plan
+
+None. The route list, file list, and architecture matched what was recorded before implementation.
+
+### Verification
+
+- `dotnet build DaxaPos.sln` — succeeded, 0 errors (pre-existing `NU1510` warning on
+  `DaxaPos.Infrastructure`, unrelated to this work).
+- `dotnet test DaxaPos.sln` — 1105/1105 passed (`DaxaPos.UnitTests` 144, `DaxaPos.Web.Tests` 53,
+  `DaxaPos.Api.Tests` 908). No regressions against Milestone A's 1083-test baseline; 22 new Web
+  tests added.
+- One test-writing gotcha worth recording: a `BackOfficeSessionState` JSON round-trip test using
+  `Assert.Equal` failed even though the round-trip was correct — `List<string>` (from
+  deserialization) has no value equality against the original array-literal collections. Fixed by
+  using `Assert.Equivalent` for that one assertion (deep/structural, order-insensitive). Worth
+  remembering for any future record with collection properties round-tripped through
+  `JsonLocalStore<T>`.
+- No EF Core migrations added or needed (`git status` shows no `Migrations/` changes; confirmed no
+  files outside `src/DaxaPos.Web`, `tests/DaxaPos.Web.Tests`, and these two docs changed).
+- Backend wire-format verification: an already-running local demo stack was found via `docker ps`
+  (`pos-platform-api-1`/`pos-platform-web-1`/`pos-platform-db-1`, up ~9h, healthy) — not started by
+  this session. Used `curl` against it with the existing bootstrap admin credentials
+  (`docs/testing/local-smoke-test.md`'s flow) to exercise every endpoint/field this milestone's
+  client DTOs assume: `local/login`, `auth/me`, `locations` (list), `product-categories`/`products`/
+  `menus` (list, all empty on this instance — no PLAN-0004 demo data seeded, but confirmed
+  200 + correct empty-array shape), `devices` (list, with and without `locationId` filter),
+  `device-registration-pins` (create, then revoke, using a real location). Every JSON field name and
+  shape returned matched `Contracts.cs` exactly (System.Text.Json's Web defaults handle the
+  camelCase-server/PascalCase-client mismatch, same as Milestone A already relied on).
+- What was not verified: the Blazor UI itself was not driven in an actual browser. bUnit component
+  tests exercise real component rendering, data binding, and click handling, but not a real DOM/JS
+  runtime — no browser-automation tool was available in this session. The running
+  `pos-platform-web-1` container (a docker image build of `DaxaPos.Web` from ~9h before these
+  changes) was deliberately left untouched/un-rebuilt rather than mutating the user's existing demo
+  environment without being asked. If a genuine browser walkthrough is wanted, the next step is
+  `docker compose build web && docker compose up -d web` (or `dotnet run --project src/DaxaPos.Web`
+  against the running API) followed by a manual pass through `/back-office/login` →
+  `/back-office/device-registration-pins` → `/back-office/devices`/`locations`/`catalog`.
+
+### Remaining gaps / follow-ups
+
+- No durable list of previously issued device registration PINs (see "Known gap" above) — only the
+  one just generated in the current browser session can be viewed/revoked. A future OI can pick
+  this up if it becomes a real operational need; it would require a new (metadata-only, never
+  raw-PIN) `GET` endpoint.
+- `CatalogSetup.razor`'s products/menus lists were verified against an instance with no PLAN-0004
+  demo data (both returned `[]`); the non-empty rendering path is covered by bUnit-level assumptions
+  about the response shape but wasn't exercised against real seeded product/menu rows.
+- Device rotate/revoke actions were deliberately left out of `Devices.razor` (read-only, per
+  Milestone B's "basic device/location context views" framing) even though the backend endpoints
+  exist; a later milestone can add them if Back Office needs to manage devices, not just view them.
+
+## Recommended Next Session (updated)
+
+Start PLAN-0006 Milestone C: POS Terminal PWA sales screen, building on the `DaxaPos.Web` Terminal
+shell from Milestone A (not the Back Office code from Milestone B — they are deliberately separate
+route trees/sessions).
+
+Do not:
+
+- Start MAUI.
+- Start payments UI (Milestone D).
+- Start customer display (Milestone E).
+- Start KDS (Milestone F).
+- Implement OI-0018.
+- Start PLAN-0009.
+- Add migrations unless a direct blocker is found.
+
+## Milestone C Kickoff Notes (before implementation, 2026-07-07)
+
+See the plan doc's "Milestone C kickoff decision" section for the full reasoning. Summary below.
+
+### Files likely to change
+
+- `src/DaxaPos.Web/Api/Contracts.cs` — add `ResolvedMenuItemResult`, `ResolvedMenuSectionResult`,
+  `ResolvedMenuResult` (client mirrors of `ResolvedMenuEndpoints`' response DTOs; `TaxTreatment` is
+  omitted — it's an unconfigured-default numeric enum server-side and unused by this milestone's
+  UI).
+- `src/DaxaPos.Web/Api/DaxaApiClient.cs` — add `GetResolvedMenuAsync(locationId)` via the existing
+  implicit-auth `GetAsync<T>` helper (no explicit bearer token needed; this is a Terminal-shell
+  staff-session call).
+- `src/DaxaPos.Web/Pages/Sales.razor` — new, `/sales` route. Fetches the resolved menu for
+  `DeviceContextStore.Current.LocationId`; renders sections/tiles; local in-memory cart
+  (add/increment/decrement/remove, per-line notes); "Clear order" (local equivalent of
+  void/cancel, since there is no server-side order to void).
+- `src/DaxaPos.Web/Pages/Home.razor` — add a link to `/sales`.
+- `src/DaxaPos.Web/Layout/NavMenu.razor` — add a "Sales" nav link.
+- New tests under `tests/DaxaPos.Web.Tests/Pages/SalesTests.cs` (and a
+  `DaxaApiClientTests`/`Contracts` addition for `GetResolvedMenuAsync`).
+
+### Existing endpoints expected to be consumed (all pre-existing, no backend changes)
+
+- `GET /api/v1/menus/resolved?locationId=`
+
+### Routes/components
+
+`/sales` inside the existing Terminal shell (`MainLayout`), not Back Office. No new layout, no new
+session/store.
+
+### Authorization/session assumptions
+
+- Uses the existing Milestone A staff/device session and `MainLayout`'s route guard unchanged — no
+  new auth plumbing (unlike Milestone B, which needed a whole second session type).
+- `ResolvedMenuEndpoints` independently checks that a location-bound staff session's
+  `AuthContext.LocationId` matches the requested `locationId` — the client always requests its own
+  `DeviceContext.LocationId`, so this should never surface as a mismatch in normal use, but a 404 is
+  handled as a normal empty/error state, not a crash.
+
+### DTO assumptions
+
+- `ResolvedMenuItemResponse`: `ProductId`, `ProductName`, `DisplayOrder`, `Price`, `IsTaxInclusive`,
+  `TaxCategoryCode` (all consumed); `TaxTreatment` (enum, not consumed — see gap note above).
+- `ResolvedMenuSectionResponse`: `MenuId`, `MenuSectionId`, `SectionName`, `DisplayOrder`, `Items`.
+- `ResolvedMenuResponse`: `LocationId`, `Sections`.
+- No modifier data anywhere in this DTO (see gap note above) — no modifier UI built.
+
+### Tests expected
+
+- `Api/DaxaApiClientTests` (or a new file) — `GetResolvedMenuAsync` success/401/403/network-failure
+  classification, matching the existing `DaxaApiClientTests` pattern.
+- `Pages/SalesTests.cs` (bUnit) — menu sections/tiles render from a fake resolved-menu response;
+  tapping a tile adds a line to the order panel; tapping again increments quantity; decrementing to
+  zero removes the line; a notes field updates line state; "Clear order" empties the draft;
+  no-device/no-location and load-failure states render without crashing.
+
+### Explicit out-of-scope items (Milestone C)
+
+- Real order create/add-line/void-line/hold/resume/void/cancel against `POST /api/v1/orders` (see
+  the TerminalId gap above).
+- Payments, customer display, KDS, printing.
+- Modifier selection UI.
+- Any Back Office expansion.
+- Any backend schema/endpoint change.
+
+## Milestone C Implementation Report
+
+Completed 2026-07-07, directly on `main`.
+
+### What was built
+
+No deviations from the kickoff notes above.
+
+- `src/DaxaPos.Web/Api/Contracts.cs` — added `ResolvedMenuItemResult`, `ResolvedMenuSectionResult`,
+  `ResolvedMenuResult` (mirrors `ResolvedMenuEndpoints`' response DTOs; `TaxTreatment` omitted, see
+  kickoff notes).
+- `src/DaxaPos.Web/Api/DaxaApiClient.cs` — added `GetResolvedMenuAsync(locationId)` via the existing
+  implicit-auth `GetAsync<T>` helper (no explicit bearer — this is a Terminal-shell call, unlike
+  Milestone B's Back Office methods).
+- `src/DaxaPos.Web/Pages/Sales.razor` — new, `/sales` route, default layout (`MainLayout`, no
+  `@layout` override — it's a Terminal-shell page like `Home`/`Login`/`DeviceSetup`, so Milestone
+  A's route guard already protects it with zero new code). Fetches
+  `GET /api/v1/menus/resolved?locationId={DeviceContextStore.Current.LocationId}` on init; renders
+  sections ordered by `DisplayOrder`, each as a heading plus a wrapping row of tile buttons (name +
+  formatted price). Tapping a tile adds a line to a local, in-memory `List<OrderDraftLine>` (a
+  private nested class, matching the `LoginModel`/`DeviceSetupModel` convention in other pages) or
+  increments its quantity if already present. Each cart line has -/+ buttons (decrementing to zero
+  removes the line), a "Remove" link, and a free-text notes input. A "Draft subtotal (estimate)"
+  total sums `UnitPrice × Quantity` across lines, labelled explicitly as an estimate with a note
+  that no server order exists and payment isn't part of this screen — this is arithmetic
+  aggregation of already-server-resolved unit prices, not a client-side tax/pricing recalculation
+  (CLAUDE.md's rule is about not re-deriving tax/discount/pricing logic, which this doesn't do).
+  "Clear order" empties the draft (the local equivalent of void/cancel — there is no server order
+  to void). No device/no menu/load-error/empty-menu states are all handled without crashing.
+  Responsive layout uses Bootstrap's grid only (`col-12 col-lg-8`/`col-12 col-lg-4`, `d-flex
+  flex-wrap`) — no new CSS, matching "follow existing styling."
+- `src/DaxaPos.Web/Pages/Home.razor` — replaced the "sales screen is not part of Milestone A" stub
+  line with a link to `/sales`.
+- `src/DaxaPos.Web/Layout/NavMenu.razor` — added a "Sales" nav link (Terminal shell's `NavMenu`,
+  not Back Office's).
+- Tests: `tests/DaxaPos.Web.Tests/Api/DaxaApiClientTests.cs` — two new cases for
+  `GetResolvedMenuAsync` (success + location-id query-string assertion; not-found → Failed kind).
+  `tests/DaxaPos.Web.Tests/Pages/SalesTests.cs` — new, 8 bUnit tests: no-device prompt, load-error
+  message, empty-menu message, tap-to-add, tap-twice-increments (not duplicate lines), decrement-
+  to-zero removes the line, clear-order empties the draft, notes-input updates line state.
+
+### Deviations from the kickoff plan
+
+None.
+
+### Verification
+
+- `dotnet build DaxaPos.sln` — succeeded, 0 errors (same pre-existing `NU1510` warning, unrelated).
+- `dotnet test DaxaPos.sln` — 1115/1115 passed (`DaxaPos.UnitTests` 144, `DaxaPos.Web.Tests` 63,
+  `DaxaPos.Api.Tests` 908). No regressions against Milestone B's 1105-test baseline; 10 new Web
+  tests added.
+- No EF Core migrations added or needed; confirmed no files outside `src/DaxaPos.Web`,
+  `tests/DaxaPos.Web.Tests`, and these two docs changed (`git status`).
+- Backend contract verification, live, against the same already-running local demo stack Milestone
+  B found (not started by this session): seeded real data via `curl` — a tax category (`AU GST 10%`,
+  `taxTreatment: 0`), a tax definition (10%, `Australia`/`Country`), a tax-category-definition link,
+  a venue tax configuration for the demo location (none existed yet), a product ("Flat White",
+  $5.50), an org-wide menu/section/section-item — then called
+  `GET /api/v1/menus/resolved?locationId=` and got back exactly the shape
+  `ResolvedMenuResult`/`ResolvedMenuSectionResult`/`ResolvedMenuItemResult` assume: `locationId`,
+  `sections[].menuId/menuSectionId/sectionName/displayOrder/items[]`,
+  `items[].productId/productName/displayOrder/price/isTaxInclusive/taxCategoryCode` (plus
+  `taxTreatment`, deliberately unconsumed). Then went one step further than Milestone B's
+  verification: created a device-registration PIN, registered a device, created a brand-new staff
+  member (zero roles/permissions — the realistic default), staff-PIN-logged-in, and re-ran the
+  identical resolved-menu call **as that staff session** — same exact shape, confirming
+  `ResolvedMenuEndpoints`'s "no permission gate" design works from a genuine Terminal-shell caller,
+  not just an admin session. That same staff session's `roles: []`/`permissions: []` also
+  independently reconfirmed the kickoff decision's `TerminalId`/`orders.manage` gap: even setting
+  the `TerminalId` problem aside, a freshly-provisioned staff member has no `orders.manage` grant by
+  default, so `POST /api/v1/orders` would 403 regardless — real-world evidence the local-draft
+  scope was the right call, not just a theoretical one.
+- What was not verified: the Blazor UI was not driven in an actual browser — no browser-automation
+  tool was available this session (same as Milestone B). bUnit component tests exercise real
+  rendering, event binding, and click handling, but not a real DOM/JS runtime. The running
+  `pos-platform-web-1` container (a docker image build from before these changes) was deliberately
+  left untouched/un-rebuilt.
+
+### Remaining gaps / follow-ups
+
+- **The `TerminalId` gap is the main blocker for a real Milestone C→D upgrade path.** Before any
+  future milestone wires the sales screen to `POST /api/v1/orders` for real, one of the following
+  needs to happen (not decided here — flagging for a future ADR/plan refresh):
+  - a staff-accessible `GET /api/v1/terminals?locationId=` (scoped to the caller's own location,
+    mirroring `ResolvedMenuEndpoints`'s own `AuthContext.LocationId` check), or
+  - populating `Terminal.DeviceId` at device-registration time so a device can resolve "its"
+    terminal (the column exists; no endpoint writes it today), or
+  - some other session-level default-terminal resolution.
+- Relatedly, a freshly-provisioned staff member has zero permissions by default (confirmed live) —
+  granting `orders.manage` (and deciding whether to also grant `payments.record` up front) is a
+  Back Office/role-management question, not something this milestone's read-only Back Office
+  scope covers.
+- The local draft never persists (no localStorage, unlike `DeviceContext`/`SessionState`) — a page
+  refresh or navigation away loses it. This was a deliberate simplicity choice ("thin, working
+  skeleton"), not an oversight; flagging in case a future milestone wants cart persistence before
+  wiring real order submission.
+- No modifier UI (see kickoff decision) — would need either modifiers embedded in
+  `ResolvedMenuItemResponse` or a staff-accessible modifier-lookup endpoint.
+- Quantity has no direct-entry option (only +/-), and there's no fast item search — both are in the
+  `docs/modules/01-core-pos-sales-screen.md` wishlist but explicitly out of scope for this "thin
+  skeleton" milestone.
+
+## Milestone C.1 Kickoff Notes (before implementation, 2026-07-07)
+
+See the plan doc's "Milestone C.1 kickoff decision" for full reasoning. Triggered by explicit owner
+product decisions (2026-07-07): TerminalId must be genuinely resolvable (no fake/null IDs),
+modifiers are mandatory on the sales screen, the draft must survive refresh via the safest
+mechanism available, and backend contract changes are authorised when justified.
+
+### Confirmed current-state facts (read, not assumed)
+
+- `Terminal.DeviceId` (nullable Guid, FK `SetNull`) is already a real migrated column
+  (`TerminalConfiguration.cs`) — no migration needed for TerminalId resolution.
+- `AuthSession.TerminalId` and `SessionAuthenticationHandler`'s read of it already exist; only the
+  write (at staff-PIN-login time) is missing.
+- `GET /api/v1/auth/me` already returns `AuthContextResponse.TerminalId`; the Web client's
+  `GetMeAsync()` already exists end-to-end (Milestone A) but has no caller yet.
+- `ModifierGroup`/`Modifier`/`ProductModifierGroup` (with `SelectionMin`/`SelectionMax`/
+  `IsRequired`) already exist in full (PLAN-0004). `POST /api/v1/orders/{id}/lines` already accepts
+  `ModifierIds` and validates linkage/active-status, but not group cardinality.
+- `orders.manage` is already staff-PIN-eligible (`rejectStaffPin` defaults false) — confirmed live
+  in Milestone C's own verification with a zero-permission staff member (would 403 without the
+  permission grant, which is a Back Office role-configuration step, not a code gap).
+- `OrderLine` has no update endpoint (append/void only) — quantity changes must add/void whole
+  `Quantity: 1` lines, never mutate one.
+
+### Files likely to change
+
+Backend:
+
+- `src/DaxaPos.Api/Endpoints/Identity/TerminalEndpoints.cs` — `UpdateTerminalRequest` gains
+  `Guid? DeviceId`; `UpdateAsync` validates and assigns/unassigns/rejects-conflict.
+- `src/DaxaPos.Api/Endpoints/Identity/AuthEndpoints.cs` — `StaffPinLoginAsync` resolves
+  `Terminal` by `DeviceId` and sets `AuthSession.TerminalId`.
+- `src/DaxaPos.Api/Endpoints/Menus/ResolvedMenuEndpoints.cs` — add `ResolvedModifierResponse`,
+  `ResolvedModifierGroupResponse`; extend `ResolvedMenuItemResponse` with `ModifierGroups`; batch
+  query in the handler.
+- `src/DaxaPos.Api/Endpoints/Orders/OrderEndpoints.cs` — `AddLineAsync` gains
+  required/min/max group-cardinality enforcement.
+- Matching new/extended tests under `tests/DaxaPos.Api.Tests/`.
+
+Web (Terminal shell):
+
+- `src/DaxaPos.Web/State/SessionState.cs` — add `Guid? TerminalId`.
+- `src/DaxaPos.Web/Pages/Login.razor` — call `GetMeAsync()` post-login, persist `TerminalId`.
+- `src/DaxaPos.Web/Api/Contracts.cs` — add `ResolvedModifierResult`/`ResolvedModifierGroupResult`
+  (extend `ResolvedMenuItemResult`); add order client DTOs (`CreateOrderRequest`, `OrderResult`,
+  `OrderLineResult`, `OrderLineModifierResult`, `AddOrderLineRequest`).
+- `src/DaxaPos.Web/Api/DaxaApiClient.cs` — add `OpenOrderAsync`, `GetOrderAsync`,
+  `AddOrderLineAsync`, `VoidOrderLineAsync`, `VoidOrderAsync` (implicit-auth, Terminal-shell
+  pattern, matching `GetResolvedMenuAsync`).
+- `src/DaxaPos.Web/State/IDraftOrderStore.cs`, `DraftOrderStore.cs` — new, device-scoped
+  localStorage `OrderId` pointer (`daxa.sales-draft.v1.{deviceId}`).
+- `src/DaxaPos.Web/Pages/Sales.razor` — rewritten: no-terminal state, modifier modal, real
+  order/line/void calls, grouped-line display, server-computed totals, draft restore.
+- Matching new/extended tests under `tests/DaxaPos.Web.Tests/`.
+
+Back Office:
+
+- `src/DaxaPos.Web/Pages/BackOffice/Terminals.razor` — new: list/create terminals, assign/unassign
+  device.
+- `src/DaxaPos.Web/Api/Contracts.cs`/`DaxaApiClient.cs` — add `TerminalResult`,
+  `CreateTerminalRequest`, `UpdateTerminalRequest` client DTOs and explicit-bearer methods
+  (`ListTerminalsAsync`, `CreateTerminalAsync`, `UpdateTerminalAsync`).
+- `src/DaxaPos.Web/Layout/BackOfficeNavMenu.razor` — add "Terminals" link.
+- Matching new tests under `tests/DaxaPos.Web.Tests/Pages/BackOffice/`.
+
+### Existing endpoints reused (no new endpoints added)
+
+`POST /api/v1/orders`, `GET /api/v1/orders/{id}`, `POST /api/v1/orders/{id}/lines`,
+`DELETE /api/v1/orders/{id}/lines/{lineId}`, `POST /api/v1/orders/{id}/void`,
+`GET /api/v1/menus/resolved`, `GET /api/v1/auth/me`, `PATCH /api/v1/terminals/{id}` (extended,
+not new), `POST /api/v1/terminals`, `GET /api/v1/terminals`, `GET /api/v1/devices`.
+
+### Tests expected
+
+- `TerminalEndpointsTests` — assign device (success), assign device from a different location
+  (404), assign device already linked to another active terminal (409), unassign (`DeviceId: null`),
+  regression on plain name update.
+- `AuthEndpointsTests`/staff-pin-login tests — `AuthSession.TerminalId` set when the device's
+  terminal link exists (verified via a follow-up `/auth/me` call in-test); stays null when no link
+  exists (regression).
+- `ResolvedMenuEndpointsTests` — modifier groups/options present for a product with assigned
+  groups; empty list (not null) for a product with none; inactive group/modifier excluded.
+- `OrderEndpointsTests` — add-line rejects a missing required-group selection, rejects
+  under/over `SelectionMin`/`SelectionMax`, accepts a valid combination (regression on the
+  existing not-linked/inactive checks).
+- `SessionStateTests`, `LoginTests` — `TerminalId` captured from `/auth/me` and persisted;
+  login still succeeds if `/auth/me` fails (degrades to "not linked" UX, not a login failure).
+- `DraftOrderStoreTests` — round-trip, device-scoped key isolation, clear-on-void/404.
+- `SalesTests` — no-terminal blocking state; required-modifier modal blocks "Add" until satisfied;
+  optional modifiers selectable within min/max; first tap opens a real order; repeat taps add
+  further `Quantity: 1` lines grouped for display; `-`/"Remove" void the right line(s); "Clear
+  order" voids the whole order server-side; refresh restores the draft from `GetOrderAsync`; a
+  404'd/closed stored order clears the pointer and starts empty.
+- `Pages/BackOffice/TerminalsTests` — list/create/assign/unassign, including the 409-conflict and
+  cross-location-404 paths surfaced as Back Office error states.
+
+### Explicitly out of scope for Milestone C.1
+
+Hold/Resume UI, payments, customer display, KDS, printing, split bills, quantity direct-entry,
+item search, any Back Office expansion beyond the one Terminals page.
+
+### Browser automation
+
+No browser-automation tool has been available in any PLAN-0006 session so far (Milestones A-C all
+documented this same constraint). Checked again for this milestone — still none available in this
+session. Continuing the established fallback: bUnit component tests for real rendering/event
+behaviour, `curl` against the already-running local demo stack for live backend-contract
+verification, and explicit manual click-through steps recorded at closeout.
+
+## Recommended Next Session (post-Milestone-C.1)
+
+Start PLAN-0006 Milestone D: Payment and receipt flow in PWA. Milestone C.1 is expected to close
+the `TerminalId` gap that previously blocked it — confirm the closeout report below before
+starting Milestone D.
+
+Do not:
+
+- Start MAUI.
+- Start customer display (Milestone E).
+- Start KDS (Milestone F).
+- Implement OI-0018.
+- Start PLAN-0009.
+- Add migrations unless a direct blocker is found.

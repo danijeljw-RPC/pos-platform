@@ -84,6 +84,27 @@ public class StaffPinLoginTests : IClassFixture<WebApplicationFactory<Program>>
     }
 
     [Fact]
+    public async Task Login_WhenDeviceIsAssignedToATerminal_ResolvesTerminalId_OnTheSession()
+    {
+        var scenario = await SetupAsync("Terminal Assigned Venue");
+        await StaffTestHelper.CreateStaffMemberAsync(scenario.AdminClient, scenario.Location.Id, "DJ", "2468");
+
+        var terminalResponse = await scenario.AdminClient.PostAsJsonAsync(
+            "/api/v1/terminals", new CreateTerminalRequest("Front Counter", scenario.Location.Id));
+        var terminal = await terminalResponse.Content.ReadFromJsonAsync<TerminalResponse>();
+        Assert.Equal(HttpStatusCode.OK, (await scenario.AdminClient.PostAsJsonAsync(
+            $"/api/v1/terminals/{terminal!.Id}/assign-device",
+            new AssignTerminalDeviceRequest(scenario.Device.DeviceId))).StatusCode);
+
+        var login = await StaffTestHelper.StaffLoginAsync(scenario.DeviceClient, scenario.Location.Id, "DJ", "2468");
+
+        var staffClient = _factory.CreateClient();
+        staffClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", login.SessionToken);
+        var me = await staffClient.GetFromJsonAsync<AuthContextResponse>("/api/v1/auth/me");
+        Assert.Equal(terminal.Id, me!.TerminalId);
+    }
+
+    [Fact]
     public async Task Login_WithLowercaseStaffCode_Succeeds_ViaNormalisation()
     {
         var scenario = await SetupAsync("Lowercase Code Venue");

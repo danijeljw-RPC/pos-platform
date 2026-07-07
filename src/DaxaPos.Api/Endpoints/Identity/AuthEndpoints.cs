@@ -177,6 +177,16 @@ public static class AuthEndpoints
             return await FailAsync(staffMember.Id, "RoleGrantsSensitivePermissions");
         }
 
+        // Milestone C.1: a staff-PIN session's TerminalId is resolved from whichever Terminal (if
+        // any) this device has been assigned to in Back Office (Terminal.DeviceId — see
+        // TerminalEndpoints.AssignDeviceAsync). Never fabricated: a device with no terminal
+        // assignment yields TerminalId: null, same as before this change, so order-open correctly
+        // surfaces "no terminal" rather than silently succeeding against a fake id.
+        var terminalId = await dbContext.Terminals
+            .Where(t => t.DeviceId == deviceId && t.IsActive)
+            .Select(t => (Guid?)t.Id)
+            .SingleOrDefaultAsync();
+
         var rawToken = sessionTokenService.GenerateToken();
         var authSession = new AuthSession
         {
@@ -184,6 +194,7 @@ public static class AuthEndpoints
             TenantId = deviceContext.TenantId,
             OrganisationId = organisationId,
             LocationId = locationId,
+            TerminalId = terminalId,
             DeviceId = deviceId,
             StaffMemberId = staffMember.Id,
             AuthMethod = AuthMethod.LocalStaffPin,

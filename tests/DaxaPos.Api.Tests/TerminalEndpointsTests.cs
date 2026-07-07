@@ -114,6 +114,70 @@ public class TerminalEndpointsTests : IClassFixture<WebApplicationFactory<Progra
     }
 
     [Fact]
+    public async Task AssignDevice_Succeeds_AndAppearsOnTheTerminal()
+    {
+        var client = _factory.CreateClient();
+        var caller = await RbacTestSeeder.SeedAsync(client, "OrganisationOwner");
+        AuthenticateAs(client, caller);
+        var location = await CreateLocationAsync(client, caller.OrganisationId, "Assign Device Location");
+        var created = await CreateTerminalAsync(client, location.Id, "Assign Device Terminal");
+        var pin = await DeviceTestHelper.CreatePinAsync(client, location.Id);
+        var device = await DeviceTestHelper.RegisterDeviceAsync(client, pin.Pin);
+
+        var response = await client.PostAsJsonAsync(
+            $"/api/v1/terminals/{created.Id}/assign-device", new AssignTerminalDeviceRequest(device.DeviceId));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var updated = await response.Content.ReadFromJsonAsync<TerminalResponse>();
+        Assert.Equal(device.DeviceId, updated!.DeviceId);
+
+        var unassignResponse = await client.PostAsJsonAsync(
+            $"/api/v1/terminals/{created.Id}/assign-device", new AssignTerminalDeviceRequest(null));
+        Assert.Equal(HttpStatusCode.OK, unassignResponse.StatusCode);
+        Assert.Null((await unassignResponse.Content.ReadFromJsonAsync<TerminalResponse>())!.DeviceId);
+    }
+
+    [Fact]
+    public async Task AssignDevice_Rejects_DeviceFromADifferentLocation()
+    {
+        var client = _factory.CreateClient();
+        var caller = await RbacTestSeeder.SeedAsync(client, "OrganisationOwner");
+        AuthenticateAs(client, caller);
+        var terminalLocation = await CreateLocationAsync(client, caller.OrganisationId, "Terminal Location");
+        var deviceLocation = await CreateLocationAsync(client, caller.OrganisationId, "Device Location");
+        var created = await CreateTerminalAsync(client, terminalLocation.Id, "Cross Location Terminal");
+        var pin = await DeviceTestHelper.CreatePinAsync(client, deviceLocation.Id);
+        var device = await DeviceTestHelper.RegisterDeviceAsync(client, pin.Pin);
+
+        var response = await client.PostAsJsonAsync(
+            $"/api/v1/terminals/{created.Id}/assign-device", new AssignTerminalDeviceRequest(device.DeviceId));
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task AssignDevice_Rejects_DeviceAlreadyLinkedToADifferentTerminal()
+    {
+        var client = _factory.CreateClient();
+        var caller = await RbacTestSeeder.SeedAsync(client, "OrganisationOwner");
+        AuthenticateAs(client, caller);
+        var location = await CreateLocationAsync(client, caller.OrganisationId, "Conflict Location");
+        var terminalA = await CreateTerminalAsync(client, location.Id, "Terminal A");
+        var terminalB = await CreateTerminalAsync(client, location.Id, "Terminal B");
+        var pin = await DeviceTestHelper.CreatePinAsync(client, location.Id);
+        var device = await DeviceTestHelper.RegisterDeviceAsync(client, pin.Pin);
+
+        Assert.Equal(
+            HttpStatusCode.OK,
+            (await client.PostAsJsonAsync($"/api/v1/terminals/{terminalA.Id}/assign-device", new AssignTerminalDeviceRequest(device.DeviceId))).StatusCode);
+
+        var response = await client.PostAsJsonAsync(
+            $"/api/v1/terminals/{terminalB.Id}/assign-device", new AssignTerminalDeviceRequest(device.DeviceId));
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+    }
+
+    [Fact]
     public async Task Create_Rejects_ClientSuppliedTenantId()
     {
         var client = _factory.CreateClient();

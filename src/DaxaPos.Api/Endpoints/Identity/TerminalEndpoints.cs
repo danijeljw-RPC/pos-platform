@@ -13,6 +13,15 @@ public sealed record CreateTerminalRequest(string Name, Guid LocationId, Guid? T
 
 public sealed record UpdateTerminalRequest(string Name, Guid? TenantId = null);
 
+/// <summary>
+/// Milestone C.1: assigns or unassigns (<c>DeviceId: null</c>) the <see cref="Device"/> a
+/// <see cref="Terminal"/> resolves to at staff-PIN-login time. Deliberately a separate action from
+/// <see cref="UpdateTerminalRequest"/>, matching this file's existing one-action-per-endpoint
+/// convention (see Deactivate/Reactivate) — folding it into rename would make "rename only" calls
+/// that omit <c>DeviceId</c> ambiguous between "leave unchanged" and "clear the assignment".
+/// </summary>
+public sealed record AssignTerminalDeviceRequest(Guid? DeviceId);
+
 public sealed record TerminalResponse(Guid Id, Guid TenantId, Guid LocationId, Guid? DeviceId, string Name, bool IsActive, DateTimeOffset CreatedAtUtc)
 {
     public static TerminalResponse FromEntity(Terminal terminal) =>
@@ -39,6 +48,7 @@ public static class TerminalEndpoints
         group.MapPatch("/{terminalId:guid}", UpdateAsync).RequirePermission(Permissions.TerminalsManage, rejectStaffPin: true);
         group.MapPost("/{terminalId:guid}/deactivate", DeactivateAsync).RequirePermission(Permissions.TerminalsManage, rejectStaffPin: true);
         group.MapPost("/{terminalId:guid}/reactivate", ReactivateAsync).RequirePermission(Permissions.TerminalsManage, rejectStaffPin: true);
+        group.MapPost("/{terminalId:guid}/assign-device", AssignDeviceAsync).RequirePermission(Permissions.TerminalsManage, rejectStaffPin: true);
     }
 
     private static async Task<IResult> CreateAsync(
@@ -202,6 +212,65 @@ public static class TerminalEndpoints
             action,
             JsonSerializer.Serialize(new { IsActive = beforeIsActive }),
             JsonSerializer.Serialize(new { terminal.IsActive }),
+            DateTimeOffset.UtcNow));
+
+        return Results.Ok(TerminalResponse.FromEntity(terminal));
+    }
+
+    /// <summary>
+    /// Assigns (or, with <c>DeviceId: null</c>, unassigns) the <see cref="Device"/> a staff-PIN
+    /// login at this terminal's location resolves <see cref="AuthContext.TerminalId"/> from
+    /// (Milestone C.1). The device must belong to the terminal's own location (404 otherwise,
+    /// matching this file's context-provenance pattern) and must not already be linked to a
+    /// *different* terminal (409 — an admin must unassign the old link explicitly rather than the
+    /// API silently moving it).
+    /// </summary>
+    private static async Task<IResult> AssignDeviceAsync(
+        Guid terminalId,
+        AssignTerminalDeviceRequest request,
+        IAuthContextAccessor authContextAccessor,
+        DaxaDbContext dbContext,
+        IDomainEventDispatcher dispatcher)
+    {
+        var authContext = authContextAccessor.Current!;
+        var terminal = await FindAuthorizedTerminalAsync(terminalId, authContext.OrganisationId, dbContext);
+
+        if (terminal is null)
+        {
+            return Results.NotFound();
+        }
+
+        if (request.DeviceId is { } deviceId)
+        {
+            var device = await dbContext.Devices.SingleOrDefaultAsync(d => d.Id == deviceId);
+            if (device is null || device.LocationId != terminal.LocationId)
+            {
+                return Results.NotFound();
+            }
+
+            var linkedToAnotherTerminal = await dbContext.Terminals
+                .AnyAsync(t => t.DeviceId == deviceId && t.Id != terminal.Id);
+            if (linkedToAnotherTerminal)
+            {
+                return Results.Conflict("This device is already assigned to a different terminal.");
+            }
+        }
+
+        var beforeDeviceId = terminal.DeviceId;
+        terminal.DeviceId = request.DeviceId;
+        await dbContext.SaveChangesAsync();
+
+        var organisationId = await ResolveOrganisationIdAsync(terminal.LocationId, dbContext);
+
+        await dispatcher.DispatchAsync(new TerminalLifecycleDomainEvent(
+            terminal.TenantId,
+            organisationId,
+            terminal.LocationId,
+            terminal.Id,
+            authContext.UserId,
+            "DeviceAssigned",
+            JsonSerializer.Serialize(new { DeviceId = beforeDeviceId }),
+            JsonSerializer.Serialize(new { terminal.DeviceId }),
             DateTimeOffset.UtcNow));
 
         return Results.Ok(TerminalResponse.FromEntity(terminal));
