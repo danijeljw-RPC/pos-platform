@@ -76,6 +76,9 @@ public class PaymentEndpointsTests : IClassFixture<WebApplicationFactory<Program
         var device = await DeviceTestHelper.RegisterDeviceAsync(deviceClient, pin.Pin);
         DeviceTestHelper.AuthenticateWithDeviceToken(deviceClient, device.DeviceToken);
 
+        // Milestone C.2: order/payment actions now require a resolved TerminalId.
+        await adminClient.PostAsJsonAsync($"/api/v1/terminals/{terminal.Id}/assign-device", new AssignTerminalDeviceRequest(device.DeviceId));
+
         var staffMember = await StaffTestHelper.CreateStaffMemberAsync(adminClient, location.Id, "PAY01");
         await using (var dbContext = CreateDbContext())
         {
@@ -265,6 +268,19 @@ public class PaymentEndpointsTests : IClassFixture<WebApplicationFactory<Program
     }
 
     [Fact]
+    public async Task RecordPayment_Blocked_ForDifferentTerminal_SameLocation()
+    {
+        var (adminClient, terminalA, staffClientA, staffClientB) = await SetupTwoTerminalsAsync("Isolation Payment Venue");
+        var order = await OpenOrderWithSingleLineAsync(adminClient, (await adminClient.GetFromJsonAsync<AuthContextResponse>("/api/v1/auth/me"))!.OrganisationId!.Value, terminalA.Id, 5.50m);
+
+        var blockedResponse = await RecordPaymentAsync(staffClientB, order.Id, PaymentMethod.Cash, 5.50m, Guid.NewGuid());
+        Assert.Equal(HttpStatusCode.NotFound, blockedResponse.StatusCode);
+
+        var allowedResponse = await RecordPaymentAsync(staffClientA, order.Id, PaymentMethod.Cash, 5.50m, Guid.NewGuid());
+        Assert.Equal(HttpStatusCode.Created, allowedResponse.StatusCode);
+    }
+
+    [Fact]
     public async Task LifecycleActions_WriteAuditEventRows_ForPaymentAndOrderCompletion()
     {
         var client = _factory.CreateClient();
@@ -311,6 +327,45 @@ public class PaymentEndpointsTests : IClassFixture<WebApplicationFactory<Program
 
     private static Task<HttpResponseMessage> RecordPaymentAsync(HttpClient client, Guid orderId, PaymentMethod method, decimal amount, Guid idempotencyKey) =>
         client.PostAsJsonAsync($"/api/v1/orders/{orderId}/payments", new RecordPaymentRequest(method, amount, idempotencyKey));
+
+    /// <summary>Milestone C.2: mirrors <see cref="OrderEndpointsTests"/>'s identical two-terminal fixture.</summary>
+    private async Task<(HttpClient AdminClient, TerminalResponse TerminalA, HttpClient StaffClientA, HttpClient StaffClientB)> SetupTwoTerminalsAsync(string venueName)
+    {
+        var adminClient = _factory.CreateClient();
+        var caller = await RbacTestSeeder.SeedAsync(adminClient, "OrganisationOwner");
+        AuthenticateAs(adminClient, caller);
+        var location = await DeviceTestHelper.CreateLocationAsync(adminClient, caller.OrganisationId, venueName);
+        await adminClient.PostAsJsonAsync("/api/v1/venue-tax-configurations", new CreateVenueTaxConfigurationRequest(location.Id, true, TaxCalculationScope.PerLine));
+
+        var terminalA = (await (await adminClient.PostAsJsonAsync("/api/v1/terminals", new CreateTerminalRequest("Terminal A", location.Id))).Content.ReadFromJsonAsync<TerminalResponse>())!;
+        var terminalB = (await (await adminClient.PostAsJsonAsync("/api/v1/terminals", new CreateTerminalRequest("Terminal B", location.Id))).Content.ReadFromJsonAsync<TerminalResponse>())!;
+
+        var staffClientA = await CreateStaffSessionForTerminalAsync(adminClient, location.Id, terminalA.Id, "PTERMA");
+        var staffClientB = await CreateStaffSessionForTerminalAsync(adminClient, location.Id, terminalB.Id, "PTERMB");
+
+        return (adminClient, terminalA, staffClientA, staffClientB);
+    }
+
+    private async Task<HttpClient> CreateStaffSessionForTerminalAsync(HttpClient adminClient, Guid locationId, Guid terminalId, string staffCode)
+    {
+        var deviceClient = _factory.CreateClient();
+        var pin = await DeviceTestHelper.CreatePinAsync(adminClient, locationId);
+        var device = await DeviceTestHelper.RegisterDeviceAsync(deviceClient, pin.Pin);
+        DeviceTestHelper.AuthenticateWithDeviceToken(deviceClient, device.DeviceToken);
+        await adminClient.PostAsJsonAsync($"/api/v1/terminals/{terminalId}/assign-device", new AssignTerminalDeviceRequest(device.DeviceId));
+
+        var staffMember = await StaffTestHelper.CreateStaffMemberAsync(adminClient, locationId, staffCode);
+        await using (var dbContext = CreateDbContext())
+        {
+            var staffRoleId = (await dbContext.Roles.SingleAsync(r => r.Name == "Staff")).Id;
+            await adminClient.PostAsJsonAsync($"/api/v1/staff-members/{staffMember.Id}/roles", new AssignStaffRoleRequest(staffRoleId));
+        }
+
+        var login = await StaffTestHelper.StaffLoginAsync(deviceClient, locationId, staffCode, StaffTestHelper.DefaultPin);
+        var staffClient = _factory.CreateClient();
+        staffClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", login.SessionToken);
+        return staffClient;
+    }
 
     private static async Task<TaxCategoryResponse> CreateTaxCategoryWithDefinitionAsync(
         HttpClient client, Guid organisationId, string codeSuffix, decimal ratePercent, bool includedInPrice)

@@ -104,6 +104,19 @@ public class StaffPinLoginTests : IClassFixture<WebApplicationFactory<Program>>
         Assert.Equal(terminal.Id, me!.TerminalId);
     }
 
+    // Milestone C.2: StaffPinLoginAsync's terminal lookup was hardened from .SingleOrDefaultAsync()
+    // to a list-based resolution that fails the login (audited "DuplicateTerminalAssignment")
+    // instead of throwing if more than one Terminal ever matched the same DeviceId. This is
+    // deliberately not exercised here with a live duplicate-row fixture: the same milestone added a
+    // unique filtered index on Terminal.DeviceId (see
+    // TerminalEndpointsTests.Database_Rejects_TwoTerminalsWithTheSameDeviceId_EvenBypassingTheAppCheck),
+    // so two Terminal rows sharing a non-null DeviceId can no longer exist in a migrated database —
+    // there is no way to construct the precondition without disabling that constraint, which would
+    // itself risk destabilising other tests running concurrently against the same shared database.
+    // The hardening is retained as defense-in-depth (pre-migration data, manual DB intervention) and
+    // matches this file's own established "ambiguous match -> generic 401, audited" shape (see
+    // DeviceRegistrationTests' AmbiguousPinMatch precedent for the same pattern applied elsewhere).
+
     [Fact]
     public async Task Login_WithLowercaseStaffCode_Succeeds_ViaNormalisation()
     {

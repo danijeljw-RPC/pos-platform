@@ -48,5 +48,16 @@ public class TerminalConfiguration : IEntityTypeConfiguration<Terminal>
             .HasForeignKey(t => t.DeviceId)
             .IsRequired(false)
             .OnDelete(DeleteBehavior.SetNull);
+
+        // Milestone C.2: a device may be assigned to at most one terminal, enforced at the database
+        // level (not only by TerminalEndpoints.AssignDeviceAsync's application-level 409 check,
+        // which is a check-then-act race under concurrent requests). A plain unique index on a
+        // nullable column would still reject a second NULL against a first NULL in most databases,
+        // but Postgres unique indexes already treat NULL as distinct from NULL (never conflicting)
+        // — the explicit partial filter here documents that behaviour rather than relying on it
+        // silently, and keeps the index itself smaller (only rows with an actual assignment).
+        builder.HasIndex(t => t.DeviceId)
+            .IsUnique()
+            .HasFilter("\"DeviceId\" IS NOT NULL");
     }
 }

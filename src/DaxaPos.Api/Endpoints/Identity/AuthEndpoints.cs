@@ -182,10 +182,24 @@ public static class AuthEndpoints
         // TerminalEndpoints.AssignDeviceAsync). Never fabricated: a device with no terminal
         // assignment yields TerminalId: null, same as before this change, so order-open correctly
         // surfaces "no terminal" rather than silently succeeding against a fake id.
-        var terminalId = await dbContext.Terminals
+        //
+        // Milestone C.2: resolved from a list, not .SingleOrDefaultAsync() — the unique filtered
+        // index on Terminal.DeviceId (added this milestone) should make more-than-one impossible
+        // going forward, but this must not *crash* login if it ever happened anyway (e.g. rows
+        // written before that migration). More than one match is treated as the same kind of
+        // failure as every other login rejection in this method: generic 401, audited with a
+        // specific reason — never a guess at which terminal is "right".
+        var matchingTerminalIds = await dbContext.Terminals
             .Where(t => t.DeviceId == deviceId && t.IsActive)
-            .Select(t => (Guid?)t.Id)
-            .SingleOrDefaultAsync();
+            .Select(t => t.Id)
+            .ToListAsync();
+
+        if (matchingTerminalIds.Count > 1)
+        {
+            return await FailAsync(staffMember.Id, "DuplicateTerminalAssignment");
+        }
+
+        Guid? terminalId = matchingTerminalIds.Count == 1 ? matchingTerminalIds[0] : null;
 
         var rawToken = sessionTokenService.GenerateToken();
         var authSession = new AuthSession

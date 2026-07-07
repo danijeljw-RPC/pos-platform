@@ -139,6 +139,16 @@ public static class OrderEndpoints
             return Results.NotFound();
         }
 
+        // Milestone C.2 (ADR-0015 Context Provenance): a location-bound session must open orders
+        // only for its own resolved Terminal — never a different terminal at the same location via
+        // a client-supplied TerminalId, and never any terminal at all if this device isn't yet
+        // assigned to one. Same "mismatch is 404, never a validation error" convention as every
+        // other context-provenance check in this file.
+        if (authContext.LocationId is not null && (authContext.TerminalId is null || authContext.TerminalId != terminal.Id))
+        {
+            return Results.NotFound();
+        }
+
         // Fail-closed (approved PLAN-0004 Human Decision #5 precedent, reused here): an order
         // cannot open at a location with no tax configuration, since IsTaxInclusivePricing must be
         // snapshotted from a real configuration, never silently defaulted.
@@ -626,6 +636,17 @@ public static class OrderEndpoints
         }
 
         if (authContext.LocationId is not null && authContext.LocationId != order.LocationId)
+        {
+            return null;
+        }
+
+        // Milestone C.2 (ADR-0015 Context Provenance): a location-bound session (staff-PIN or
+        // device-token) is scoped to its own resolved Terminal, never another terminal's order at
+        // the same location — and never any order at all if this device isn't yet assigned to a
+        // terminal (matches the C.1 "no fake/null TerminalId" product decision: a null TerminalId
+        // here means "not linked", not "unrestricted"). An organisation-scoped admin session
+        // (LocationId null) is unrestricted, same as the location check above.
+        if (authContext.LocationId is not null && (authContext.TerminalId is null || authContext.TerminalId != order.TerminalId))
         {
             return null;
         }

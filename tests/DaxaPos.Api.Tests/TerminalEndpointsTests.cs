@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using DaxaPos.Api.Endpoints.Identity;
 using DaxaPos.Api.Tests.Support;
+using DaxaPos.Domain.Entities;
 using DaxaPos.Persistence;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
@@ -175,6 +176,88 @@ public class TerminalEndpointsTests : IClassFixture<WebApplicationFactory<Progra
             $"/api/v1/terminals/{terminalB.Id}/assign-device", new AssignTerminalDeviceRequest(device.DeviceId));
 
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+    }
+
+    /// <summary>
+    /// Milestone C.2: proves the EF model actually carries a unique index on <c>DeviceId</c> —
+    /// independent of the running database, and independent of whether
+    /// <see cref="AssignDevice_Rejects_DeviceAlreadyLinkedToADifferentTerminal"/>'s app-level
+    /// pre-check happens to run first.
+    /// </summary>
+    [Fact]
+    public void TerminalModel_DeviceId_HasAUniqueIndex()
+    {
+        using var dbContext = CreateDbContext();
+        var entityType = dbContext.Model.FindEntityType(typeof(Terminal))!;
+        var index = entityType.GetIndexes().Single(i => i.Properties.Select(p => p.Name).SequenceEqual(["DeviceId"]));
+
+        Assert.True(index.IsUnique);
+    }
+
+    /// <summary>
+    /// Milestone C.2 (Gap 1): proves the database itself — not just the application's
+    /// check-then-act 409 pre-check — refuses two terminals the same non-null <c>DeviceId</c>.
+    /// Two independent <see cref="DaxaDbContext"/> instances race the same commit a concurrent
+    /// pair of <c>assign-device</c> calls would: neither sees the other's uncommitted change, so
+    /// the second <c>SaveChangesAsync()</c> can only be stopped by the unique filtered index
+    /// itself, exactly the scenario the endpoint's <c>catch (DbUpdateException)</c> exists for.
+    /// </summary>
+    [Fact]
+    public async Task Database_Rejects_TwoTerminalsWithTheSameDeviceId_EvenBypassingTheAppCheck()
+    {
+        var client = _factory.CreateClient();
+        var caller = await RbacTestSeeder.SeedAsync(client, "OrganisationOwner");
+        AuthenticateAs(client, caller);
+        var location = await CreateLocationAsync(client, caller.OrganisationId, "DB Constraint Location");
+        var terminalA = await CreateTerminalAsync(client, location.Id, "DB Terminal A");
+        var terminalB = await CreateTerminalAsync(client, location.Id, "DB Terminal B");
+        var pin = await DeviceTestHelper.CreatePinAsync(client, location.Id);
+        var device = await DeviceTestHelper.RegisterDeviceAsync(client, pin.Pin);
+
+        await using var contextA = CreateDbContext();
+        await using var contextB = CreateDbContext();
+
+        var terminalAInContextA = await contextA.Terminals.IgnoreQueryFilters().SingleAsync(t => t.Id == terminalA.Id);
+        var terminalBInContextB = await contextB.Terminals.IgnoreQueryFilters().SingleAsync(t => t.Id == terminalB.Id);
+
+        terminalAInContextA.DeviceId = device.DeviceId;
+        terminalBInContextB.DeviceId = device.DeviceId;
+
+        await contextA.SaveChangesAsync();
+
+        await Assert.ThrowsAsync<DbUpdateException>(() => contextB.SaveChangesAsync());
+    }
+
+    /// <summary>
+    /// Milestone C.2 (Gap 1): a genuine race between two concurrent <c>assign-device</c> calls for
+    /// the same device against two different terminals must never surface as a 500 — whichever call
+    /// loses the race is rejected cleanly (409), whether the app's pre-check or the database's
+    /// unique index is what actually catches it.
+    /// </summary>
+    [Fact]
+    public async Task AssignDevice_ConcurrentConflictingAssignments_NeverCrash_ExactlyOneSucceeds()
+    {
+        var adminClient = _factory.CreateClient();
+        var caller = await RbacTestSeeder.SeedAsync(adminClient, "OrganisationOwner");
+        AuthenticateAs(adminClient, caller);
+        var location = await CreateLocationAsync(adminClient, caller.OrganisationId, "Race Location");
+        var terminalA = await CreateTerminalAsync(adminClient, location.Id, "Race Terminal A");
+        var terminalB = await CreateTerminalAsync(adminClient, location.Id, "Race Terminal B");
+        var pin = await DeviceTestHelper.CreatePinAsync(adminClient, location.Id);
+        var device = await DeviceTestHelper.RegisterDeviceAsync(adminClient, pin.Pin);
+
+        var clientA = _factory.CreateClient();
+        AuthenticateAs(clientA, caller);
+        var clientB = _factory.CreateClient();
+        AuthenticateAs(clientB, caller);
+
+        var taskA = clientA.PostAsJsonAsync($"/api/v1/terminals/{terminalA.Id}/assign-device", new AssignTerminalDeviceRequest(device.DeviceId));
+        var taskB = clientB.PostAsJsonAsync($"/api/v1/terminals/{terminalB.Id}/assign-device", new AssignTerminalDeviceRequest(device.DeviceId));
+        var responses = await Task.WhenAll(taskA, taskB);
+
+        Assert.All(responses, r => Assert.NotEqual(HttpStatusCode.InternalServerError, r.StatusCode));
+        Assert.Single(responses, r => r.StatusCode == HttpStatusCode.OK);
+        Assert.Single(responses, r => r.StatusCode == HttpStatusCode.Conflict);
     }
 
     [Fact]

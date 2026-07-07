@@ -169,7 +169,10 @@ public static class ReceiptEndpoints
         return ReceiptRenderer.Render(receiptOrder, ReceiptLabelSet.Default);
     }
 
-    /// <summary>Context provenance (ADR-0015): same organisation/location-bound-session rule as <see cref="Payments.PaymentEndpoints"/>'s identical helper.</summary>
+    /// <summary>Context provenance (ADR-0015): same organisation/location/terminal-bound-session
+    /// rule as <see cref="Payments.PaymentEndpoints"/>'s identical helper (Milestone C.2 added the
+    /// TerminalId check — a staff/device session for Terminal A must not be able to view or
+    /// reprint the receipt for Terminal B's order at the same location).</summary>
     private static async Task<Order?> LoadAuthorizedOrderAsync(DaxaDbContext dbContext, Guid orderId, AuthContext authContext)
     {
         var order = await dbContext.Orders.SingleOrDefaultAsync(o => o.Id == orderId);
@@ -179,6 +182,11 @@ public static class ReceiptEndpoints
         }
 
         if (authContext.LocationId is not null && authContext.LocationId != order.LocationId)
+        {
+            return null;
+        }
+
+        if (authContext.LocationId is not null && (authContext.TerminalId is null || authContext.TerminalId != order.TerminalId))
         {
             return null;
         }

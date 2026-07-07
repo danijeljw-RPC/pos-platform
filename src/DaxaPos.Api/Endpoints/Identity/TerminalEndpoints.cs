@@ -6,6 +6,7 @@ using DaxaPos.Domain.Entities;
 using DaxaPos.Domain.Events;
 using DaxaPos.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 
 namespace DaxaPos.Api.Endpoints.Identity;
 
@@ -258,7 +259,20 @@ public static class TerminalEndpoints
 
         var beforeDeviceId = terminal.DeviceId;
         terminal.DeviceId = request.DeviceId;
-        await dbContext.SaveChangesAsync();
+
+        try
+        {
+            await dbContext.SaveChangesAsync();
+        }
+        catch (DbUpdateException ex) when (IsUniqueDeviceIdViolation(ex))
+        {
+            // Milestone C.2: the AnyAsync check above is check-then-act and can lose a race under
+            // concurrent assign-device calls for the same device — the unique filtered index on
+            // Terminal.DeviceId (added this milestone) is the real guarantee, this is just turning
+            // its violation into the same clean 409 the pre-check already returns, not an
+            // unhandled 500.
+            return Results.Conflict("This device is already assigned to a different terminal.");
+        }
 
         var organisationId = await ResolveOrganisationIdAsync(terminal.LocationId, dbContext);
 
@@ -299,4 +313,14 @@ public static class TerminalEndpoints
 
     private static async Task<Guid> ResolveOrganisationIdAsync(Guid locationId, DaxaDbContext dbContext) =>
         (await dbContext.Locations.SingleAsync(l => l.Id == locationId)).OrganisationId;
+
+    /// <summary>
+    /// Postgres SQLSTATE <c>23505</c> is <c>unique_violation</c> — checked against the specific
+    /// index name (<c>IX_terminals_DeviceId</c>) rather than any unique violation on this table, so
+    /// a future unrelated unique constraint on <see cref="Terminal"/> doesn't get misreported as a
+    /// device-assignment conflict.
+    /// </summary>
+    private static bool IsUniqueDeviceIdViolation(DbUpdateException ex) =>
+        ex.InnerException is PostgresException { SqlState: "23505" } pg
+            && pg.ConstraintName == "IX_terminals_DeviceId";
 }

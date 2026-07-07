@@ -82,6 +82,10 @@ public class OrderEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
         var device = await DeviceTestHelper.RegisterDeviceAsync(deviceClient, pin.Pin);
         DeviceTestHelper.AuthenticateWithDeviceToken(deviceClient, device.DeviceToken);
 
+        // Milestone C.2: order actions now require a resolved TerminalId, so the device must be
+        // assigned to the terminal it's about to open orders for before the staff session logs in.
+        await adminClient.PostAsJsonAsync($"/api/v1/terminals/{terminal.Id}/assign-device", new AssignTerminalDeviceRequest(device.DeviceId));
+
         var staffMember = await StaffTestHelper.CreateStaffMemberAsync(adminClient, location.Id, "ORD01");
         await using (var dbContext = CreateDbContext())
         {
@@ -395,6 +399,107 @@ public class OrderEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
     }
 
     [Fact]
+    public async Task GetById_Blocked_ForDifferentTerminal_SameLocation()
+    {
+        var scenario = await SetupTwoTerminalsAsync("Isolation Get Venue");
+        var order = (await (await OpenOrderAsync(scenario.StaffClientA, scenario.TerminalA.Id)).Content.ReadFromJsonAsync<OrderResponse>())!;
+
+        Assert.Equal(HttpStatusCode.NotFound, (await scenario.StaffClientB.GetAsync($"/api/v1/orders/{order.Id}")).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await scenario.StaffClientA.GetAsync($"/api/v1/orders/{order.Id}")).StatusCode);
+    }
+
+    [Fact]
+    public async Task AddLine_Blocked_ForDifferentTerminal_SameLocation()
+    {
+        var scenario = await SetupTwoTerminalsAsync("Isolation AddLine Venue");
+        var taxCategory = await CreateTaxCategoryWithDefinitionAsync(scenario.AdminClient, scenario.OrganisationId, "ISO_ADDLINE_TAX", 10m, includedInPrice: true);
+        var product = await CreateProductAsync(scenario.AdminClient, scenario.OrganisationId, taxCategory.Id, 5.00m, "ISO_ADDLINE_PRODUCT");
+        var order = (await (await OpenOrderAsync(scenario.StaffClientA, scenario.TerminalA.Id)).Content.ReadFromJsonAsync<OrderResponse>())!;
+
+        Assert.Equal(HttpStatusCode.NotFound, (await AddLineAsync(scenario.StaffClientB, order.Id, product.Id)).StatusCode);
+        Assert.Equal(HttpStatusCode.Created, (await AddLineAsync(scenario.StaffClientA, order.Id, product.Id)).StatusCode);
+    }
+
+    [Fact]
+    public async Task VoidLine_Blocked_ForDifferentTerminal_SameLocation()
+    {
+        var scenario = await SetupTwoTerminalsAsync("Isolation VoidLine Venue");
+        var taxCategory = await CreateTaxCategoryWithDefinitionAsync(scenario.AdminClient, scenario.OrganisationId, "ISO_VOIDLINE_TAX", 10m, includedInPrice: true);
+        var product = await CreateProductAsync(scenario.AdminClient, scenario.OrganisationId, taxCategory.Id, 5.00m, "ISO_VOIDLINE_PRODUCT");
+        var order = (await (await OpenOrderAsync(scenario.StaffClientA, scenario.TerminalA.Id)).Content.ReadFromJsonAsync<OrderResponse>())!;
+        var withLine = (await (await AddLineAsync(scenario.StaffClientA, order.Id, product.Id)).Content.ReadFromJsonAsync<OrderResponse>())!;
+        var lineId = withLine.Lines[0].Id;
+
+        Assert.Equal(HttpStatusCode.NotFound, (await scenario.StaffClientB.DeleteAsync($"/api/v1/orders/{order.Id}/lines/{lineId}")).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await scenario.StaffClientA.DeleteAsync($"/api/v1/orders/{order.Id}/lines/{lineId}")).StatusCode);
+    }
+
+    [Fact]
+    public async Task VoidOrder_Blocked_ForDifferentTerminal_SameLocation()
+    {
+        var scenario = await SetupTwoTerminalsAsync("Isolation VoidOrder Venue");
+        var order = (await (await OpenOrderAsync(scenario.StaffClientA, scenario.TerminalA.Id)).Content.ReadFromJsonAsync<OrderResponse>())!;
+
+        Assert.Equal(HttpStatusCode.NotFound, (await scenario.StaffClientB.PostAsync($"/api/v1/orders/{order.Id}/void", content: null)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await scenario.StaffClientA.PostAsync($"/api/v1/orders/{order.Id}/void", content: null)).StatusCode);
+    }
+
+    [Fact]
+    public async Task HoldAndResume_Blocked_ForDifferentTerminal_SameLocation()
+    {
+        var scenario = await SetupTwoTerminalsAsync("Isolation Hold Venue");
+        var order = (await (await OpenOrderAsync(scenario.StaffClientA, scenario.TerminalA.Id)).Content.ReadFromJsonAsync<OrderResponse>())!;
+
+        Assert.Equal(HttpStatusCode.NotFound, (await scenario.StaffClientB.PostAsync($"/api/v1/orders/{order.Id}/hold", content: null)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await scenario.StaffClientA.PostAsync($"/api/v1/orders/{order.Id}/hold", content: null)).StatusCode);
+
+        Assert.Equal(HttpStatusCode.NotFound, (await scenario.StaffClientB.PostAsync($"/api/v1/orders/{order.Id}/resume", content: null)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await scenario.StaffClientA.PostAsync($"/api/v1/orders/{order.Id}/resume", content: null)).StatusCode);
+    }
+
+    [Fact]
+    public async Task Open_Rejects_WhenSessionHasNoResolvedTerminalId()
+    {
+        // A location-bound staff session whose device was never assigned to a terminal must not
+        // be able to open an order for any terminal at its own location, even one that exists.
+        var client = _factory.CreateClient();
+        var (_, location, terminal) = await SetupVenueAsync(client);
+
+        var deviceClient = _factory.CreateClient();
+        var pin = await DeviceTestHelper.CreatePinAsync(client, location.Id);
+        var device = await DeviceTestHelper.RegisterDeviceAsync(deviceClient, pin.Pin);
+        DeviceTestHelper.AuthenticateWithDeviceToken(deviceClient, device.DeviceToken);
+
+        var staffMember = await StaffTestHelper.CreateStaffMemberAsync(client, location.Id, "NOTERM");
+        await using (var dbContext = CreateDbContext())
+        {
+            var staffRoleId = (await dbContext.Roles.SingleAsync(r => r.Name == "Staff")).Id;
+            await client.PostAsJsonAsync($"/api/v1/staff-members/{staffMember.Id}/roles", new AssignStaffRoleRequest(staffRoleId));
+        }
+
+        var login = await StaffTestHelper.StaffLoginAsync(deviceClient, location.Id, "NOTERM", StaffTestHelper.DefaultPin);
+        var staffClient = _factory.CreateClient();
+        staffClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", login.SessionToken);
+
+        var response = await OpenOrderAsync(staffClient, terminal.Id);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Open_Rejects_WhenRequestedTerminalDiffersFromSessionsResolvedTerminal()
+    {
+        var scenario = await SetupTwoTerminalsAsync("Isolation Open Cross Venue");
+
+        // StaffClientA's session is resolved to TerminalA — opening against TerminalB (same
+        // location, different terminal) via a client-supplied TerminalId must be rejected, not
+        // silently accepted (ADR-0015 Context Provenance).
+        var response = await OpenOrderAsync(scenario.StaffClientA, scenario.TerminalB.Id);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
     public async Task Create_Fails_WithoutPermission()
     {
         var ownerClient = _factory.CreateClient();
@@ -509,6 +614,58 @@ public class OrderEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
         var terminalResponse = await client.PostAsJsonAsync("/api/v1/terminals", new CreateTerminalRequest("Front Counter", location.Id));
         var terminal = (await terminalResponse.Content.ReadFromJsonAsync<TerminalResponse>())!;
         return (caller, location, terminal);
+    }
+
+    private sealed record TwoTerminalScenario(
+        HttpClient AdminClient,
+        Guid OrganisationId,
+        LocationResponse Location,
+        TerminalResponse TerminalA,
+        TerminalResponse TerminalB,
+        HttpClient StaffClientA,
+        HttpClient StaffClientB);
+
+    /// <summary>
+    /// Milestone C.2: two terminals at the same location, each with its own registered device
+    /// assigned to it and its own logged-in staff session — the minimum fixture needed to prove
+    /// Terminal A's session cannot touch Terminal B's order.
+    /// </summary>
+    private async Task<TwoTerminalScenario> SetupTwoTerminalsAsync(string venueName)
+    {
+        var adminClient = _factory.CreateClient();
+        var caller = await RbacTestSeeder.SeedAsync(adminClient, "OrganisationOwner");
+        AuthenticateAs(adminClient, caller);
+        var location = await DeviceTestHelper.CreateLocationAsync(adminClient, caller.OrganisationId, venueName);
+        await adminClient.PostAsJsonAsync("/api/v1/venue-tax-configurations", new CreateVenueTaxConfigurationRequest(location.Id, true, TaxCalculationScope.PerLine));
+
+        var terminalA = (await (await adminClient.PostAsJsonAsync("/api/v1/terminals", new CreateTerminalRequest("Terminal A", location.Id))).Content.ReadFromJsonAsync<TerminalResponse>())!;
+        var terminalB = (await (await adminClient.PostAsJsonAsync("/api/v1/terminals", new CreateTerminalRequest("Terminal B", location.Id))).Content.ReadFromJsonAsync<TerminalResponse>())!;
+
+        var staffClientA = await CreateStaffSessionForTerminalAsync(adminClient, location.Id, terminalA.Id, "TERMA");
+        var staffClientB = await CreateStaffSessionForTerminalAsync(adminClient, location.Id, terminalB.Id, "TERMB");
+
+        return new TwoTerminalScenario(adminClient, caller.OrganisationId, location, terminalA, terminalB, staffClientA, staffClientB);
+    }
+
+    private async Task<HttpClient> CreateStaffSessionForTerminalAsync(HttpClient adminClient, Guid locationId, Guid terminalId, string staffCode)
+    {
+        var deviceClient = _factory.CreateClient();
+        var pin = await DeviceTestHelper.CreatePinAsync(adminClient, locationId);
+        var device = await DeviceTestHelper.RegisterDeviceAsync(deviceClient, pin.Pin);
+        DeviceTestHelper.AuthenticateWithDeviceToken(deviceClient, device.DeviceToken);
+        await adminClient.PostAsJsonAsync($"/api/v1/terminals/{terminalId}/assign-device", new AssignTerminalDeviceRequest(device.DeviceId));
+
+        var staffMember = await StaffTestHelper.CreateStaffMemberAsync(adminClient, locationId, staffCode);
+        await using (var dbContext = CreateDbContext())
+        {
+            var staffRoleId = (await dbContext.Roles.SingleAsync(r => r.Name == "Staff")).Id;
+            await adminClient.PostAsJsonAsync($"/api/v1/staff-members/{staffMember.Id}/roles", new AssignStaffRoleRequest(staffRoleId));
+        }
+
+        var login = await StaffTestHelper.StaffLoginAsync(deviceClient, locationId, staffCode, StaffTestHelper.DefaultPin);
+        var staffClient = _factory.CreateClient();
+        staffClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", login.SessionToken);
+        return staffClient;
     }
 
     private static async Task<TaxCategoryResponse> CreateTaxCategoryWithDefinitionAsync(
