@@ -1,0 +1,122 @@
+@page "/back-office/catalog"
+@layout DaxaPos.Web.Layout.BackOfficeLayout
+@inject DaxaApiClient ApiClient
+@inject IBackOfficeSessionStore SessionStore
+
+<PageTitle>Catalog &amp; Menus</PageTitle>
+
+<h1>Catalog &amp; Menus</h1>
+
+<p>Read-only views for setup validation only. Catalog and menu management is not part of this
+skeleton — edit products, categories, and menus elsewhere.</p>
+
+@if (_loadError is not null)
+{
+    <p class="text-danger" role="alert">@_loadError</p>
+}
+else
+{
+    <h2>Products</h2>
+
+    @if (_products is null)
+    {
+        <p>Loading&hellip;</p>
+    }
+    else if (_products.Count == 0)
+    {
+        <p>No products found.</p>
+    }
+    else
+    {
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Category</th>
+                    <th>Sku</th>
+                    <th>Base price</th>
+                    <th>Active</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var product in _products)
+                {
+                    <tr>
+                        <td>@product.Name</td>
+                        <td>@CategoryName(product.ProductCategoryId)</td>
+                        <td>@product.Sku</td>
+                        <td>@product.BasePrice.ToString("0.00")</td>
+                        <td>@(product.IsActive ? "Yes" : "No")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+
+    <h2>Menus</h2>
+
+    @if (_menus is null)
+    {
+        <p>Loading&hellip;</p>
+    }
+    else if (_menus.Count == 0)
+    {
+        <p>No menus found.</p>
+    }
+    else
+    {
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Scope</th>
+                    <th>Active</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var menu in _menus)
+                {
+                    <tr>
+                        <td>@menu.Name</td>
+                        <td>@(menu.LocationId is null ? "Organisation-wide" : "Location-specific")</td>
+                        <td>@(menu.IsActive ? "Yes" : "No")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+}
+
+@code {
+    private IReadOnlyList<ProductCategoryResult>? _categories;
+    private IReadOnlyList<ProductResult>? _products;
+    private IReadOnlyList<MenuResult>? _menus;
+    private string? _loadError;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (SessionStore.Current is not { } session)
+        {
+            return;
+        }
+
+        var categoriesResult = await ApiClient.ListProductCategoriesAsync(session.SessionToken);
+        var productsResult = await ApiClient.ListProductsAsync(session.SessionToken);
+        var menusResult = await ApiClient.ListMenusAsync(session.SessionToken);
+
+        if (categoriesResult.Kind != ApiResultKind.Success || categoriesResult.Value is null ||
+            productsResult.Kind != ApiResultKind.Success || productsResult.Value is null ||
+            menusResult.Kind != ApiResultKind.Success || menusResult.Value is null)
+        {
+            _loadError = "Could not load catalog or menu data.";
+            return;
+        }
+
+        _categories = categoriesResult.Value;
+        _products = productsResult.Value;
+        _menus = menusResult.Value;
+    }
+
+    private string CategoryName(Guid productCategoryId) =>
+        _categories?.FirstOrDefault(c => c.Id == productCategoryId)?.Name ?? productCategoryId.ToString();
+}

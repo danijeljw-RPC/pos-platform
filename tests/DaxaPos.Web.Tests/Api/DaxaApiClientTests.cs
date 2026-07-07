@@ -77,4 +77,41 @@ public class DaxaApiClientTests
 
         Assert.Equal(ApiResultKind.Success, result.Kind);
     }
+
+    [Fact]
+    public async Task GetResolvedMenuAsync_OnSuccess_ReturnsSectionsAndAppendsLocationIdQuery()
+    {
+        var (client, stub) = BuildClient();
+        var locationId = Guid.NewGuid();
+        var productId = Guid.NewGuid();
+        stub.Respond = _ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = JsonContent.Create(new ResolvedMenuResult(locationId,
+            [
+                new ResolvedMenuSectionResult(Guid.NewGuid(), Guid.NewGuid(), "Coffee", 0,
+                [
+                    new ResolvedMenuItemResult(productId, "Flat White", 0, 5.5m, true, "AU_GST_10"),
+                ]),
+            ])),
+        };
+
+        var result = await client.GetResolvedMenuAsync(locationId);
+
+        Assert.Equal(ApiResultKind.Success, result.Kind);
+        Assert.Equal(locationId, result.Value!.LocationId);
+        Assert.Single(result.Value.Sections);
+        Assert.Equal("Flat White", result.Value.Sections[0].Items[0].ProductName);
+        Assert.Contains($"locationId={locationId}", stub.LastRequest!.RequestUri!.Query);
+    }
+
+    [Fact]
+    public async Task GetResolvedMenuAsync_OnNotFound_ReturnsFailedKind()
+    {
+        var (client, stub) = BuildClient();
+        stub.Respond = _ => new HttpResponseMessage(HttpStatusCode.NotFound);
+
+        var result = await client.GetResolvedMenuAsync(Guid.NewGuid());
+
+        Assert.Equal(ApiResultKind.Failed, result.Kind);
+    }
 }

@@ -1,0 +1,25 @@
+@page "/back-office"
+@layout DaxaPos.Web.Layout.BackOfficeLayout
+@inject IBackOfficeSessionStore SessionStore
+
+<PageTitle>Daxa Back Office</PageTitle>
+
+@if (SessionStore.Current is { } session && !session.IsExpired(DateTimeOffset.UtcNow))
+{
+    <h1>Daxa Back Office</h1>
+    <p>Signed in as <strong>@session.Email</strong>.</p>
+
+    <ul>
+        <li><a href="back-office/device-registration-pins">Generate or view a device registration PIN</a></li>
+        <li><a href="back-office/devices">View registered devices</a></li>
+        <li><a href="back-office/locations">View locations</a></li>
+        <li><a href="back-office/catalog">Review catalog and menus for setup</a></li>
+    </ul>
+
+    <p>This is the Back Office skeleton (PLAN-0006 Milestone B). It is read-mostly and does not
+    include the sales screen, payments, customer display, or KDS.</p>
+}
+else
+{
+    <p>Redirecting to login&hellip;</p>
+}

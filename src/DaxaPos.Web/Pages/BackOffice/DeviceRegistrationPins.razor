@@ -1,0 +1,149 @@
+@page "/back-office/device-registration-pins"
+@layout DaxaPos.Web.Layout.BackOfficeLayout
+@inject DaxaApiClient ApiClient
+@inject IBackOfficeSessionStore SessionStore
+
+<PageTitle>Device Registration PINs</PageTitle>
+
+<h1>Device Registration PINs</h1>
+
+<p>
+    Generate a short-lived registration PIN for a location so a new device can complete
+    <a href="device-setup">device setup</a>. The raw PIN is shown here only once — there is no way
+    to retrieve it again later; generate a new one if it is lost.
+</p>
+
+@if (_loadError is not null)
+{
+    <p class="text-danger" role="alert">@_loadError</p>
+}
+else if (_locations is null)
+{
+    <p>Loading locations&hellip;</p>
+}
+else if (_locations.Count == 0)
+{
+    <p>No active locations found.</p>
+}
+else
+{
+    <div class="mb-3">
+        <label class="form-label" for="location">Location</label>
+        <InputSelect id="location" class="form-select" @bind-Value="_selectedLocationId">
+            @foreach (var location in _locations)
+            {
+                <option value="@location.Id">@location.Name</option>
+            }
+        </InputSelect>
+    </div>
+
+    <button type="button" class="btn btn-primary" disabled="@_isGenerating" @onclick="GenerateAsync">
+        Generate PIN
+    </button>
+}
+
+@if (_generateError is not null)
+{
+    <p class="text-danger mt-3" role="alert">@_generateError</p>
+}
+
+@if (_created is { } created)
+{
+    <div class="mt-4 p-3 border">
+        <h2>PIN generated</h2>
+        <p>This PIN is shown once and is not stored anywhere retrievable. Write it down now.</p>
+        <p><strong>PIN: <code>@created.Pin</code></strong></p>
+        <p>Expires: @created.ExpiresAtUtc.ToLocalTime()</p>
+        <p>Max uses: @created.MaxUses</p>
+
+        @if (_revokedAtUtc is { } revokedAt)
+        {
+            <p class="text-muted">Revoked at @revokedAt.ToLocalTime().</p>
+        }
+        else
+        {
+            <button type="button" class="btn btn-outline-danger" disabled="@_isRevoking" @onclick="RevokeAsync">
+                Revoke this PIN
+            </button>
+        }
+    </div>
+}
+
+@code {
+    private IReadOnlyList<LocationResult>? _locations;
+    private string? _loadError;
+    private Guid _selectedLocationId;
+    private bool _isGenerating;
+    private string? _generateError;
+    private DeviceRegistrationPinCreatedResult? _created;
+    private bool _isRevoking;
+    private DateTimeOffset? _revokedAtUtc;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (SessionStore.Current is not { } session)
+        {
+            return;
+        }
+
+        var result = await ApiClient.ListLocationsAsync(session.SessionToken);
+
+        if (result.Kind != ApiResultKind.Success || result.Value is null)
+        {
+            _loadError = "Could not load locations.";
+            return;
+        }
+
+        _locations = result.Value;
+
+        if (_locations.Count > 0)
+        {
+            _selectedLocationId = _locations[0].Id;
+        }
+    }
+
+    private async Task GenerateAsync()
+    {
+        if (SessionStore.Current is not { } session)
+        {
+            return;
+        }
+
+        _isGenerating = true;
+        _generateError = null;
+        _created = null;
+        _revokedAtUtc = null;
+
+        var result = await ApiClient.CreateDeviceRegistrationPinAsync(
+            session.SessionToken, new CreateDeviceRegistrationPinRequest(_selectedLocationId, MaxUses: null));
+
+        _isGenerating = false;
+
+        if (result.Kind != ApiResultKind.Success || result.Value is null)
+        {
+            _generateError = "Could not generate a PIN for the selected location.";
+            return;
+        }
+
+        _created = result.Value;
+    }
+
+    private async Task RevokeAsync()
+    {
+        if (SessionStore.Current is not { } session || _created is not { } created)
+        {
+            return;
+        }
+
+        _isRevoking = true;
+
+        var result = await ApiClient.RevokeDeviceRegistrationPinAsync(session.SessionToken, created.Id);
+
+        _isRevoking = false;
+
+        if (result.Kind == ApiResultKind.Success && result.Value is not null)
+        {
+            _revokedAtUtc = result.Value.RevokedAtUtc;
+        }
+    }
+}

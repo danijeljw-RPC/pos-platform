@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 
 namespace DaxaPos.Web.Api;
@@ -34,6 +35,131 @@ public sealed class DaxaApiClient(HttpClient httpClient)
 
     public Task<ApiResult<AuthContextResult>> GetMeAsync(CancellationToken ct = default) =>
         GetAsync<AuthContextResult>("api/v1/auth/me", ct);
+
+    /// <summary>
+    /// Terminal sales screen (PLAN-0006 Milestone C). Uses the implicit-auth <see cref="GetAsync{T}"/>
+    /// helper, not the Back Office explicit-bearer methods below — this is a Terminal-shell staff/
+    /// device session call, resolved the same way Milestone A's other Terminal calls are.
+    /// </summary>
+    public Task<ApiResult<ResolvedMenuResult>> GetResolvedMenuAsync(Guid locationId, CancellationToken ct = default) =>
+        GetAsync<ResolvedMenuResult>($"api/v1/menus/resolved?locationId={locationId}", ct);
+
+    /// <summary>
+    /// Back Office admin login (ADR-0013 local admin portal login). Unauthenticated — the server
+    /// endpoint requires no prior context, unlike Staff PIN login which requires a device context.
+    /// </summary>
+    public Task<ApiResult<LocalLoginResult>> LocalLoginAsync(LocalLoginRequest request, CancellationToken ct = default) =>
+        PostAsync<LocalLoginRequest, LocalLoginResult>("api/v1/auth/local/login", request, ct);
+
+    /// <summary>
+    /// Back Office calls below attach their bearer token explicitly rather than relying on
+    /// <see cref="AuthHeaderHandler"/>'s implicit Bearer/Device resolution, which only knows about
+    /// the Terminal shell's <c>IAuthSessionStore</c>/<c>IDeviceContextStore</c> — never the separate
+    /// Back Office session (see <c>BackOfficeSessionState</c>). <see cref="AuthHeaderHandler"/> is
+    /// patched to skip its own resolution whenever a request already carries an explicit
+    /// <c>Authorization</c> header, so the two sessions never collide on the shared HttpClient.
+    /// </summary>
+    public Task<ApiResult<DeviceRegistrationPinCreatedResult>> CreateDeviceRegistrationPinAsync(
+        string bearerToken, CreateDeviceRegistrationPinRequest request, CancellationToken ct = default) =>
+        PostAuthorizedAsync<CreateDeviceRegistrationPinRequest, DeviceRegistrationPinCreatedResult>(
+            "api/v1/device-registration-pins", bearerToken, request, ct);
+
+    public Task<ApiResult<DeviceRegistrationPinResult>> RevokeDeviceRegistrationPinAsync(
+        string bearerToken, Guid pinId, CancellationToken ct = default) =>
+        PostAuthorizedAsync<object?, DeviceRegistrationPinResult>(
+            $"api/v1/device-registration-pins/{pinId}/revoke", bearerToken, request: null, ct);
+
+    public Task<ApiResult<IReadOnlyList<LocationResult>>> ListLocationsAsync(string bearerToken, CancellationToken ct = default) =>
+        GetAuthorizedAsync<IReadOnlyList<LocationResult>>("api/v1/locations", bearerToken, ct);
+
+    public Task<ApiResult<IReadOnlyList<DeviceResult>>> ListDevicesAsync(
+        string bearerToken, Guid? locationId = null, CancellationToken ct = default)
+    {
+        var uri = locationId is null ? "api/v1/devices" : $"api/v1/devices?locationId={locationId}";
+        return GetAuthorizedAsync<IReadOnlyList<DeviceResult>>(uri, bearerToken, ct);
+    }
+
+    public Task<ApiResult<IReadOnlyList<ProductCategoryResult>>> ListProductCategoriesAsync(string bearerToken, CancellationToken ct = default) =>
+        GetAuthorizedAsync<IReadOnlyList<ProductCategoryResult>>("api/v1/product-categories", bearerToken, ct);
+
+    public Task<ApiResult<IReadOnlyList<ProductResult>>> ListProductsAsync(string bearerToken, CancellationToken ct = default) =>
+        GetAuthorizedAsync<IReadOnlyList<ProductResult>>("api/v1/products", bearerToken, ct);
+
+    public Task<ApiResult<IReadOnlyList<MenuResult>>> ListMenusAsync(string bearerToken, CancellationToken ct = default) =>
+        GetAuthorizedAsync<IReadOnlyList<MenuResult>>("api/v1/menus", bearerToken, ct);
+
+    /// <summary>Explicit-bearer counterpart to <see cref="LogoutAsync"/> for the Back Office session.</summary>
+    public async Task<ApiResult> LogoutBackOfficeAsync(string bearerToken, CancellationToken ct = default)
+    {
+        try
+        {
+            using var httpRequest = new HttpRequestMessage(HttpMethod.Post, "api/v1/auth/logout");
+            httpRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", bearerToken);
+
+            using var response = await httpClient.SendAsync(httpRequest, ct);
+            return response.IsSuccessStatusCode
+                ? ApiResult.Success(response.StatusCode)
+                : ApiResult.FromStatusCode(response.StatusCode);
+        }
+        catch (HttpRequestException ex)
+        {
+            return ApiResult.NetworkFailure(ex.Message);
+        }
+    }
+
+    private async Task<ApiResult<TResponse>> PostAuthorizedAsync<TRequest, TResponse>(
+        string uri, string bearerToken, TRequest? request, CancellationToken ct)
+    {
+        try
+        {
+            using var httpRequest = new HttpRequestMessage(HttpMethod.Post, uri)
+            {
+                Content = request is null ? null : JsonContent.Create(request),
+            };
+            httpRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", bearerToken);
+
+            using var response = await httpClient.SendAsync(httpRequest, ct);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return ApiResult<TResponse>.FromStatusCode(response.StatusCode);
+            }
+
+            var value = await response.Content.ReadFromJsonAsync<TResponse>(cancellationToken: ct);
+            return value is null
+                ? ApiResult<TResponse>.FromStatusCode(HttpStatusCode.UnprocessableEntity, "Empty response body.")
+                : ApiResult<TResponse>.Success(value, response.StatusCode);
+        }
+        catch (HttpRequestException ex)
+        {
+            return ApiResult<TResponse>.NetworkFailure(ex.Message);
+        }
+    }
+
+    private async Task<ApiResult<TResponse>> GetAuthorizedAsync<TResponse>(string uri, string bearerToken, CancellationToken ct)
+    {
+        try
+        {
+            using var httpRequest = new HttpRequestMessage(HttpMethod.Get, uri);
+            httpRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", bearerToken);
+
+            using var response = await httpClient.SendAsync(httpRequest, ct);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return ApiResult<TResponse>.FromStatusCode(response.StatusCode);
+            }
+
+            var value = await response.Content.ReadFromJsonAsync<TResponse>(cancellationToken: ct);
+            return value is null
+                ? ApiResult<TResponse>.FromStatusCode(HttpStatusCode.UnprocessableEntity, "Empty response body.")
+                : ApiResult<TResponse>.Success(value, response.StatusCode);
+        }
+        catch (HttpRequestException ex)
+        {
+            return ApiResult<TResponse>.NetworkFailure(ex.Message);
+        }
+    }
 
     private async Task<ApiResult<TResponse>> PostAsync<TRequest, TResponse>(string uri, TRequest request, CancellationToken ct)
     {

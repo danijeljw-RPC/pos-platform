@@ -1,0 +1,109 @@
+@page "/back-office/devices"
+@layout DaxaPos.Web.Layout.BackOfficeLayout
+@inject DaxaApiClient ApiClient
+@inject IBackOfficeSessionStore SessionStore
+
+<PageTitle>Devices</PageTitle>
+
+<h1>Devices</h1>
+
+<p>Read-only device context, for setup validation only.</p>
+
+@if (_loadError is not null)
+{
+    <p class="text-danger" role="alert">@_loadError</p>
+}
+else
+{
+    @if (_locations is { Count: > 0 })
+    {
+        <div class="mb-3">
+            <label class="form-label" for="location-filter">Filter by location</label>
+            <InputSelect id="location-filter" class="form-select" @bind-Value="_selectedLocationId" @bind-Value:after="OnLocationFilterChangedAsync">
+                <option value="">All locations</option>
+                @foreach (var location in _locations)
+                {
+                    <option value="@location.Id">@location.Name</option>
+                }
+            </InputSelect>
+        </div>
+    }
+
+    @if (_devices is null)
+    {
+        <p>Loading&hellip;</p>
+    }
+    else if (_devices.Count == 0)
+    {
+        <p>No devices found.</p>
+    }
+    else
+    {
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Device type</th>
+                    <th>Has active credential</th>
+                    <th>Location Id</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var device in _devices)
+                {
+                    <tr>
+                        <td>@device.Name</td>
+                        <td>@device.DeviceType</td>
+                        <td>@(device.HasActiveCredential ? "Yes" : "No")</td>
+                        <td><code>@device.LocationId</code></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+}
+
+@code {
+    private IReadOnlyList<LocationResult>? _locations;
+    private IReadOnlyList<DeviceResult>? _devices;
+    private string? _loadError;
+    private Guid? _selectedLocationId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (SessionStore.Current is not { } session)
+        {
+            return;
+        }
+
+        var locationsResult = await ApiClient.ListLocationsAsync(session.SessionToken);
+
+        if (locationsResult.Kind == ApiResultKind.Success && locationsResult.Value is not null)
+        {
+            _locations = locationsResult.Value;
+        }
+
+        await LoadDevicesAsync(session.SessionToken);
+    }
+
+    private async Task OnLocationFilterChangedAsync()
+    {
+        if (SessionStore.Current is { } session)
+        {
+            await LoadDevicesAsync(session.SessionToken);
+        }
+    }
+
+    private async Task LoadDevicesAsync(string sessionToken)
+    {
+        var result = await ApiClient.ListDevicesAsync(sessionToken, _selectedLocationId);
+
+        if (result.Kind != ApiResultKind.Success || result.Value is null)
+        {
+            _loadError = "Could not load devices.";
+            return;
+        }
+
+        _devices = result.Value;
+    }
+}

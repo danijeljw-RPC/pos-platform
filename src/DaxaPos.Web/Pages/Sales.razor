@@ -1,0 +1,169 @@
+@page "/sales"
+@inject DaxaApiClient ApiClient
+@inject IDeviceContextStore DeviceContextStore
+
+<PageTitle>Sales</PageTitle>
+
+<h1>Sales</h1>
+
+@if (DeviceContextStore.Current is not { } device)
+{
+    <p>No device is registered on this browser yet. <a href="device-setup">Set up device</a>.</p>
+}
+else if (_loadError is not null)
+{
+    <p class="text-danger" role="alert">@_loadError</p>
+}
+else if (_menu is null)
+{
+    <p>Loading menu&hellip;</p>
+}
+else
+{
+    <div class="row">
+        <div class="col-12 col-lg-8">
+            @if (_menu.Sections.Count == 0)
+            {
+                <p>No menu items are available for sale at this location right now.</p>
+            }
+            else
+            {
+                @foreach (var section in _menu.Sections.OrderBy(s => s.DisplayOrder))
+                {
+                    <h2 class="h5 mt-3">@section.SectionName</h2>
+
+                    <div class="d-flex flex-wrap gap-2 mb-3">
+                        @foreach (var item in section.Items.OrderBy(i => i.DisplayOrder))
+                        {
+                            <button type="button"
+                                    class="btn btn-outline-primary text-start"
+                                    style="min-width: 8rem; max-width: 12rem;"
+                                    @onclick="() => AddOrIncrement(item)">
+                                <div class="fw-semibold text-wrap">@item.ProductName</div>
+                                <div>@FormatPrice(item.Price)</div>
+                            </button>
+                        }
+                    </div>
+                }
+            }
+        </div>
+
+        <div class="col-12 col-lg-4">
+            <div class="border rounded p-3">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h2 class="h5 mb-0">Order</h2>
+                    @if (_lines.Count > 0)
+                    {
+                        <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="ClearOrder">Clear order</button>
+                    }
+                </div>
+
+                @if (_lines.Count == 0)
+                {
+                    <p class="text-muted">No items selected yet. Tap a menu item to add it.</p>
+                }
+                else
+                {
+                    @foreach (var line in _lines)
+                    {
+                        <div class="border-bottom pb-2 mb-2">
+                            <div class="d-flex justify-content-between">
+                                <span class="fw-semibold">@line.ProductName</span>
+                                <span>@FormatPrice(line.UnitPrice * line.Quantity)</span>
+                            </div>
+                            <div class="d-flex align-items-center gap-2 mt-1">
+                                <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => Decrement(line)">-</button>
+                                <span>@line.Quantity</span>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => Increment(line)">+</button>
+                                <button type="button" class="btn btn-sm btn-link text-danger ms-auto" @onclick="() => Remove(line)">Remove</button>
+                            </div>
+                            <input class="form-control form-control-sm mt-1"
+                                   placeholder="Note (e.g. no onion)"
+                                   value="@line.Notes"
+                                   @onchange="e => line.Notes = e.Value?.ToString()" />
+                        </div>
+                    }
+
+                    <div class="d-flex justify-content-between fw-semibold mt-2">
+                        <span>Draft subtotal (estimate)</span>
+                        <span>@FormatPrice(DraftSubtotal)</span>
+                    </div>
+                    <p class="text-muted small mb-0">
+                        This is a local draft only — no order has been created on the server, and
+                        this total is not a final price. Payment is not part of this screen yet.
+                    </p>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private ResolvedMenuResult? _menu;
+    private string? _loadError;
+    private readonly List<OrderDraftLine> _lines = [];
+
+    private decimal DraftSubtotal => _lines.Sum(l => l.UnitPrice * l.Quantity);
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (DeviceContextStore.Current is not { } device)
+        {
+            return;
+        }
+
+        var result = await ApiClient.GetResolvedMenuAsync(device.LocationId);
+
+        if (result.Kind != ApiResultKind.Success || result.Value is null)
+        {
+            _loadError = "Could not load the menu for this location.";
+            return;
+        }
+
+        _menu = result.Value;
+    }
+
+    private void AddOrIncrement(ResolvedMenuItemResult item)
+    {
+        var existing = _lines.FirstOrDefault(l => l.ProductId == item.ProductId);
+
+        if (existing is not null)
+        {
+            existing.Quantity++;
+            return;
+        }
+
+        _lines.Add(new OrderDraftLine(item.ProductId, item.ProductName, item.Price) { Quantity = 1 });
+    }
+
+    private void Increment(OrderDraftLine line) => line.Quantity++;
+
+    private void Decrement(OrderDraftLine line)
+    {
+        line.Quantity--;
+
+        if (line.Quantity <= 0)
+        {
+            _lines.Remove(line);
+        }
+    }
+
+    private void Remove(OrderDraftLine line) => _lines.Remove(line);
+
+    private void ClearOrder() => _lines.Clear();
+
+    private static string FormatPrice(decimal amount) => amount.ToString("C");
+
+    private sealed class OrderDraftLine(Guid productId, string productName, decimal unitPrice)
+    {
+        public Guid ProductId { get; } = productId;
+
+        public string ProductName { get; } = productName;
+
+        public decimal UnitPrice { get; } = unitPrice;
+
+        public int Quantity { get; set; }
+
+        public string? Notes { get; set; }
+    }
+}

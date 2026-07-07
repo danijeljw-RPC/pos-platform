@@ -1,3 +1,4 @@
+using System.Net.Http.Headers;
 using DaxaPos.Web.Api;
 using DaxaPos.Web.State;
 using DaxaPos.Web.Tests.Fakes;
@@ -60,5 +61,30 @@ public class AuthHeaderHandlerTests
         await client.GetAsync("api/v1/device-registration");
 
         Assert.Null(stub.LastRequest!.Headers.Authorization);
+    }
+
+    /// <summary>
+    /// PLAN-0006 Milestone B regression guard: a Back Office call sets its own explicit bearer
+    /// token (see <c>DaxaApiClient.PostAuthorizedAsync</c>/<c>GetAuthorizedAsync</c>). Even when a
+    /// live Terminal staff session also exists in the same browser, this handler must not overwrite
+    /// the explicit Back Office token with the Terminal's staff session token — the two sessions
+    /// (ADR-0015 §2) must never collide on the shared HttpClient.
+    /// </summary>
+    [Fact]
+    public async Task SendAsync_WithExplicitAuthorizationHeaderAndLiveStaffSession_DoesNotOverwriteExplicitHeader()
+    {
+        var storage = new InMemoryBrowserStorage();
+        var sessionStore = new AuthSessionStore(storage);
+        await sessionStore.SaveAsync(SampleSession(DateTimeOffset.UtcNow.AddHours(1)));
+        var deviceStore = new DeviceContextStore(storage);
+        var (client, stub) = BuildClient(sessionStore, deviceStore);
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, "api/v1/locations");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", "backoffice-token");
+
+        await client.SendAsync(request);
+
+        Assert.Equal("Bearer", stub.LastRequest!.Headers.Authorization!.Scheme);
+        Assert.Equal("backoffice-token", stub.LastRequest.Headers.Authorization.Parameter);
     }
 }

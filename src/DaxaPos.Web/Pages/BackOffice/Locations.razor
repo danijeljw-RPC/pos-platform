@@ -1,0 +1,68 @@
+@page "/back-office/locations"
+@layout DaxaPos.Web.Layout.BackOfficeLayout
+@inject DaxaApiClient ApiClient
+@inject IBackOfficeSessionStore SessionStore
+
+<PageTitle>Locations</PageTitle>
+
+<h1>Locations</h1>
+
+<p>Read-only list, for setup validation only. Locations are created/edited elsewhere.</p>
+
+@if (_loadError is not null)
+{
+    <p class="text-danger" role="alert">@_loadError</p>
+}
+else if (_locations is null)
+{
+    <p>Loading&hellip;</p>
+}
+else if (_locations.Count == 0)
+{
+    <p>No active locations found.</p>
+}
+else
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Active</th>
+                <th>Id</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var location in _locations)
+            {
+                <tr>
+                    <td>@location.Name</td>
+                    <td>@(location.IsActive ? "Yes" : "No")</td>
+                    <td><code>@location.Id</code></td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private IReadOnlyList<LocationResult>? _locations;
+    private string? _loadError;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (SessionStore.Current is not { } session)
+        {
+            return;
+        }
+
+        var result = await ApiClient.ListLocationsAsync(session.SessionToken);
+
+        if (result.Kind != ApiResultKind.Success || result.Value is null)
+        {
+            _loadError = "Could not load locations.";
+            return;
+        }
+
+        _locations = result.Value;
+    }
+}

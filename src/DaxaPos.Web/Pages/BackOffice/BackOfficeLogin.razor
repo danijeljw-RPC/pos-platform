@@ -1,0 +1,64 @@
+@page "/back-office/login"
+@layout DaxaPos.Web.Layout.BackOfficeLayout
+@inject DaxaApiClient ApiClient
+@inject IBackOfficeSessionStore SessionStore
+@inject NavigationManager Navigation
+
+<PageTitle>Back Office Login</PageTitle>
+
+<h1>Back Office Login</h1>
+
+<EditForm Model="_model" OnValidSubmit="LoginAsync">
+    <div class="mb-3">
+        <label class="form-label" for="email">Email</label>
+        <InputText id="email" class="form-control" @bind-Value="_model.Email" />
+    </div>
+    <div class="mb-3">
+        <label class="form-label" for="password">Password</label>
+        <InputText id="password" type="password" class="form-control" @bind-Value="_model.Password" />
+    </div>
+
+    <button type="submit" class="btn btn-primary" disabled="@_isSubmitting">Log in</button>
+</EditForm>
+
+@if (_errorMessage is not null)
+{
+    <p class="text-danger mt-3" role="alert">@_errorMessage</p>
+}
+
+@code {
+    private readonly LoginModel _model = new();
+    private bool _isSubmitting;
+    private string? _errorMessage;
+
+    private async Task LoginAsync()
+    {
+        _isSubmitting = true;
+        _errorMessage = null;
+
+        var result = await ApiClient.LocalLoginAsync(new LocalLoginRequest(_model.Email, _model.Password));
+
+        _isSubmitting = false;
+
+        if (result.Kind != ApiResultKind.Success || result.Value is null)
+        {
+            // Deliberately generic, matching the server's non-disclosure design for local login:
+            // never reveal whether the email or the password was the wrong part.
+            _errorMessage = "Email or password was not accepted.";
+            return;
+        }
+
+        var login = result.Value;
+        await SessionStore.SaveAsync(new BackOfficeSessionState(
+            login.SessionToken, login.ExpiresAtUtc, _model.Email, login.Roles, login.Permissions));
+
+        Navigation.NavigateTo("/back-office");
+    }
+
+    private sealed class LoginModel
+    {
+        public string Email { get; set; } = string.Empty;
+
+        public string Password { get; set; } = string.Empty;
+    }
+}

@@ -16,6 +16,7 @@ var apiBaseUrl = builder.Configuration["ApiBaseUrl"] ?? builder.HostEnvironment.
 builder.Services.AddScoped<IBrowserStorage, LocalStorageBrowserStorage>();
 builder.Services.AddSingleton<IDeviceContextStore, DeviceContextStore>();
 builder.Services.AddSingleton<IAuthSessionStore, AuthSessionStore>();
+builder.Services.AddSingleton<IBackOfficeSessionStore, BackOfficeSessionStore>();
 builder.Services.AddTransient<AuthHeaderHandler>();
 
 builder.Services.AddHttpClient<DaxaApiClient>(client => client.BaseAddress = new Uri(apiBaseUrl))
@@ -33,7 +34,9 @@ var host = builder.Build();
 // flashing an unauthenticated state.
 var deviceContextStore = host.Services.GetRequiredService<IDeviceContextStore>();
 var sessionStore = host.Services.GetRequiredService<IAuthSessionStore>();
+var backOfficeSessionStore = host.Services.GetRequiredService<IBackOfficeSessionStore>();
 await deviceContextStore.EnsureLoadedAsync();
 await sessionStore.EnsureLoadedAsync();
+await backOfficeSessionStore.EnsureLoadedAsync();
 
 await host.RunAsync();

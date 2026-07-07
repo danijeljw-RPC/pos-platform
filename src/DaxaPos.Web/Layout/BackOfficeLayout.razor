@@ -1,0 +1,71 @@
+@inherits LayoutComponentBase
+@implements IDisposable
+@inject NavigationManager Navigation
+@inject IBackOfficeSessionStore SessionStore
+@inject DaxaApiClient ApiClient
+
+<div class="page">
+    <div class="sidebar">
+        <BackOfficeNavMenu />
+    </div>
+
+    <main>
+        <div class="top-row px-4">
+            @if (SessionStore.Current is { } session && !session.IsExpired(DateTimeOffset.UtcNow))
+            {
+                <span class="staff-context px-2">Signed in as @session.Email</span>
+                <button type="button" class="btn btn-link" @onclick="LogoutAsync">Log out</button>
+            }
+        </div>
+
+        <article class="content px-4">
+            @Body
+        </article>
+    </main>
+</div>
+
+@code {
+    private const string LoginRoute = "/back-office/login";
+
+    protected override void OnInitialized()
+    {
+        Navigation.LocationChanged += OnLocationChanged;
+        EnforceRouteGuard();
+    }
+
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e) => EnforceRouteGuard();
+
+    /// <summary>
+    /// Back Office has no device-context requirement at all (ADR-0013: local admin portal login is
+    /// username/password, independent of device registration) — the only gate is a live
+    /// <see cref="BackOfficeSessionState"/>. This guard is deliberately separate from
+    /// <c>MainLayout.EnforceRouteGuard</c>, which governs the Terminal shell's Staff PIN session.
+    /// </summary>
+    private void EnforceRouteGuard()
+    {
+        var relativePath = "/" + Navigation.ToBaseRelativePath(Navigation.Uri).Split('?')[0].TrimEnd('/');
+
+        if (relativePath == LoginRoute)
+        {
+            return;
+        }
+
+        if (SessionStore.Current is not { } session || session.IsExpired(DateTimeOffset.UtcNow))
+        {
+            Navigation.NavigateTo(LoginRoute);
+        }
+    }
+
+    private async Task LogoutAsync()
+    {
+        if (SessionStore.Current is { } session)
+        {
+            await ApiClient.LogoutBackOfficeAsync(session.SessionToken);
+        }
+
+        await SessionStore.ClearAsync();
+        Navigation.NavigateTo(LoginRoute);
+    }
+
+    public void Dispose() => Navigation.LocationChanged -= OnLocationChanged;
+}
