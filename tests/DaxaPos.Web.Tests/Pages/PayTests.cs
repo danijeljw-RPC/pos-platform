@@ -55,12 +55,12 @@ public class PayTests : TestContext
     }
 
     [Fact]
-    public void RecordingCashPaymentForFullAmount_ReachesReceiptState_AndClearsTheDraft()
+    public async Task RecordingCashPaymentForFullAmount_ReachesReceiptState_AndClearsTheDraft()
     {
         var order = new OrderResult(Guid.NewGuid(), TerminalId, OrderStatusResult.Open, 10.00m, 1.00m, 11.00m, [SampleLine(11.00m)]);
         var backend = new FakeOrderBackend { Order = order };
         var draftStore = RegisterDraftStore();
-        draftStore.SaveOrderIdAsync(DeviceId, order.Id).AsTask().Wait();
+        await draftStore.SaveOrderIdAsync(DeviceId, order.Id);
         RegisterServices(backend, draftStore);
 
         var cut = RenderPay(order.Id);
@@ -70,7 +70,7 @@ public class PayTests : TestContext
 
         cut.WaitForAssertion(() => Assert.Contains("Receipt", cut.Markup));
         Assert.Equal(OrderStatusResult.Completed, backend.Order!.Status);
-        Assert.Null(draftStore.GetOrderIdAsync(DeviceId).AsTask().GetAwaiter().GetResult());
+        Assert.Null(await draftStore.GetOrderIdAsync(DeviceId));
     }
 
     [Fact]

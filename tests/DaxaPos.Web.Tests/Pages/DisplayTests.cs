@@ -77,13 +77,13 @@ public class DisplayTests : TestContext
     }
 
     [Fact]
-    public void ActiveOpenOrder_ShowsLineItemsAndServerTotal()
+    public async Task ActiveOpenOrder_ShowsLineItemsAndServerTotal()
     {
         var order = new OrderResult(Guid.NewGuid(), TerminalId, OrderStatusResult.Open, 10.00m, 1.00m, 11.00m,
             [SampleLine("Flat White", 11.00m)]);
         var backend = new FakeOrderBackend { Order = order };
         var draftStore = RegisterServices(backend);
-        draftStore.SaveOrderIdAsync(DeviceId, order.Id).AsTask().Wait();
+        await draftStore.SaveOrderIdAsync(DeviceId, order.Id);
 
         var cut = RenderDisplay();
 
@@ -92,13 +92,13 @@ public class DisplayTests : TestContext
     }
 
     [Fact]
-    public void PartialPayment_ShowsRemainingBalanceDue()
+    public async Task PartialPayment_ShowsRemainingBalanceDue()
     {
         var order = new OrderResult(Guid.NewGuid(), TerminalId, OrderStatusResult.Open, 20.00m, 0m, 20.00m,
             [SampleLine("Burger", 20.00m)]);
         var backend = new FakeOrderBackend { Order = order };
         var draftStore = RegisterServices(backend);
-        draftStore.SaveOrderIdAsync(DeviceId, order.Id).AsTask().Wait();
+        await draftStore.SaveOrderIdAsync(DeviceId, order.Id);
         backend.Payments.Add(new PaymentResult(
             Guid.NewGuid(), order.Id, LocationId, PaymentMethodResult.Cash, PaymentStatusResult.Recorded,
             12.00m, 12.00m, Guid.NewGuid(), null, Guid.NewGuid(), DateTimeOffset.UtcNow, null));
@@ -111,13 +111,13 @@ public class DisplayTests : TestContext
     }
 
     [Fact]
-    public void CompletedOrder_ShowsReceipt()
+    public async Task CompletedOrder_ShowsReceipt()
     {
         var order = new OrderResult(Guid.NewGuid(), TerminalId, OrderStatusResult.Completed, 11.00m, 0m, 11.00m,
             [SampleLine("Flat White", 11.00m)]);
         var backend = new FakeOrderBackend { Order = order };
         var draftStore = RegisterServices(backend);
-        draftStore.SaveOrderIdAsync(DeviceId, order.Id).AsTask().Wait();
+        await draftStore.SaveOrderIdAsync(DeviceId, order.Id);
 
         var cut = RenderDisplay();
 
@@ -126,53 +126,53 @@ public class DisplayTests : TestContext
     }
 
     [Fact]
-    public void DraftClearedRightAfterCompletion_KeepsShowingTheReceipt()
+    public async Task DraftClearedRightAfterCompletion_KeepsShowingTheReceipt()
     {
         var order = new OrderResult(Guid.NewGuid(), TerminalId, OrderStatusResult.Open, 11.00m, 0m, 11.00m,
             [SampleLine("Flat White", 11.00m)]);
         var backend = new FakeOrderBackend { Order = order };
         var draftStore = RegisterServices(backend);
-        draftStore.SaveOrderIdAsync(DeviceId, order.Id).AsTask().Wait();
+        await draftStore.SaveOrderIdAsync(DeviceId, order.Id);
 
         var cut = RenderDisplay();
         cut.WaitForAssertion(() => Assert.Contains("Flat White", cut.Markup));
 
         // Simulate Pay.razor: the order settles and the draft pointer is cleared, in that order.
         backend.Order = order with { Status = OrderStatusResult.Completed };
-        draftStore.ClearAsync(DeviceId).AsTask().Wait();
+        await draftStore.ClearAsync(DeviceId);
 
         cut.WaitForAssertion(() => Assert.Contains("Thank you", cut.Markup));
         Assert.Contains("Flat White", cut.Markup);
     }
 
     [Fact]
-    public void OrderVoidedAndDraftCleared_ResetsToIdle()
+    public async Task OrderVoidedAndDraftCleared_ResetsToIdle()
     {
         var order = new OrderResult(Guid.NewGuid(), TerminalId, OrderStatusResult.Open, 5.00m, 0m, 5.00m,
             [SampleLine("Muffin", 5.00m)]);
         var backend = new FakeOrderBackend { Order = order };
         var draftStore = RegisterServices(backend);
-        draftStore.SaveOrderIdAsync(DeviceId, order.Id).AsTask().Wait();
+        await draftStore.SaveOrderIdAsync(DeviceId, order.Id);
 
         var cut = RenderDisplay();
         cut.WaitForAssertion(() => Assert.Contains("Muffin", cut.Markup));
 
         // Simulate Sales.razor's ClearOrder: void server-side, clear the local pointer.
         backend.Order = order with { Status = OrderStatusResult.Voided };
-        draftStore.ClearAsync(DeviceId).AsTask().Wait();
+        await draftStore.ClearAsync(DeviceId);
 
         cut.WaitForAssertion(() => Assert.Contains("Daxa POS", cut.Markup));
         Assert.DoesNotContain("Muffin", cut.Markup);
     }
 
     [Fact]
-    public void NewOrderStartingWhileOldReceiptShowing_SwitchesToTheNewOrder()
+    public async Task NewOrderStartingWhileOldReceiptShowing_SwitchesToTheNewOrder()
     {
         var firstOrder = new OrderResult(Guid.NewGuid(), TerminalId, OrderStatusResult.Completed, 11.00m, 0m, 11.00m,
             [SampleLine("Flat White", 11.00m)]);
         var backend = new FakeOrderBackend { Order = firstOrder };
         var draftStore = RegisterServices(backend);
-        draftStore.SaveOrderIdAsync(DeviceId, firstOrder.Id).AsTask().Wait();
+        await draftStore.SaveOrderIdAsync(DeviceId, firstOrder.Id);
 
         var cut = RenderDisplay();
         cut.WaitForAssertion(() => Assert.Contains("Thank you", cut.Markup));
@@ -180,14 +180,14 @@ public class DisplayTests : TestContext
         var secondOrder = new OrderResult(Guid.NewGuid(), TerminalId, OrderStatusResult.Open, 4.00m, 0m, 4.00m,
             [SampleLine("Cookie", 4.00m)]);
         backend.Order = secondOrder;
-        draftStore.SaveOrderIdAsync(DeviceId, secondOrder.Id).AsTask().Wait();
+        await draftStore.SaveOrderIdAsync(DeviceId, secondOrder.Id);
 
         cut.WaitForAssertion(() => Assert.Contains("Cookie", cut.Markup));
         Assert.DoesNotContain("Thank you", cut.Markup);
     }
 
     [Fact]
-    public void OrderBelongingToADifferentTerminal_DegradesToIdle_NotAnError()
+    public async Task OrderBelongingToADifferentTerminal_DegradesToIdle_NotAnError()
     {
         var order = new OrderResult(Guid.NewGuid(), TerminalId, OrderStatusResult.Open, 5.00m, 0m, 5.00m,
             [SampleLine("Muffin", 5.00m)]);
@@ -196,7 +196,7 @@ public class DisplayTests : TestContext
 
         // The stored pointer refers to an order the backend won't return for this session
         // (mirrors C.2's terminal-scoped 404 for a different terminal's order).
-        draftStore.SaveOrderIdAsync(DeviceId, Guid.NewGuid()).AsTask().Wait();
+        await draftStore.SaveOrderIdAsync(DeviceId, Guid.NewGuid());
 
         var cut = RenderDisplay();
 

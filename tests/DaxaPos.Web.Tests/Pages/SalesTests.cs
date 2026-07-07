@@ -96,7 +96,6 @@ public class SalesTests : TestContext
     public async Task WhenMenuLoadFails_ShowsErrorMessageAsync()
     {
         var deviceStore = new DeviceContextStore(new InMemoryBrowserStorage());
-        //deviceStore.SaveAsync(SampleDevice()).AsTask().Wait();
         await deviceStore.SaveAsync(SampleDevice());
         Services.AddSingleton<IDeviceContextStore>(deviceStore);
 
@@ -212,7 +211,7 @@ public class SalesTests : TestContext
     }
 
     [Fact]
-    public void ClearOrder_VoidsTheOrderServerSide_AndClearsTheStoredPointer()
+    public async Task ClearOrder_VoidsTheOrderServerSide_AndClearsTheStoredPointer()
     {
         var productId = Guid.NewGuid();
         var backend = new FakeOrderBackend { Menu = SimpleMenu(productId, "Flat White", 5.5m) };
@@ -230,7 +229,7 @@ public class SalesTests : TestContext
 
         cut.WaitForAssertion(() => Assert.Contains("No items selected yet.", cut.Markup));
         Assert.Equal(OrderStatusResult.Voided, backend.Order!.Status);
-        Assert.Null(draftStore.GetOrderIdAsync(DeviceId).AsTask().GetAwaiter().GetResult());
+        Assert.Null(await draftStore.GetOrderIdAsync(DeviceId));
     }
 
     [Fact]
@@ -256,7 +255,7 @@ public class SalesTests : TestContext
     }
 
     [Fact]
-    public void OnRefresh_ARestorableStoredOrder_RebuildsTheCartFromTheServer()
+    public async Task OnRefresh_ARestorableStoredOrder_RebuildsTheCartFromTheServer()
     {
         var productId = Guid.NewGuid();
         var backend = new FakeOrderBackend { Menu = SimpleMenu(productId, "Flat White", 5.5m) };
@@ -265,7 +264,7 @@ public class SalesTests : TestContext
         var existingOrder = new OrderResult(Guid.NewGuid(), TerminalId, OrderStatusResult.Open, 5.5m, 0m, 5.5m, [existingLine]);
         backend.Order = existingOrder;
         var draftStore = RegisterDraftStore();
-        draftStore.SaveOrderIdAsync(DeviceId, existingOrder.Id).AsTask().Wait();
+        await draftStore.SaveOrderIdAsync(DeviceId, existingOrder.Id);
         RegisterCommonServices(backend, draftStore);
 
         var cut = RenderComponent<Sales>();
@@ -275,7 +274,7 @@ public class SalesTests : TestContext
     }
 
     [Fact]
-    public void OnRefresh_AStoredOrderThatNoLongerExists_ClearsThePointer_AndStartsEmpty()
+    public async Task OnRefresh_AStoredOrderThatNoLongerExists_ClearsThePointer_AndStartsEmpty()
     {
         var productId = Guid.NewGuid();
         var backend = new FakeOrderBackend { Menu = SimpleMenu(productId, "Flat White", 5.5m) };
@@ -283,13 +282,13 @@ public class SalesTests : TestContext
         // backend.Order stays null -> GetOrderAsync(orderId) 404s for whatever id is stored.
         var draftStore = RegisterDraftStore();
         var staleOrderId = Guid.NewGuid();
-        draftStore.SaveOrderIdAsync(DeviceId, staleOrderId).AsTask().Wait();
+        await draftStore.SaveOrderIdAsync(DeviceId, staleOrderId);
         RegisterCommonServices(backend, draftStore);
 
         var cut = RenderComponent<Sales>();
 
         cut.WaitForAssertion(() => Assert.Contains("No items selected yet.", cut.Markup));
-        Assert.Null(draftStore.GetOrderIdAsync(DeviceId).AsTask().GetAwaiter().GetResult());
+        Assert.Null(await draftStore.GetOrderIdAsync(DeviceId));
     }
 
     private static T Also<T>(T value) => value;
