@@ -3,7 +3,7 @@
 ## Status
 
 Milestone A - Complete. Milestone B - Complete. Milestone C - Complete. Milestone C.1 (TerminalId
-resolution, modifiers, real order wiring) - In progress, see kickoff decision below.
+resolution, modifiers, real order wiring) - Complete, see closeout below.
 
 See `docs/plans/active/PLAN-0006-worker-notes.md` for the full Milestone A implementation report.
 Summary: `src/DaxaPos.Web` (standalone Blazor WebAssembly PWA) scaffolded with device-setup, staff
@@ -251,6 +251,64 @@ customer display, KDS, printing, split bills, quantity direct-entry, item search
 expansion beyond the one Terminals page needed to make TerminalId resolvable.
 
 See worker notes for the full file list, DTO shapes, and test list.
+
+### Milestone C.1 closeout (2026-07-07)
+
+Implemented as planned above, with one documented deviation: `TerminalEndpoints` gained a
+dedicated `POST /{terminalId}/assign-device` action rather than folding `DeviceId` into
+`UpdateTerminalRequest` — matching this file's existing one-action-per-endpoint convention
+(Deactivate/Reactivate) and avoiding the ambiguity of an omitted `DeviceId` meaning "leave
+unchanged" vs. "clear" on a plain rename call. No schema/migration changes anywhere in this
+milestone — `Terminal.DeviceId` was already a migrated column with nothing writing or reading it.
+
+Summary: `Terminal.assign-device` (admin-only) plus `AuthEndpoints.StaffPinLoginAsync` resolving
+`AuthSession.TerminalId` from it; `ResolvedMenuEndpoints` now includes each product's modifier
+groups/options (batch-loaded); `OrderEndpoints.AddLineAsync` enforces
+`IsRequired`/`SelectionMin`/`SelectionMax` server-side; `/sales` rewritten to open/add-line/
+void-line/void-order against the real API instead of a local-only draft, restoring from a
+device-scoped stored `OrderId` on refresh; a new Back Office `/back-office/terminals` page is the
+one admin surface that makes device-to-terminal assignment possible at all.
+
+Full solution suite: 1140/1140 passing (144 unit + 78 Web + 918 API), no regressions against
+Milestone C's 1115-test baseline (25 new API tests, 15 new Web tests).
+
+**Live verification**: the running local demo stack's `api`/`web` containers were docker images
+built before this milestone's changes — rebuilding them was confirmed with the human first (unlike
+Milestones B/C, which deliberately left the stale containers untouched since their verification
+didn't require new endpoints). After `docker compose build api web && docker compose up -d api
+web` (no migration ran — confirmed "No migrations were applied" in the `migrations` container's
+own log, matching the "no schema change" claim), the full new flow was exercised live end-to-end
+via `curl` against the bootstrap admin and a fresh staff member:
+
+- Created a location, venue tax config, terminal, tax category/definition, a product ("C1 Steak")
+  with a required `Doneness` modifier group (`selectionMin: 1, selectionMax: 1, isRequired: true`)
+  and one `Modifier` ("Medium Rare"), and a menu/section/item.
+- Registered a device via PIN, then called the new
+  `POST /api/v1/terminals/{id}/assign-device` — the terminal's `deviceId` updated correctly.
+- Created a staff member and staff-PIN-logged in: `GET /api/v1/auth/me` returned the assigned
+  terminal's id in `terminalId` (previously always `null` for every staff session — the core gap
+  this milestone closes).
+- `GET /api/v1/menus/resolved` for that session returned `modifierGroups: []` for a product with
+  none (an existing "Flat White" from prior demo data) and the full `Doneness`/`Medium Rare` group
+  for the new steak product — confirming the DTO shape and that no permission gate was added.
+- Granted the `Staff` role (via direct DB lookup, since there is no `GET /api/v1/roles` endpoint)
+  to pick up `orders.manage`, then: `POST /api/v1/orders` with the resolved `TerminalId` succeeded;
+  `POST .../lines` **without** the required modifier returned `400` ("'Doneness' requires at least
+  one selection."); the same call **with** the modifier succeeded and returned correct
+  server-computed totals (`$20.00` inclusive, `$1.82` GST); `DELETE .../lines/{lineId}` and
+  `POST .../void` both worked and correctly zeroed the order's totals.
+
+No browser-automation tool was available in this session (same constraint as every prior PLAN-0006
+milestone). The rebuilt `pos-platform-web-1` container now serves the new Blazor code (confirmed
+`GET /` returns `200`), so the human's own manual browser walkthrough (see worker notes) will
+exercise the real thing, not stale code. bUnit component tests exercise real Blazor
+rendering/event-handling for the modifier modal, grouped-cart display, and draft-restore paths.
+
+Known gap, not addressed here: line `Notes` free-text entry was dropped from the real-order sales
+screen (Milestone C's local draft had a per-line notes input). There is no order-line update
+endpoint — `OrderLine` is append/void-only — so supporting notes-on-an-existing-line would need
+either a modal on every tap or a void+recreate dance; deferred as a documented simplification
+rather than adding either silently. Hold/Resume UI remains unwired (endpoints exist, unused).
 
 ## Goal
 

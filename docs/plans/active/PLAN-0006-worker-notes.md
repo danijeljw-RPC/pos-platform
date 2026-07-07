@@ -688,11 +688,99 @@ session. Continuing the established fallback: bUnit component tests for real ren
 behaviour, `curl` against the already-running local demo stack for live backend-contract
 verification, and explicit manual click-through steps recorded at closeout.
 
+## Milestone C.1 Implementation Report
+
+Completed 2026-07-07, directly on `main`, in six scoped commits (backend TerminalId, backend
+modifiers, Web client plumbing, Sales.razor rewrite, Back Office Terminals page, this closeout).
+
+### Deviation from the kickoff plan
+
+`AssignTerminalDeviceRequest`/`POST /api/v1/terminals/{id}/assign-device` was added as its own
+endpoint instead of extending `UpdateTerminalRequest` with `DeviceId` as originally sketched — see
+the plan doc's closeout section for the reasoning (avoids "omitted field" ambiguity on a plain
+rename call). Everything else matched the kickoff notes with no other deviations.
+
+### Verification
+
+- `dotnet test DaxaPos.sln` — 1140/1140 passing (`DaxaPos.UnitTests` 144, `DaxaPos.Web.Tests` 78,
+  `DaxaPos.Api.Tests` 918). No regressions against Milestone C's 1115-test baseline.
+- No EF Core migrations added; confirmed live (see below) — the `migrations` container logged "No
+  migrations were applied" against the rebuilt image.
+- Full live verification against the local demo stack, **with the human's explicit confirmation
+  to rebuild/restart the `api`/`web` containers first** (they were built before this milestone's
+  changes, unlike Milestones B/C which could verify against the stale containers because they
+  didn't touch existing endpoint behaviour). See the plan doc's closeout section for the exact
+  sequence: device→terminal assignment, staff-PIN login resolving a real `TerminalId` in
+  `/auth/me` (previously always `null`), resolved-menu modifier data (empty for a plain product,
+  populated for one with an assigned required group), a 400 when a required modifier is omitted
+  from add-line, a successful add-line with the correct server-computed totals, and a working
+  void-line/void-order.
+- No browser-automation tool was available this session (same constraint as every prior PLAN-0006
+  milestone — checked again, still absent). bUnit exercises real Blazor rendering/event handling
+  for the modifier modal (required-selection blocking the Add button, optional-selection limits),
+  the grouped cart display, and the stored-`OrderId` restore/clear-on-404 paths.
+
+### Remaining gaps / follow-ups
+
+- Line notes free-text entry was dropped from the real-order sales screen (no order-line update
+  endpoint exists to support editing it afterward) — flagged in the plan doc's closeout, not fixed
+  silently.
+- Hold/Resume UI is unwired (the endpoints exist and are staff-PIN-eligible; a future milestone can
+  wire "Hold" to free up a terminal for another order and "Resume" to return to it).
+- A freshly-provisioned staff member still has zero permissions by default — granting
+  `orders.manage` (this milestone's live verification did so via the `Staff` role) remains a Back
+  Office/role-management concern outside this milestone's scope, same as prior milestones noted.
+- `Terminals.razor`'s per-terminal device dropdown only lists devices already registered at that
+  terminal's location (via the existing `GET /api/v1/devices?locationId=`); there's no in-page way
+  to register a new device — admins use the existing Device Registration PINs page for that, then
+  come here to assign it.
+
+## Manual UI Test Instructions
+
+The `api`/`web` docker images were rebuilt and restarted this session, so they now serve
+Milestone C.1's code. Local run commands (from repo root):
+
+```bash
+docker compose up -d --build   # or: docker compose build api web && docker compose up -d api web
+```
+
+Then open `http://localhost:8080` in a browser and walk through:
+
+1. **Back Office** (`http://localhost:8080/back-office/login`) — sign in with the bootstrap admin
+   (`admin@daxapos.local` / the local dev password in `deploy/.env`).
+2. Go to **Locations** and note (or create) a location; go to **Device Registration PINs** and
+   generate a PIN for it.
+3. Go to **Terminals** — create a terminal for that location if none exists.
+4. In a **separate browser/incognito window** (this is the Terminal shell, a different session
+   type from Back Office): open `http://localhost:8080/device-setup`, enter the PIN from step 2,
+   pick a device type, and register.
+5. Back in Back Office → **Terminals**: the new device should now appear in the dropdown next to
+   the terminal from step 3 — select it and click **Assign**. "Unassigned" should change to the
+   device's name.
+6. Back Office → **Staff members** is not yet built in this plan; use the API directly (or a prior
+   session's staff member) to ensure a staff code/PIN exists with the `Staff` role, or grant
+   `orders.manage` via `POST /api/v1/staff-members/{id}/roles`.
+7. In the Terminal shell window: go to `/login`, sign in with the staff code/PIN.
+8. Go to `/sales`. If the device isn't assigned to a terminal, you should see the "isn't linked to
+   a POS terminal yet" message instead of the menu — confirm this by testing with an unassigned
+   device first, then retry after step 5.
+9. Tap a product with a required modifier group (e.g. one with a "Doneness" group configured via
+   the API, as in this session's live verification) — a modal should appear; the **Add** button
+   should stay disabled until a required selection is made.
+10. Tap a plain product with no modifier groups — it should add directly, no modal.
+11. Tap the same product tile again — the cart row's quantity should increase (a second real order
+    line was added and grouped for display, not a client-side counter).
+12. Use **-**/**Remove** on a cart row — confirm the row's quantity decreases or the row disappears.
+13. **Refresh the page** — the cart should still show the same items (rebuilt from the real order
+    on the server), not an empty draft.
+14. Click **Clear order** — the cart should empty; refreshing again should not bring it back (the
+    server-side order was voided).
+
 ## Recommended Next Session (post-Milestone-C.1)
 
-Start PLAN-0006 Milestone D: Payment and receipt flow in PWA. Milestone C.1 is expected to close
-the `TerminalId` gap that previously blocked it — confirm the closeout report below before
-starting Milestone D.
+Start PLAN-0006 Milestone D: Payment and receipt flow in PWA — the `TerminalId` gap that
+previously blocked it is now closed (see closeout above), so a real `Order` can be opened and
+lines added before payment recording begins.
 
 Do not:
 
