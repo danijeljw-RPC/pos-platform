@@ -8,6 +8,17 @@ using Microsoft.EntityFrameworkCore;
 
 namespace DaxaPos.Api.Endpoints.Menus;
 
+public sealed record ResolvedModifierResponse(Guid Id, string Name, decimal PriceDelta);
+
+public sealed record ResolvedModifierGroupResponse(
+    Guid Id,
+    string Name,
+    int SelectionMin,
+    int SelectionMax,
+    bool IsRequired,
+    int DisplayOrder,
+    IReadOnlyList<ResolvedModifierResponse> Modifiers);
+
 public sealed record ResolvedMenuItemResponse(
     Guid ProductId,
     string ProductName,
@@ -15,7 +26,8 @@ public sealed record ResolvedMenuItemResponse(
     decimal Price,
     bool IsTaxInclusive,
     string TaxCategoryCode,
-    TaxTreatment TaxTreatment);
+    TaxTreatment TaxTreatment,
+    IReadOnlyList<ResolvedModifierGroupResponse> ModifierGroups);
 
 public sealed record ResolvedMenuSectionResponse(
     Guid MenuId,
@@ -163,6 +175,8 @@ public static class ResolvedMenuEndpoints
             .Where(t => taxCategoryIds.Contains(t.Id))
             .ToDictionaryAsync(t => t.Id);
 
+        var modifierGroupsByProductId = await LoadModifierGroupsByProductIdAsync(dbContext, productIds);
+
         var resultSections = new List<ResolvedMenuSectionResponse>();
 
         foreach (var section in sections.OrderBy(s => s.DisplayOrder))
@@ -197,13 +211,72 @@ public static class ResolvedMenuEndpoints
                     priceResult.ResolvedPrice!.Amount,
                     priceResult.ResolvedPrice.IsTaxInclusive,
                     taxCategory.Code,
-                    taxCategory.TaxTreatment));
+                    taxCategory.TaxTreatment,
+                    modifierGroupsByProductId.TryGetValue(product.Id, out var groups)
+                        ? groups
+                        : []));
             }
 
             resultSections.Add(new ResolvedMenuSectionResponse(section.MenuId, section.Id, section.Name, section.DisplayOrder, sectionItems));
         }
 
         return Results.Ok(new ResolvedMenuResponse(locationId, resultSections));
+    }
+
+    /// <summary>
+    /// Batch-loads active modifier groups/options linked to <paramref name="productIds"/>
+    /// (Milestone C.1) — three flat queries regardless of product count, never an N+1 per item.
+    /// </summary>
+    private static async Task<Dictionary<Guid, List<ResolvedModifierGroupResponse>>> LoadModifierGroupsByProductIdAsync(
+        DaxaDbContext dbContext, List<Guid> productIds)
+    {
+        var links = await dbContext.ProductModifierGroups
+            .Where(l => productIds.Contains(l.ProductId))
+            .ToListAsync();
+
+        var groupIds = links.Select(l => l.ModifierGroupId).Distinct().ToList();
+
+        var groupsById = await dbContext.ModifierGroups
+            .Where(g => groupIds.Contains(g.Id) && g.IsActive)
+            .ToDictionaryAsync(g => g.Id);
+
+        var modifiersByGroupId = (await dbContext.Modifiers
+                .Where(m => groupIds.Contains(m.ModifierGroupId) && m.IsActive)
+                .ToListAsync())
+            .GroupBy(m => m.ModifierGroupId)
+            .ToDictionary(g => g.Key, g => g.OrderBy(m => m.Name).ToList());
+
+        var result = new Dictionary<Guid, List<ResolvedModifierGroupResponse>>();
+
+        foreach (var productLinks in links.GroupBy(l => l.ProductId))
+        {
+            var groups = new List<ResolvedModifierGroupResponse>();
+
+            foreach (var link in productLinks.OrderBy(l => l.DisplayOrder))
+            {
+                if (!groupsById.TryGetValue(link.ModifierGroupId, out var group))
+                {
+                    continue;
+                }
+
+                modifiersByGroupId.TryGetValue(group.Id, out var modifiers);
+
+                groups.Add(new ResolvedModifierGroupResponse(
+                    group.Id,
+                    group.Name,
+                    group.SelectionMin,
+                    group.SelectionMax,
+                    group.IsRequired,
+                    link.DisplayOrder,
+                    (modifiers ?? [])
+                        .Select(m => new ResolvedModifierResponse(m.Id, m.Name, m.PriceDelta))
+                        .ToList()));
+            }
+
+            result[productLinks.Key] = groups;
+        }
+
+        return result;
     }
 
     private static DaysOfWeekMask ToDaysOfWeekMask(DayOfWeek dayOfWeek) => dayOfWeek switch

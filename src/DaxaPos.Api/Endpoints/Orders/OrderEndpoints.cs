@@ -272,14 +272,16 @@ public static class OrderEndpoints
             }
         }
 
+        var linkedModifierGroups = await (
+            from pmg in dbContext.ProductModifierGroups
+            join g in dbContext.ModifierGroups on pmg.ModifierGroupId equals g.Id
+            where pmg.ProductId == product.Id && g.IsActive
+            select g).ToListAsync();
+        var linkedModifierGroupIds = linkedModifierGroups.Select(g => g.Id).ToHashSet();
+
         var modifiers = new List<Modifier>();
         if (request.ModifierIds is { Count: > 0 })
         {
-            var linkedModifierGroupIds = await dbContext.ProductModifierGroups
-                .Where(pmg => pmg.ProductId == product.Id)
-                .Select(pmg => pmg.ModifierGroupId)
-                .ToListAsync();
-
             modifiers = await dbContext.Modifiers
                 .Where(m => request.ModifierIds.Contains(m.Id))
                 .ToListAsync();
@@ -288,6 +290,25 @@ public static class OrderEndpoints
                 || modifiers.Any(m => !m.IsActive || !linkedModifierGroupIds.Contains(m.ModifierGroupId)))
             {
                 return Results.BadRequest("One or more ModifierIds are invalid, inactive, or not linked to this product.");
+            }
+        }
+
+        // Milestone C.1: server-side backstop for modifier group cardinality — the sales-screen
+        // modifier modal is the primary UX, this enforces it independently (this codebase's
+        // established "server remains authoritative" rule, already applied here to tax/pricing).
+        foreach (var group in linkedModifierGroups)
+        {
+            var selectedCount = modifiers.Count(m => m.ModifierGroupId == group.Id);
+
+            if (group.IsRequired && selectedCount == 0)
+            {
+                return Results.BadRequest($"'{group.Name}' requires at least one selection.");
+            }
+
+            if (selectedCount < group.SelectionMin || selectedCount > group.SelectionMax)
+            {
+                return Results.BadRequest(
+                    $"'{group.Name}' requires between {group.SelectionMin} and {group.SelectionMax} selection(s); {selectedCount} were provided.");
             }
         }
 

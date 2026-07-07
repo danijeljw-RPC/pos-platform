@@ -185,6 +185,78 @@ public class OrderEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
     }
 
     [Fact]
+    public async Task AddLine_Rejects_WhenRequiredModifierGroupHasNoSelection()
+    {
+        var client = _factory.CreateClient();
+        var (caller, _, terminal) = await SetupVenueAsync(client);
+        var taxCategory = await CreateTaxCategoryWithDefinitionAsync(client, caller.OrganisationId, "REQMOD_TAX", 10m, includedInPrice: true);
+        var product = await CreateProductAsync(client, caller.OrganisationId, taxCategory.Id, 20.00m, "STEAK");
+        var doneness = await CreateModifierGroupAsync(client, caller.OrganisationId, 1, 1, isRequired: true, "DONENESS");
+        await AssignProductModifierGroupAsync(client, product.Id, doneness.Id);
+
+        var order = (await (await OpenOrderAsync(client, terminal.Id)).Content.ReadFromJsonAsync<OrderResponse>())!;
+        var response = await AddLineAsync(client, order.Id, product.Id);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task AddLine_Rejects_WhenSelectionCountBelowGroupMinimum()
+    {
+        var client = _factory.CreateClient();
+        var (caller, _, terminal) = await SetupVenueAsync(client);
+        var taxCategory = await CreateTaxCategoryWithDefinitionAsync(client, caller.OrganisationId, "MINMOD_TAX", 10m, includedInPrice: true);
+        var product = await CreateProductAsync(client, caller.OrganisationId, taxCategory.Id, 12.00m, "BURGER");
+        var sauces = await CreateModifierGroupAsync(client, caller.OrganisationId, 2, 3, isRequired: false, "SAUCES");
+        var ketchup = await CreateModifierAsync(client, sauces.Id, 0m, "KETCHUP");
+        await AssignProductModifierGroupAsync(client, product.Id, sauces.Id);
+
+        var order = (await (await OpenOrderAsync(client, terminal.Id)).Content.ReadFromJsonAsync<OrderResponse>())!;
+        var response = await AddLineWithModifiersAsync(client, order.Id, product.Id, [ketchup.Id]);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task AddLine_Rejects_WhenSelectionCountExceedsGroupMaximum()
+    {
+        var client = _factory.CreateClient();
+        var (caller, _, terminal) = await SetupVenueAsync(client);
+        var taxCategory = await CreateTaxCategoryWithDefinitionAsync(client, caller.OrganisationId, "MAXMOD_TAX", 10m, includedInPrice: true);
+        var product = await CreateProductAsync(client, caller.OrganisationId, taxCategory.Id, 12.00m, "PIZZA");
+        var toppings = await CreateModifierGroupAsync(client, caller.OrganisationId, 0, 1, isRequired: false, "TOPPINGS");
+        var mushroom = await CreateModifierAsync(client, toppings.Id, 1.00m, "MUSHROOM");
+        var olives = await CreateModifierAsync(client, toppings.Id, 1.00m, "OLIVES");
+        await AssignProductModifierGroupAsync(client, product.Id, toppings.Id);
+
+        var order = (await (await OpenOrderAsync(client, terminal.Id)).Content.ReadFromJsonAsync<OrderResponse>())!;
+        var response = await AddLineWithModifiersAsync(client, order.Id, product.Id, [mushroom.Id, olives.Id]);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task AddLine_Succeeds_WithAValidModifierSelection_AndModifiersAppearOnTheLine()
+    {
+        var client = _factory.CreateClient();
+        var (caller, _, terminal) = await SetupVenueAsync(client);
+        var taxCategory = await CreateTaxCategoryWithDefinitionAsync(client, caller.OrganisationId, "OKMOD_TAX", 10m, includedInPrice: true);
+        var product = await CreateProductAsync(client, caller.OrganisationId, taxCategory.Id, 20.00m, "STEAK_OK");
+        var doneness = await CreateModifierGroupAsync(client, caller.OrganisationId, 1, 1, isRequired: true, "DONENESS_OK");
+        var medium = await CreateModifierAsync(client, doneness.Id, 0m, "MEDIUM");
+        await AssignProductModifierGroupAsync(client, product.Id, doneness.Id);
+
+        var order = (await (await OpenOrderAsync(client, terminal.Id)).Content.ReadFromJsonAsync<OrderResponse>())!;
+        var response = await AddLineWithModifiersAsync(client, order.Id, product.Id, [medium.Id]);
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        var withLine = await response.Content.ReadFromJsonAsync<OrderResponse>();
+        var line = Assert.Single(withLine!.Lines);
+        var modifier = Assert.Single(line.Modifiers);
+        Assert.Equal(medium.Id, modifier.ModifierId);
+    }
+
+    [Fact]
     public async Task AddLine_Rejects_WhenOrderIsNotOpenOrHeld()
     {
         var client = _factory.CreateClient();
@@ -478,6 +550,29 @@ public class OrderEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
 
     private static Task<HttpResponseMessage> AddLineAsync(HttpClient client, Guid orderId, Guid productId, int quantity = 1) =>
         client.PostAsJsonAsync($"/api/v1/orders/{orderId}/lines", new AddOrderLineRequest(productId, null, quantity, null, null));
+
+    private static Task<HttpResponseMessage> AddLineWithModifiersAsync(HttpClient client, Guid orderId, Guid productId, IReadOnlyList<Guid> modifierIds) =>
+        client.PostAsJsonAsync($"/api/v1/orders/{orderId}/lines", new AddOrderLineRequest(productId, null, 1, modifierIds, null));
+
+    private static async Task<ModifierGroupResponse> CreateModifierGroupAsync(
+        HttpClient client, Guid organisationId, int selectionMin, int selectionMax, bool isRequired, string codeSuffix)
+    {
+        var response = await client.PostAsJsonAsync(
+            "/api/v1/modifier-groups",
+            new CreateModifierGroupRequest($"Group {codeSuffix}", organisationId, selectionMin, selectionMax, isRequired));
+        return (await response.Content.ReadFromJsonAsync<ModifierGroupResponse>())!;
+    }
+
+    private static async Task<ModifierResponse> CreateModifierAsync(HttpClient client, Guid modifierGroupId, decimal priceDelta, string codeSuffix)
+    {
+        var response = await client.PostAsJsonAsync(
+            "/api/v1/modifiers",
+            new CreateModifierRequest($"Modifier {codeSuffix}", modifierGroupId, priceDelta));
+        return (await response.Content.ReadFromJsonAsync<ModifierResponse>())!;
+    }
+
+    private static Task<HttpResponseMessage> AssignProductModifierGroupAsync(HttpClient client, Guid productId, Guid modifierGroupId, int displayOrder = 0) =>
+        client.PostAsJsonAsync("/api/v1/product-modifier-groups", new AssignProductModifierGroupRequest(productId, modifierGroupId, displayOrder));
 
     private static void AuthenticateAs(HttpClient client, SeededCaller caller) =>
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", caller.Token);

@@ -54,6 +54,54 @@ public class ResolvedMenuEndpointsTests : IClassFixture<WebApplicationFactory<Pr
     }
 
     [Fact]
+    public async Task ResolvedMenu_IncludesModifierGroupsAndOptions_ForALinkedProduct()
+    {
+        var scenario = await SetupScenarioAsync("Modifier Menu Venue");
+        await CreateVenueTaxConfigurationAsync(scenario.AdminClient, scenario.Location.Id);
+        var menu = await CreateMenuAsync(scenario.AdminClient, scenario.OrganisationId, "Modifier Menu", null);
+        var section = await CreateSectionAsync(scenario.AdminClient, menu.Id, "Section");
+        await AssignAsync(scenario.AdminClient, section.Id, scenario.Product.Id, 0);
+
+        var groupResponse = await scenario.AdminClient.PostAsJsonAsync(
+            "/api/v1/modifier-groups",
+            new CreateModifierGroupRequest("Doneness", scenario.OrganisationId, 1, 1, true));
+        var group = (await groupResponse.Content.ReadFromJsonAsync<ModifierGroupResponse>())!;
+        var modifierResponse = await scenario.AdminClient.PostAsJsonAsync(
+            "/api/v1/modifiers", new CreateModifierRequest("Medium Rare", group.Id, 0m));
+        var modifier = (await modifierResponse.Content.ReadFromJsonAsync<ModifierResponse>())!;
+        await scenario.AdminClient.PostAsJsonAsync(
+            "/api/v1/product-modifier-groups", new AssignProductModifierGroupRequest(scenario.Product.Id, group.Id, 0));
+
+        var response = await scenario.StaffClient.GetAsync($"/api/v1/menus/resolved?locationId={scenario.Location.Id}");
+        var resolved = await response.Content.ReadFromJsonAsync<ResolvedMenuResponse>();
+
+        var item = resolved!.Sections.SelectMany(s => s.Items).Single(i => i.ProductId == scenario.Product.Id);
+        var resolvedGroup = Assert.Single(item.ModifierGroups);
+        Assert.Equal(group.Id, resolvedGroup.Id);
+        Assert.True(resolvedGroup.IsRequired);
+        Assert.Equal(1, resolvedGroup.SelectionMin);
+        Assert.Equal(1, resolvedGroup.SelectionMax);
+        var resolvedModifier = Assert.Single(resolvedGroup.Modifiers);
+        Assert.Equal(modifier.Id, resolvedModifier.Id);
+    }
+
+    [Fact]
+    public async Task ResolvedMenu_ReturnsEmptyModifierGroups_ForAProductWithNoneAssigned()
+    {
+        var scenario = await SetupScenarioAsync("No Modifier Menu Venue");
+        await CreateVenueTaxConfigurationAsync(scenario.AdminClient, scenario.Location.Id);
+        var menu = await CreateMenuAsync(scenario.AdminClient, scenario.OrganisationId, "No Modifier Menu", null);
+        var section = await CreateSectionAsync(scenario.AdminClient, menu.Id, "Section");
+        await AssignAsync(scenario.AdminClient, section.Id, scenario.Product.Id, 0);
+
+        var response = await scenario.AdminClient.GetAsync($"/api/v1/menus/resolved?locationId={scenario.Location.Id}");
+        var resolved = await response.Content.ReadFromJsonAsync<ResolvedMenuResponse>();
+
+        var item = resolved!.Sections.SelectMany(s => s.Items).Single(i => i.ProductId == scenario.Product.Id);
+        Assert.Empty(item.ModifierGroups);
+    }
+
+    [Fact]
     public async Task ResolvedMenu_Requires_Authentication()
     {
         var scenario = await SetupScenarioAsync("Unauthenticated Venue");
