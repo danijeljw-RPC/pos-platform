@@ -1,0 +1,296 @@
+@page "/back-office/terminals"
+@layout DaxaPos.Web.Layout.BackOfficeLayout
+@using System.Net
+@inject DaxaApiClient ApiClient
+@inject IBackOfficeSessionStore SessionStore
+
+<PageTitle>Terminals</PageTitle>
+
+<h1>Terminals</h1>
+
+<p>
+    A device must be assigned to a terminal here before a staff-PIN session on that device can
+    resolve a <code>TerminalId</code> and use the sales screen.
+</p>
+
+@if (_loadError is not null)
+{
+    <p class="text-danger" role="alert">@_loadError</p>
+}
+else if (_locations is null || _terminals is null)
+{
+    <p>Loading&hellip;</p>
+}
+else
+{
+    <div class="border rounded p-3 mb-4">
+        <h2 class="h5">Create terminal</h2>
+
+        @if (_locations.Count == 0)
+        {
+            <p>No active locations found — create a location first.</p>
+        }
+        else
+        {
+            <div class="mb-2">
+                <label class="form-label" for="terminal-name">Name</label>
+                <input id="terminal-name" class="form-control" @bind="_newTerminalName" @bind:event="oninput" />
+            </div>
+            <div class="mb-2">
+                <label class="form-label" for="terminal-location">Location</label>
+                <InputSelect id="terminal-location" class="form-select" @bind-Value="_newTerminalLocationId">
+                    @foreach (var location in _locations)
+                    {
+                        <option value="@location.Id">@location.Name</option>
+                    }
+                </InputSelect>
+            </div>
+            <button type="button" class="btn btn-primary" disabled="@(_isCreating || string.IsNullOrWhiteSpace(_newTerminalName))" @onclick="CreateTerminalAsync">
+                Create terminal
+            </button>
+            @if (_createError is not null)
+            {
+                <p class="text-danger mt-2" role="alert">@_createError</p>
+            }
+        }
+    </div>
+
+    @if (_assignError is not null)
+    {
+        <p class="text-danger" role="alert">@_assignError</p>
+    }
+
+    @if (_terminals.Count == 0)
+    {
+        <p>No terminals yet.</p>
+    }
+    else
+    {
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Location</th>
+                    <th>Assigned device</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var terminal in _terminals)
+                {
+                    <tr>
+                        <td>@terminal.Name</td>
+                        <td>@LocationName(terminal.LocationId)</td>
+                        <td>@(terminal.DeviceId is { } deviceId ? DeviceName(terminal.LocationId, deviceId) : "Unassigned")</td>
+                        <td>
+                            @if (terminal.DeviceId is null)
+                            {
+                                var devices = _devicesByLocationId.GetValueOrDefault(terminal.LocationId, []);
+                                @if (devices.Count == 0)
+                                {
+                                    <span class="text-muted">No devices registered at this location.</span>
+                                }
+                                else
+                                {
+                                    <select class="form-select form-select-sm d-inline-block w-auto"
+                                            value="@GetSelectedDeviceId(terminal.Id)"
+                                            @onchange="e => SetSelectedDeviceId(terminal.Id, Guid.Parse((string)e.Value!))">
+                                        @foreach (var device in devices)
+                                        {
+                                            <option value="@device.Id">@device.Name (@device.DeviceType)</option>
+                                        }
+                                    </select>
+                                    <button type="button" class="btn btn-sm btn-outline-primary ms-2" disabled="@(_busyTerminalId == terminal.Id)" @onclick="() => AssignDeviceAsync(terminal)">
+                                        Assign
+                                    </button>
+                                }
+                            }
+                            else
+                            {
+                                <button type="button" class="btn btn-sm btn-outline-secondary" disabled="@(_busyTerminalId == terminal.Id)" @onclick="() => UnassignDeviceAsync(terminal)">
+                                    Unassign
+                                </button>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+}
+
+@code {
+    private IReadOnlyList<LocationResult>? _locations;
+    private List<TerminalResult>? _terminals;
+    private readonly Dictionary<Guid, List<DeviceResult>> _devicesByLocationId = [];
+    private readonly Dictionary<Guid, Guid> _selectedDeviceIdByTerminalId = [];
+    private string? _loadError;
+
+    private string _newTerminalName = string.Empty;
+    private Guid _newTerminalLocationId;
+    private bool _isCreating;
+    private string? _createError;
+
+    private Guid? _busyTerminalId;
+    private string? _assignError;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (SessionStore.Current is not { } session)
+        {
+            return;
+        }
+
+        var locationsResult = await ApiClient.ListLocationsAsync(session.SessionToken);
+        if (locationsResult.Kind != ApiResultKind.Success || locationsResult.Value is null)
+        {
+            _loadError = "Could not load locations.";
+            return;
+        }
+
+        _locations = locationsResult.Value;
+        if (_locations.Count > 0)
+        {
+            _newTerminalLocationId = _locations[0].Id;
+        }
+
+        var terminalsResult = await ApiClient.ListTerminalsAsync(session.SessionToken);
+        if (terminalsResult.Kind != ApiResultKind.Success || terminalsResult.Value is null)
+        {
+            _loadError = "Could not load terminals.";
+            return;
+        }
+
+        _terminals = [.. terminalsResult.Value];
+
+        foreach (var locationId in _terminals.Select(t => t.LocationId).Distinct())
+        {
+            await EnsureDevicesLoadedAsync(session.SessionToken, locationId);
+        }
+    }
+
+    private async Task EnsureDevicesLoadedAsync(string sessionToken, Guid locationId)
+    {
+        if (_devicesByLocationId.ContainsKey(locationId))
+        {
+            return;
+        }
+
+        var result = await ApiClient.ListDevicesAsync(sessionToken, locationId);
+        _devicesByLocationId[locationId] = result.Kind == ApiResultKind.Success && result.Value is not null
+            ? [.. result.Value]
+            : [];
+    }
+
+    private async Task CreateTerminalAsync()
+    {
+        if (SessionStore.Current is not { } session || _terminals is null)
+        {
+            return;
+        }
+
+        _isCreating = true;
+        _createError = null;
+
+        var result = await ApiClient.CreateTerminalAsync(session.SessionToken, new CreateTerminalRequest(_newTerminalName, _newTerminalLocationId));
+
+        _isCreating = false;
+
+        if (result.Kind != ApiResultKind.Success || result.Value is null)
+        {
+            _createError = "Could not create the terminal.";
+            return;
+        }
+
+        _terminals.Add(result.Value);
+        _newTerminalName = string.Empty;
+        await EnsureDevicesLoadedAsync(session.SessionToken, result.Value.LocationId);
+    }
+
+    private Guid GetSelectedDeviceId(Guid terminalId)
+    {
+        if (_selectedDeviceIdByTerminalId.TryGetValue(terminalId, out var selected))
+        {
+            return selected;
+        }
+
+        var devices = _terminals is null ? [] : _devicesByLocationId.GetValueOrDefault(_terminals.Single(t => t.Id == terminalId).LocationId, []);
+        return devices.Count > 0 ? devices[0].Id : Guid.Empty;
+    }
+
+    private void SetSelectedDeviceId(Guid terminalId, Guid deviceId) => _selectedDeviceIdByTerminalId[terminalId] = deviceId;
+
+    private async Task AssignDeviceAsync(TerminalResult terminal)
+    {
+        if (SessionStore.Current is not { } session)
+        {
+            return;
+        }
+
+        var deviceId = GetSelectedDeviceId(terminal.Id);
+        if (deviceId == Guid.Empty)
+        {
+            return;
+        }
+
+        _busyTerminalId = terminal.Id;
+        _assignError = null;
+
+        var result = await ApiClient.AssignTerminalDeviceAsync(session.SessionToken, terminal.Id, new AssignTerminalDeviceRequest(deviceId));
+
+        _busyTerminalId = null;
+
+        if (result.Kind != ApiResultKind.Success || result.Value is null)
+        {
+            _assignError = result.StatusCode == HttpStatusCode.Conflict
+                ? "That device is already assigned to a different terminal — unassign it there first."
+                : "Could not assign that device.";
+            return;
+        }
+
+        ReplaceTerminal(result.Value);
+    }
+
+    private async Task UnassignDeviceAsync(TerminalResult terminal)
+    {
+        if (SessionStore.Current is not { } session)
+        {
+            return;
+        }
+
+        _busyTerminalId = terminal.Id;
+        _assignError = null;
+
+        var result = await ApiClient.AssignTerminalDeviceAsync(session.SessionToken, terminal.Id, new AssignTerminalDeviceRequest(null));
+
+        _busyTerminalId = null;
+
+        if (result.Kind == ApiResultKind.Success && result.Value is not null)
+        {
+            ReplaceTerminal(result.Value);
+        }
+        else
+        {
+            _assignError = "Could not unassign that device.";
+        }
+    }
+
+    private void ReplaceTerminal(TerminalResult updated)
+    {
+        if (_terminals is null)
+        {
+            return;
+        }
+
+        var index = _terminals.FindIndex(t => t.Id == updated.Id);
+        if (index >= 0)
+        {
+            _terminals[index] = updated;
+        }
+    }
+
+    private string LocationName(Guid locationId) => _locations?.FirstOrDefault(l => l.Id == locationId)?.Name ?? locationId.ToString();
+
+    private string DeviceName(Guid locationId, Guid deviceId) =>
+        _devicesByLocationId.GetValueOrDefault(locationId, []).FirstOrDefault(d => d.Id == deviceId)?.Name ?? deviceId.ToString();
+}
