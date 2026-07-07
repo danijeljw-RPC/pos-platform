@@ -260,5 +260,8 @@ else
     private static decimal ParseAmount(object? value) =>
         decimal.TryParse(value?.ToString(), out var amount) ? amount : 0m;
 
-    private static string FormatPrice(decimal amount) => amount.ToString("C");
+    // AU/NZ launch markets both use "$"; pin the culture explicitly rather than relying on the
+    // host's ambient CurrentCulture, which is invariant (renders "¤" not "$") on Linux hosts with
+    // no locale configured.
+    private static string FormatPrice(decimal amount) => amount.ToString("C", CultureInfo.GetCultureInfo("en-AU"));
 }

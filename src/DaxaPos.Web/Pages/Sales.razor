@@ -431,7 +431,10 @@ else
         return groups;
     }
 
-    private static string FormatPrice(decimal amount) => amount.ToString("C");
+    // AU/NZ launch markets both use "$"; pin the culture explicitly rather than relying on the
+    // host's ambient CurrentCulture, which is invariant (renders "¤" not "$") on Linux hosts with
+    // no locale configured.
+    private static string FormatPrice(decimal amount) => amount.ToString("C", CultureInfo.GetCultureInfo("en-AU"));
 
     private sealed class CartGroup(Guid productId, string productName, IReadOnlyList<Guid> modifierIds, IReadOnlyList<string> modifierNames)
     {
