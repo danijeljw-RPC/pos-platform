@@ -86,6 +86,18 @@ else if (_receipt is { } receipt)
         <a href="/sales" class="btn btn-primary">New sale</a>
     </div>
 }
+else if (_order is { Status: OrderStatusResult.Completed })
+{
+    @if (_receiptError is not null)
+    {
+        <p class="text-danger" role="alert">@_receiptError</p>
+        <button type="button" id="retry-receipt" class="btn btn-outline-primary" disabled="@_isBusy" @onclick="RetryReceiptAsync">Retry</button>
+    }
+    else
+    {
+        <p>Loading receipt&hellip;</p>
+    }
+}
 else if (_order is null)
 {
     <p>Loading order&hellip;</p>
@@ -95,6 +107,13 @@ else
     @if (_actionError is not null)
     {
         <p class="text-danger" role="alert">@_actionError</p>
+        @if (_pendingPayment is not null)
+        {
+            <div class="d-flex gap-2 mb-3">
+                <button type="button" id="retry-payment" class="btn btn-outline-primary btn-sm" disabled="@_isBusy" @onclick="RetryPendingPaymentAsync">Retry</button>
+                <button type="button" id="check-payment-status" class="btn btn-outline-secondary btn-sm" disabled="@_isBusy" @onclick="CheckPaymentStatusAsync">Check status</button>
+            </div>
+        }
     }
 
     <div class="d-flex justify-content-between fw-semibold mb-3">
@@ -118,14 +137,14 @@ else
             <div class="border rounded p-3">
                 <h2 class="h6">Cash</h2>
                 <input id="cash-amount" type="number" step="0.01" class="form-control mb-2" value="@_cashAmount.ToString("0.00")" @onchange="e => _cashAmount = ParseAmount(e.Value)" />
-                <button type="button" id="record-cash" class="btn btn-primary" disabled="@_isBusy" @onclick="() => RecordPaymentAsync(PaymentMethodResult.Cash, _cashAmount)">Record cash payment</button>
+                <button type="button" id="record-cash" class="btn btn-primary" disabled="@(_isBusy || _pendingPayment is not null)" @onclick="() => RecordPaymentAsync(PaymentMethodResult.Cash, _cashAmount)">Record cash payment</button>
             </div>
         </div>
         <div class="col-12 col-md-6">
             <div class="border rounded p-3">
                 <h2 class="h6">Manual EFTPOS</h2>
                 <input id="eftpos-amount" type="number" step="0.01" class="form-control mb-2" value="@_eftposAmount.ToString("0.00")" @onchange="e => _eftposAmount = ParseAmount(e.Value)" />
-                <button type="button" id="record-eftpos" class="btn btn-primary" disabled="@_isBusy" @onclick="() => RecordPaymentAsync(PaymentMethodResult.ManualEftpos, _eftposAmount)">Record manual EFTPOS payment</button>
+                <button type="button" id="record-eftpos" class="btn btn-primary" disabled="@(_isBusy || _pendingPayment is not null)" @onclick="() => RecordPaymentAsync(PaymentMethodResult.ManualEftpos, _eftposAmount)">Record manual EFTPOS payment</button>
             </div>
         </div>
     </div>
@@ -140,10 +159,20 @@ else
     private ReceiptResult? _receipt;
     private string? _loadError;
     private string? _actionError;
+    private string? _receiptError;
     private string? _reprintMessage;
     private bool _isBusy;
     private decimal _cashAmount;
     private decimal _eftposAmount;
+
+    /// <summary>
+    /// PLAN-0007 Milestone C: a payment attempt that returned <see cref="ApiResultKind.NetworkFailure"/>
+    /// — the request may or may not have reached the server, so it is neither confirmed nor known to
+    /// have failed. Holds the exact <see cref="RecordPaymentRequest.IdempotencyKey"/> used, so an
+    /// explicit staff Retry reuses it verbatim (never a new key for the same uncertain attempt) and a
+    /// genuinely new payment only gets a fresh key once this is cleared.
+    /// </summary>
+    private (PaymentMethodResult Method, decimal Amount, Guid IdempotencyKey)? _pendingPayment;
 
     private decimal AmountPaid => _payments.Where(p => p.Status == PaymentStatusResult.Recorded).Sum(p => p.AmountApproved ?? 0m);
 
@@ -194,7 +223,34 @@ else
 
     private async Task RecordPaymentAsync(PaymentMethodResult method, decimal amount)
     {
-        if (_order is null || amount <= 0)
+        if (_order is null || amount <= 0 || _pendingPayment is not null)
+        {
+            return;
+        }
+
+        // A genuinely new attempt always gets a fresh idempotency key; Retry (below) reuses the
+        // stored one instead. Only reachable once any prior uncertain attempt has been resolved
+        // (Retry succeeded, Check status resolved it, or a rejection cleared it).
+        await SubmitPaymentAsync(method, amount, Guid.NewGuid());
+    }
+
+    /// <summary>
+    /// PLAN-0007 Milestone C: reattempts a payment that returned <see cref="ApiResultKind.NetworkFailure"/>,
+    /// reusing <see cref="_pendingPayment"/>'s stored idempotency key so a request that actually
+    /// reached the server the first time resolves to the same <c>Payment</c> row
+    /// (<c>PaymentEndpoints</c>' existing idempotency check) instead of creating a duplicate.
+    /// </summary>
+    private async Task RetryPendingPaymentAsync()
+    {
+        if (_pendingPayment is { } pending)
+        {
+            await SubmitPaymentAsync(pending.Method, pending.Amount, pending.IdempotencyKey);
+        }
+    }
+
+    private async Task SubmitPaymentAsync(PaymentMethodResult method, decimal amount, Guid idempotencyKey)
+    {
+        if (_order is null)
         {
             return;
         }
@@ -202,16 +258,79 @@ else
         _isBusy = true;
         _actionError = null;
 
-        var result = await ApiClient.RecordPaymentAsync(_order.Id, new RecordPaymentRequest(method, amount, Guid.NewGuid()));
+        var result = await ApiClient.RecordPaymentAsync(_order.Id, new RecordPaymentRequest(method, amount, idempotencyKey));
         if (result.Kind != ApiResultKind.Success || result.Value is null)
         {
+            if (result.Kind == ApiResultKind.NetworkFailure)
+            {
+                // Uncertain, not failed: the request may have already reached the server. Preserve
+                // it as a pending attempt rather than treating it as a rejection.
+                _pendingPayment = (method, amount, idempotencyKey);
+                _actionError = ApiErrorMessages.PaymentNotConfirmed;
+                _isBusy = false;
+                return;
+            }
+
+            // A real rejection (401/403/validation/conflict) is never retryable through this path.
+            _pendingPayment = null;
             _actionError = result.Kind switch
             {
-                ApiResultKind.Unauthorized or ApiResultKind.Forbidden => "You don't have permission to record payments.",
-                ApiResultKind.NetworkFailure => ApiErrorMessages.ConnectionLost,
+                ApiResultKind.Unauthorized => ApiErrorMessages.SessionExpired,
+                ApiResultKind.Forbidden => ApiErrorMessages.Forbidden,
                 _ => "This payment could not be recorded. It may exceed the amount owing.",
             };
+
+            if (result.Kind == ApiResultKind.Failed)
+            {
+                // ADR-0007: revalidate against the server rather than trusting stale local state — a
+                // rejection may mean the order changed underneath the staff member (completed/voided
+                // elsewhere), not just that this specific amount was wrong.
+                await RefreshOrderAndPaymentsAsync();
+                await ApplyCompletionStateAsync();
+            }
+
             _isBusy = false;
+            return;
+        }
+
+        _pendingPayment = null;
+        await RefreshOrderAndPaymentsAsync();
+        await ApplyCompletionStateAsync();
+        _isBusy = false;
+    }
+
+    /// <summary>
+    /// PLAN-0007 Milestone C: staff-initiated recheck for an uncertain payment. Only reads server
+    /// state (never resubmits <see cref="RecordPaymentAsync"/>), so it is always safe to press.
+    /// Resolves <see cref="_pendingPayment"/> once a payment recorded under its idempotency key is
+    /// found — the original request reached the server even though the response was lost — otherwise
+    /// leaves it pending for another Retry or Check status.
+    /// </summary>
+    private async Task CheckPaymentStatusAsync()
+    {
+        if (_order is null)
+        {
+            return;
+        }
+
+        _isBusy = true;
+
+        await RefreshOrderAndPaymentsAsync();
+
+        if (_pendingPayment is { } pending && _payments.Any(p => p.IdempotencyKey == pending.IdempotencyKey))
+        {
+            _pendingPayment = null;
+            _actionError = null;
+        }
+
+        await ApplyCompletionStateAsync();
+        _isBusy = false;
+    }
+
+    private async Task RefreshOrderAndPaymentsAsync()
+    {
+        if (_order is null)
+        {
             return;
         }
 
@@ -222,6 +341,14 @@ else
         }
 
         await LoadPaymentsAsync();
+    }
+
+    private async Task ApplyCompletionStateAsync()
+    {
+        if (_order is null)
+        {
+            return;
+        }
 
         if (_order.Status == OrderStatusResult.Completed)
         {
@@ -232,16 +359,31 @@ else
             _cashAmount = AmountDue;
             _eftposAmount = AmountDue;
         }
-
-        _isBusy = false;
     }
 
+    /// <summary>
+    /// PLAN-0007 Milestone C: previously swallowed a receipt-fetch failure silently, leaving
+    /// <see cref="_receipt"/> null with no error set — for a <see cref="OrderStatusResult.Completed"/>
+    /// order this fell through to the normal payment-entry UI, inviting a second payment attempt
+    /// against an order that was already fully paid. Now sets <see cref="_receiptError"/> so the
+    /// markup shows a distinct recoverable state instead.
+    /// </summary>
     private async Task EnterReceiptStateAsync()
     {
         var receiptResult = await ApiClient.GetReceiptAsync(OrderId);
         if (receiptResult.Kind == ApiResultKind.Success && receiptResult.Value is not null)
         {
             _receipt = receiptResult.Value;
+            _receiptError = null;
+        }
+        else
+        {
+            _receiptError = receiptResult.Kind switch
+            {
+                ApiResultKind.Unauthorized => ApiErrorMessages.SessionExpired,
+                ApiResultKind.Forbidden => ApiErrorMessages.Forbidden,
+                _ => ApiErrorMessages.ReceiptUnavailable,
+            };
         }
 
         if (DeviceContextStore.Current is { } device)
@@ -249,6 +391,8 @@ else
             await DraftOrderStore.ClearAsync(device.DeviceId);
         }
     }
+
+    private async Task RetryReceiptAsync() => await EnterReceiptStateAsync();
 
     private async Task ReprintAsync()
     {

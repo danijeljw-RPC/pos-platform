@@ -20,6 +20,21 @@ public static class ApiErrorMessages
     /// </summary>
     public const string AddLineNotConfirmed = "This item wasn't confirmed by the server. Check your connection, then tap Retry.";
 
+    /// <summary>
+    /// PLAN-0007 Milestone C: shown when <c>RecordPaymentAsync</c> returns
+    /// <see cref="ApiResultKind.NetworkFailure"/>. Distinct from <see cref="ConnectionLost"/> (implies
+    /// automatic retry — payments never auto-retry) and from a genuine rejection, since the request may
+    /// have already reached the server (ack loss). Points staff at the explicit Retry/Check status
+    /// actions instead of assuming the payment failed.
+    /// </summary>
+    public const string PaymentNotConfirmed = "This payment wasn't confirmed by the server. Check your connection, then tap Retry or Check status.";
+
+    /// <summary>
+    /// PLAN-0007 Milestone C: shown when a receipt fetch fails for an order the server has already
+    /// confirmed <c>Completed</c> — the payment succeeded; only the receipt view failed to load.
+    /// </summary>
+    public const string ReceiptUnavailable = "Receipt temporarily unavailable. Your payment was recorded — try again to view or print it.";
+
     public static string ForLoadFailure(ApiResultKind kind, string genericMessage) => kind switch
     {
         ApiResultKind.Unauthorized => SessionExpired,

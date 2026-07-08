@@ -10,7 +10,12 @@ framing after its kickoff report found `CreateOrderRequest`/`AddOrderLineRequest
 idempotency key (unlike `RecordPaymentRequest`, per ADR-0010); the human chose Option 2 — explicit
 staff-initiated retry only, no backend/idempotency/migration work, no auto-replay queue. See the
 worker notes' Milestone B Kickoff Report, Human Decision, and Implementation Report for the full
-record. Milestones C and D remain outline-only and not yet approved for implementation.
+record. **Milestone C (Payment/Receipt Resilience) is implemented and complete** (2026-07-08) — the
+approved narrow scope reuses `RecordPaymentRequest`'s existing idempotency key for an explicit staff
+Retry (never a new key for the same uncertain attempt), adds a non-POST "Check status" recheck
+action, and fixes a pre-existing `EnterReceiptStateAsync` defect that silently fell through to the
+payment-entry UI on a receipt-fetch failure. See the worker notes' Milestone C Kickoff Report, Human
+Decision, and Implementation Report for the full record. Milestone D remains outline-only.
 
 ## Revision Note (2026-07-08)
 
@@ -164,7 +169,7 @@ PLAN-0006 practice.
 |-----------|-------|--------|
 | A | Reconnect and read resilience — connectivity state, degrade/recover behaviour for `Sales`/`Pay`/`Display`/`Kds` reads. No offline writes. | **Implemented and complete (2026-07-08).** See worker notes. |
 | B | Offline-Safe Sales Action Retry — `Sales.razor`'s `AddLineAsync` preserves a single failed attempt as a pending retry on `NetworkFailure` and offers an explicit staff-initiated Retry button. No automatic replay, no write queue, no idempotency-key/backend/migration work. | **Implemented and complete (2026-07-08).** See worker notes' Milestone B Implementation Report. |
-| C | Payment/receipt behaviour policy under intermittent connectivity. | Outline only. Likely requires an explicit product decision on whether any payment method may ever be recorded while offline (cash is the obvious candidate; integrated/manual EFTPOS plausibly should never be) — flagged as a genuine open product question, not decided here. Not started. |
+| C | Payment/receipt behaviour policy under intermittent connectivity. | **Implemented and complete (2026-07-08).** See worker notes' Milestone C Implementation Report. |
 | D | Multi-tab/multi-device consistency and KDS resilience under sustained reconnect cycling (e.g. a KDS board that has been offline for an extended period). | Outline only. Not started. |
 
 Milestones B–D are placeholders for sequencing only. Each requires its own kickoff-decision pass

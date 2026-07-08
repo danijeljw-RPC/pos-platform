@@ -14,11 +14,18 @@ public sealed class StubHttpMessageHandler : HttpMessageHandler
 
     public bool ThrowNetworkFailure { get; set; }
 
+    /// <summary>
+    /// PLAN-0007 Milestone C: fails only requests whose path ends with this suffix, leaving the rest
+    /// of the API reachable — needed to simulate a receipt-fetch-specific network failure right after
+    /// a payment POST that must itself still succeed.
+    /// </summary>
+    public string? FailingPathSuffix { get; set; }
+
     protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
         LastRequest = request;
 
-        if (ThrowNetworkFailure)
+        if (ThrowNetworkFailure || (FailingPathSuffix is not null && request.RequestUri!.AbsolutePath.EndsWith(FailingPathSuffix, StringComparison.Ordinal)))
         {
             throw new HttpRequestException("Simulated network failure.");
         }

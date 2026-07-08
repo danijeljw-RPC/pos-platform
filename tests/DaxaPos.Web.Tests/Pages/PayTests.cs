@@ -1,3 +1,5 @@
+using System.Net;
+using System.Net.Http.Json;
 using Bunit;
 using DaxaPos.Web.Api;
 using DaxaPos.Web.Pages;
@@ -124,6 +126,69 @@ public class PayTests : TestContext
         cut.WaitForAssertion(() => Assert.Contains("could not be recorded", cut.Markup));
         Assert.Equal(OrderStatusResult.Open, backend.Order!.Status);
         Assert.Empty(backend.Payments);
+        Assert.Empty(cut.FindAll("#retry-payment"));
+        Assert.Empty(cut.FindAll("#check-payment-status"));
+    }
+
+    /// <summary>
+    /// PLAN-0007 Milestone C: a rejection must not be trusted blindly — ADR-0007's "revalidate
+    /// against the server" principle applied to a rejection, not just a reconnect. Here the order was
+    /// actually completed by another terminal between this page's load and its payment attempt; the
+    /// server rejects with 409, and the revalidation this milestone adds discovers the order is now
+    /// Completed and shows the receipt instead of leaving stale payment buttons on screen.
+    /// </summary>
+    [Fact]
+    public void ServerRejectsPayment_WhenOrderCompletedElsewhere_RevalidatesAndShowsReceipt()
+    {
+        var order = new OrderResult(Guid.NewGuid(), TerminalId, OrderStatusResult.Open, 10.00m, 1.00m, 11.00m, [SampleLine(11.00m)]);
+        var backend = new FakeOrderBackend { Order = order };
+        var stub = RegisterServices(backend);
+        var cut = RenderPay(order.Id);
+        cut.WaitForAssertion(() => Assert.Contains("$11.00", cut.Markup));
+
+        backend.Payments.Add(new PaymentResult(
+            Guid.NewGuid(), order.Id, Guid.NewGuid(), PaymentMethodResult.Cash, PaymentStatusResult.Recorded,
+            11.00m, 11.00m, Guid.NewGuid(), null, null, DateTimeOffset.UtcNow, null));
+        backend.Order = order with { Status = OrderStatusResult.Completed };
+
+        var originalRespond = stub.Respond;
+        stub.Respond = req => req.Method == HttpMethod.Post && req.RequestUri!.AbsolutePath.EndsWith("/payments", StringComparison.Ordinal)
+            ? new HttpResponseMessage(HttpStatusCode.Conflict)
+            : originalRespond(req);
+
+        cut.Find("#record-cash").Click();
+
+        cut.WaitForAssertion(() => Assert.Contains("Receipt", cut.Markup));
+        Assert.Empty(cut.FindAll("#record-cash"));
+    }
+
+    /// <summary>
+    /// PLAN-0007 Milestone C: 401/403 must align with the existing <see cref="ApiErrorMessages.ForLoadFailure"/>
+    /// wording used elsewhere on this page (<see cref="LoadAsync"/>), and must never be offered a
+    /// payment Retry/Check-status affordance — only <see cref="ApiResultKind.NetworkFailure"/> is
+    /// uncertain; a real 401/403 is not.
+    /// </summary>
+    [Theory]
+    [InlineData(HttpStatusCode.Unauthorized, "session has expired")]
+    [InlineData(HttpStatusCode.Forbidden, "permission")]
+    public void AuthFailureRecordingPayment_ShowsAlignedMessage_WithNoRetryOrCheckStatus(HttpStatusCode statusCode, string expectedFragment)
+    {
+        var order = new OrderResult(Guid.NewGuid(), TerminalId, OrderStatusResult.Open, 10.00m, 1.00m, 11.00m, [SampleLine(11.00m)]);
+        var backend = new FakeOrderBackend { Order = order };
+        var stub = RegisterServices(backend);
+        var cut = RenderPay(order.Id);
+        cut.WaitForAssertion(() => Assert.Contains("$11.00", cut.Markup));
+
+        var originalRespond = stub.Respond;
+        stub.Respond = req => req.Method == HttpMethod.Post && req.RequestUri!.AbsolutePath.EndsWith("/payments", StringComparison.Ordinal)
+            ? new HttpResponseMessage(statusCode)
+            : originalRespond(req);
+
+        cut.Find("#record-cash").Click();
+
+        cut.WaitForAssertion(() => Assert.Contains(expectedFragment, cut.Markup, StringComparison.OrdinalIgnoreCase));
+        Assert.Empty(cut.FindAll("#retry-payment"));
+        Assert.Empty(cut.FindAll("#check-payment-status"));
     }
 
     [Fact]
@@ -241,12 +306,15 @@ public class PayTests : TestContext
     }
 
     /// <summary>
-    /// Before this fix, any non-success <c>RecordPaymentAsync</c> result other than 401/403 showed
-    /// "may exceed the amount owing" — actively misleading when the real cause was a dropped
-    /// connection and no payment was attempted at all.
+    /// Before PLAN-0007 Milestone C, any non-success <c>RecordPaymentAsync</c> result other than
+    /// 401/403 showed "may exceed the amount owing" — actively misleading when the real cause was a
+    /// dropped connection and no payment was confirmed at all. Milestone C's dedicated
+    /// <see cref="ApiErrorMessages.PaymentNotConfirmed"/> replaces the read-path
+    /// <see cref="ApiErrorMessages.ConnectionLost"/> wording (which implies automatic retry — payments
+    /// never auto-retry) and offers explicit Retry/Check-status actions instead.
     /// </summary>
     [Fact]
-    public void NetworkFailureRecordingPayment_ShowsConnectionLostMessage_NotTheOverpaymentMessage()
+    public void NetworkFailureRecordingPayment_ShowsPendingPaymentState_WithRetryAndCheckStatusActions()
     {
         var order = new OrderResult(Guid.NewGuid(), TerminalId, OrderStatusResult.Open, 10.00m, 1.00m, 11.00m, [SampleLine(11.00m)]);
         var backend = new FakeOrderBackend { Order = order };
@@ -258,7 +326,156 @@ public class PayTests : TestContext
         stub.ThrowNetworkFailure = true;
         cut.Find("#record-cash").Click();
 
-        cut.WaitForAssertion(() => Assert.Contains(ApiErrorMessages.ConnectionLost, cut.Markup));
+        cut.WaitForAssertion(() => Assert.Contains(ApiErrorMessages.PaymentNotConfirmed, cut.Markup));
         Assert.DoesNotContain("may exceed", cut.Markup);
+        Assert.NotEmpty(cut.FindAll("#retry-payment"));
+        Assert.NotEmpty(cut.FindAll("#check-payment-status"));
+        Assert.Empty(backend.Payments);
+    }
+
+    /// <summary>
+    /// PLAN-0007 Milestone C: the linchpin safety property — a Retry after a network failure must
+    /// reuse the exact same <see cref="RecordPaymentRequest.IdempotencyKey"/> as the failed attempt,
+    /// not generate a new one, so a request that actually reached the server the first time resolves
+    /// to the same <c>Payment</c> row (<c>PaymentEndpoints</c>' existing idempotency check) rather
+    /// than creating a duplicate.
+    /// </summary>
+    [Fact]
+    public async Task Retry_AfterNetworkFailure_ReusesTheSameIdempotencyKey_AndSucceeds()
+    {
+        var order = new OrderResult(Guid.NewGuid(), TerminalId, OrderStatusResult.Open, 10.00m, 1.00m, 11.00m, [SampleLine(11.00m)]);
+        var backend = new FakeOrderBackend { Order = order };
+        var connectivity = new ConnectivityTracker();
+        var stub = RegisterServicesWithConnectivity(backend, connectivity);
+        var cut = RenderPay(order.Id);
+        cut.WaitForAssertion(() => Assert.Contains("$11.00", cut.Markup));
+
+        stub.ThrowNetworkFailure = true;
+        cut.Find("#record-cash").Click();
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("#retry-payment")));
+
+        var failedAttemptKey = (await stub.LastRequest!.Content!.ReadFromJsonAsync<RecordPaymentRequest>())!.IdempotencyKey;
+
+        stub.ThrowNetworkFailure = false;
+        cut.Find("#retry-payment").Click();
+
+        cut.WaitForAssertion(() => Assert.Contains("Receipt", cut.Markup));
+        Assert.Single(backend.Payments);
+        Assert.Equal(failedAttemptKey, backend.Payments[0].IdempotencyKey);
+    }
+
+    /// <summary>
+    /// PLAN-0007 Milestone C, mirroring Milestone B's equivalent Sales.razor guarantee: connectivity
+    /// alone recovering must never auto-submit a payment. Only an explicit staff tap on Retry does.
+    /// </summary>
+    [Fact]
+    public void ConnectivityRestoring_WithoutRetryClick_DoesNotAutoSubmitPayment()
+    {
+        var order = new OrderResult(Guid.NewGuid(), TerminalId, OrderStatusResult.Open, 10.00m, 1.00m, 11.00m, [SampleLine(11.00m)]);
+        var backend = new FakeOrderBackend { Order = order };
+        var connectivity = new ConnectivityTracker();
+        var stub = RegisterServicesWithConnectivity(backend, connectivity);
+        var cut = RenderPay(order.Id);
+        cut.WaitForAssertion(() => Assert.Contains("$11.00", cut.Markup));
+
+        stub.ThrowNetworkFailure = true;
+        cut.Find("#record-cash").Click();
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("#retry-payment")));
+
+        stub.ThrowNetworkFailure = false;
+        cut.InvokeAsync(connectivity.ReportOnline);
+
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("#retry-payment")));
+        Assert.Empty(backend.Payments);
+    }
+
+    /// <summary>
+    /// PLAN-0007 Milestone C: the "did it land" recovery path for an ack-loss network failure — the
+    /// original request actually reached and was processed by the server (simulated here by seeding
+    /// the backend with a payment under the same idempotency key the failed attempt used), but the
+    /// client never saw the response. "Check status" only reads (<c>GetOrderAsync</c>/
+    /// <c>GetPaymentsAsync</c>/<c>GetReceiptAsync</c>) — it must never re-POST — and must resolve the
+    /// pending state once it finds the matching payment, without assuming the payment failed.
+    /// </summary>
+    [Fact]
+    public async Task CheckStatus_WhenPaymentAlreadyLandedServerSide_ResolvesPendingState_WithoutASecondPost()
+    {
+        var order = new OrderResult(Guid.NewGuid(), TerminalId, OrderStatusResult.Open, 10.00m, 1.00m, 11.00m, [SampleLine(11.00m)]);
+        var backend = new FakeOrderBackend { Order = order };
+        var connectivity = new ConnectivityTracker();
+        var stub = RegisterServicesWithConnectivity(backend, connectivity);
+        var cut = RenderPay(order.Id);
+        cut.WaitForAssertion(() => Assert.Contains("$11.00", cut.Markup));
+
+        stub.ThrowNetworkFailure = true;
+        cut.Find("#record-cash").Click();
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("#check-payment-status")));
+
+        var uncertainAttemptKey = (await stub.LastRequest!.Content!.ReadFromJsonAsync<RecordPaymentRequest>())!.IdempotencyKey;
+
+        // Simulate the request actually reaching the server despite the client seeing a
+        // NetworkFailure: the backend now has the payment, recorded via an out-of-band path that
+        // bypasses this test's stub (which would otherwise still throw for a real POST retry).
+        backend.Payments.Add(new PaymentResult(
+            Guid.NewGuid(), order.Id, Guid.NewGuid(), PaymentMethodResult.Cash, PaymentStatusResult.Recorded,
+            11.00m, 11.00m, uncertainAttemptKey, null, null, DateTimeOffset.UtcNow, null));
+        backend.Order = order with { Status = OrderStatusResult.Completed };
+
+        // Connectivity is back by the time staff taps "Check status" — only the original POST's
+        // response was lost, not the connection itself.
+        stub.ThrowNetworkFailure = false;
+        cut.Find("#check-payment-status").Click();
+
+        cut.WaitForAssertion(() => Assert.Contains("Receipt", cut.Markup));
+        Assert.Single(backend.Payments);
+        Assert.Empty(cut.FindAll("#retry-payment"));
+    }
+
+    /// <summary>
+    /// PLAN-0007 Milestone C: fixes <c>EnterReceiptStateAsync</c> silently swallowing a receipt-fetch
+    /// failure. Before this fix, a network blip right after a payment completed the order fell through
+    /// to the normal Cash/Manual-EFTPOS payment-entry UI for an order that was already fully paid —
+    /// inviting a second payment attempt against a closed order.
+    /// </summary>
+    [Fact]
+    public void ReceiptFetchFailure_AfterPaymentCompletesTheOrder_ShowsRecoverableState_NotPaymentButtons()
+    {
+        var order = new OrderResult(Guid.NewGuid(), TerminalId, OrderStatusResult.Open, 10.00m, 1.00m, 11.00m, [SampleLine(11.00m)]);
+        var backend = new FakeOrderBackend { Order = order };
+        var connectivity = new ConnectivityTracker();
+        var stub = RegisterServicesWithConnectivity(backend, connectivity);
+        var cut = RenderPay(order.Id);
+        cut.WaitForAssertion(() => Assert.Contains("$11.00", cut.Markup));
+
+        stub.FailingPathSuffix = "/receipt";
+        cut.Find("#record-cash").Click();
+
+        cut.WaitForAssertion(() => Assert.Contains(ApiErrorMessages.ReceiptUnavailable, cut.Markup));
+        Assert.Equal(OrderStatusResult.Completed, backend.Order!.Status);
+        Assert.Empty(cut.FindAll("#record-cash"));
+        Assert.NotEmpty(cut.FindAll("#retry-receipt"));
+    }
+
+    /// <summary>PLAN-0007 Milestone C: the receipt-unavailable state must actually recover once the
+    /// receipt endpoint becomes reachable again.</summary>
+    [Fact]
+    public void RetryReceipt_OnceTheEndpointRecovers_ShowsTheReceipt()
+    {
+        var order = new OrderResult(Guid.NewGuid(), TerminalId, OrderStatusResult.Open, 10.00m, 1.00m, 11.00m, [SampleLine(11.00m)]);
+        var backend = new FakeOrderBackend { Order = order };
+        var connectivity = new ConnectivityTracker();
+        var stub = RegisterServicesWithConnectivity(backend, connectivity);
+        var cut = RenderPay(order.Id);
+        cut.WaitForAssertion(() => Assert.Contains("$11.00", cut.Markup));
+
+        stub.FailingPathSuffix = "/receipt";
+        cut.Find("#record-cash").Click();
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("#retry-receipt")));
+
+        stub.FailingPathSuffix = null;
+        cut.Find("#retry-receipt").Click();
+
+        cut.WaitForAssertion(() => Assert.Contains("Receipt", cut.Markup));
+        Assert.Contains("$11.00", cut.Markup);
     }
 }

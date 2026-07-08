@@ -353,14 +353,387 @@ order if the original open-order request actually reached the server. This is ac
 explicit staff review, not solved — matches the approved Human Decision's reasoning exactly, and is
 scoped narrowly to the first-item-on-a-new-order case only.
 
+## Milestone C Kickoff Report (2026-07-08)
+
+Verification-only session, no product code touched. Confirmed repository state before reading:
+`git status --short --branch` — clean, `main` is 1 commit ahead of `origin/main` (`584b739`,
+Milestone B; `ba777e9`/Milestone A is already on `origin/main`). `dotnet test DaxaPos.sln` —
+**1229/1229 passing** (144 unit + 155 Web + 930 API), matching the Milestone B closeout baseline
+exactly, no drift. `npx markdownlint-cli2 "**/*.md"` — 0 errors across 167 files. Read the plan doc,
+these worker notes, `ADR-0007`, `ADR-0010`, `Pay.razor`, `DaxaApiClient.cs`, `ApiResult.cs`,
+`ApiErrorMessages.cs`, `ConnectivityTracker.cs`, `PaymentEndpoints.cs`, `ReceiptEndpoints.cs`, and
+`PayTests.cs`. OI-0006 is closed (see Findings section above); not re-read in full, only its
+resolution (already folded into ADR-0007's Acceptance Addendum) was reconfirmed as still current.
+
+### 1. What the plan says Milestone C should cover
+
+The Milestone Breakdown table: *"Payment/receipt behaviour policy under intermittent
+connectivity... Likely requires an explicit product decision on whether any payment method may
+ever be recorded while offline (cash is the obvious candidate; integrated/manual EFTPOS plausibly
+should never be) — flagged as a genuine open product question, not decided here."* Note this
+question sits in tension with PLAN-0007's own top-level Non-goals, which still apply to Milestone C
+unless explicitly revised: *"No offline creation of orders, payments, refunds, or receipts."* This
+kickoff does not attempt to resolve that tension by picking a side — it reports the two candidate
+framings under Question 7/8 below and leaves the choice to the human, consistent with the session
+instructions ("do not implement offline payments unless explicitly approved").
+
+### 2. Existing payment/receipt behaviour after PLAN-0005/0006/0007 A/B
+
+- `Pay.razor` loads the order (`LoadAsync`, Milestone A's retryable extraction) and its payments,
+  then offers Cash and Manual EFTPOS recording (`RecordPaymentAsync`). `PaymentMethod.Integrated` is
+  rejected server-side (`PaymentEndpoints.cs:93-96`) — no terminal adapter exists (PLAN-0009 not
+  started), matching CLAUDE.md's provider-agnostic-adapter direction.
+- On success, `Pay.razor` refetches the order and payments; if the order is now `Completed`, it
+  calls `EnterReceiptStateAsync`, which fetches the receipt (`GetReceiptAsync`) and clears the
+  device's draft-order pointer (`IDraftOrderStore.ClearAsync`).
+- `ReprintAsync` calls `ReprintReceiptAsync` (server-side audited per ADR-0010/CLAUDE.md) and
+  updates `_receipt` on success.
+- Milestone A added: the `ConnectivityBanner`, a retryable `LoadAsync` for the initial order load,
+  and a `NetworkFailure` case in `RecordPaymentAsync`'s failure switch (previously a network drop
+  showed the misleading "may exceed the amount owing" text).
+- No offline write path of any kind exists today for payments — `RecordPaymentAsync` is a single
+  awaited POST with no queue, no persistence, no retry affordance specific to payments (unlike
+  `Sales.razor`'s Milestone B `_pendingRetry`/Retry-button pattern for add-line).
+
+### 3. Does `RecordPayment` already have idempotency support?
+
+**Yes, server-side, and it is more capable than what Milestone B found for orders/lines** — but
+**no, not safely usable across a client retry today**, which is the central finding of this report.
+
+- `RecordPaymentRequest` (`PaymentEndpoints.cs:14`) carries a `Guid IdempotencyKey`.
+  `PaymentEndpoints.RecordAsync` (`PaymentEndpoints.cs:107-116`) looks up an existing payment by
+  that key **before** the order-state check and, if found, returns the existing payment (200) rather
+  than creating a duplicate — checked first specifically so a retry of a payment that already
+  settled and closed the order still succeeds instead of hitting a 409. This is exactly the
+  precondition Milestone B's kickoff found missing for `CreateOrderRequest`/`AddOrderLineRequest`.
+- **However**, `Pay.razor:205` generates the key inline on every call:
+  `new RecordPaymentRequest(method, amount, Guid.NewGuid())`. Nothing stores or reuses it. If staff
+  press the payment button twice for what they intend as "the same attempt" (including a
+  hypothetical naive Retry button that just re-invokes `RecordPaymentAsync`), each call gets a
+  **different** idempotency key, so the server-side dedupe never fires — two distinct `Payment` rows
+  get created. The overpayment guard (`PaymentSettlement.WouldExceedOrderTotal`) only catches this
+  by accident, when the duplicate would push the running total past `GrandTotalAmount`; a duplicate
+  that fits under the total (e.g. an early split payment) would silently succeed as a second real
+  payment record.
+- The fix is narrow and entirely client-side: generate the `IdempotencyKey` once per logical payment
+  attempt, store it in component state, and reuse the identical value on an explicit staff Retry —
+  mirroring `Sales.razor`'s Milestone B pattern of storing the attempted arguments, not the call
+  outcome. This requires no backend or schema change; the dedupe path already exists and is already
+  tested (`PaymentEndpoints` idempotency is exercised by the 930-test API suite, not newly added
+  here).
+
+### 4. What happens today on payment-recording failure
+
+- **Network failure**: `DaxaApiClient`'s `HttpRequestException` catch returns
+  `ApiResult.NetworkFailure`; `Pay.razor` shows `ApiErrorMessages.ConnectionLost` ("...we'll keep
+  trying"). Nothing actually retries — the wording is inherited from the read-path message and is
+  misleading here, matching the exact problem Milestone B solved for `AddLineNotConfirmed`. Staff
+  can press the button again, but per Question 3 that generates a fresh idempotency key each time —
+  today, a manual re-click after a network failure is **not** provably safe.
+- **401/403**: shown as a single hardcoded string, "You don't have permission to record payments."
+  (`Pay.razor:210`), for both kinds. This does not distinguish session-expired (401) from
+  genuinely-forbidden (403) the way `LoadAsync`'s `ApiErrorMessages.ForLoadFailure` already does on
+  the same page — an inconsistency worth flagging, not necessarily worth fixing in this milestone
+  (Question 8).
+- **Validation/server rejection** (400 overpayment, 409 order-not-open/held): both fall into
+  `ApiResultKind.Failed` and show one generic string, "This payment could not be recorded. It may
+  exceed the amount owing." Reasonably accurate for the 400 case; presumptive for a 409 caused by the
+  order having been completed/voided from another terminal — the message doesn't prompt staff to
+  refresh and see the order's real current state, which is the ADR-0007 "revalidate against server"
+  principle applied to a rejection rather than a reconnect.
+- **Response lost after the server accepted the payment (ack loss)**: this is the hard case, and it
+  is indistinguishable from "the request never arrived" in today's code. `DaxaApiClient` only
+  branches on `HttpRequestException` vs. a received HTTP response — if the connection drops after
+  the server processes the request but before the client reads the response, the client still sees
+  an `HttpRequestException` → `NetworkFailure`, identical to the never-sent case. Today, staff get no
+  signal that the payment might already exist; a re-click (with today's fresh-key-per-call behaviour)
+  risks a real duplicate `Payment` row. This is the most financially significant gap PLAN-0007 has
+  found so far — more consequential than Milestone B's order/line risk, because it is money, but also
+  more tractable, because (per Question 3) the safe mechanism already exists server-side and only
+  needs correct client wiring.
+
+### 5. What happens today when receipt retrieval/reprint fails due to network loss
+
+- `EnterReceiptStateAsync` (called right after a payment completes the order) fetches the receipt
+  and **silently swallows any failure** — on `NetworkFailure` or any other non-success kind,
+  `_receipt` simply stays `null`, and `DraftOrderStore.ClearAsync` still runs unconditionally
+  regardless. Because `_receipt` is then `null` and `_loadError` was never set, `Pay.razor`'s render
+  logic falls through to its final `else` branch — **the payment-entry UI (Cash/Manual EFTPOS
+  buttons) re-renders for an order that is already `Completed` and fully paid.** This is a
+  pre-existing defect, not something Milestone C introduces; it happens whenever a receipt fetch
+  fails right after a payment lands, and equally on a fresh page load of an already-completed order
+  if `GetReceiptAsync` has a transient network blip. Staff could be invited to attempt a second
+  payment against a closed order, which the server would then reject with a 409 — surfaced through
+  the generic "may exceed the amount owing" message from Question 4, not anything that says "your
+  payment already went through, the receipt just didn't load." This is directly in Milestone C's
+  stated theme (receipt behaviour under intermittent connectivity) and is recommended for inclusion
+  in scope (Question 8), not left for a separate fix.
+- `ReprintAsync` shows one generic message, "Could not reprint the receipt.", for any failure kind,
+  with no distinction for `NetworkFailure`. Functionally, retrying is already safe today — the
+  existing "Reprint receipt" button remains clickable and reprinting is idempotent-by-design (always
+  regenerated from the immutable source record, and each reprint is deliberately audited as its own
+  event per ADR-0010/CLAUDE.md, which is correct, expected behaviour, not a bug to avoid). The gap is
+  purely message clarity: staff can't tell "can't reach the server, try again" from "something is
+  actually wrong."
+
+### 6. Is Milestone C safe to implement without backend/schema changes?
+
+**Yes, for the narrow recovery-and-recheck scope** this report recommends:
+
+- Payment retry/recheck: uses the already-existing `RecordPaymentRequest.IdempotencyKey` dedupe path
+  server-side (Question 3) plus the already-existing `GetOrderAsync`/`GetPaymentsAsync` read
+  endpoints for a "check status instead of retrying blind" affordance. Zero backend changes.
+- Receipt retry: uses the already-existing `GetReceiptAsync`/`ReprintReceiptAsync` endpoints. Zero
+  backend changes. Fixing the `EnterReceiptStateAsync` fallback defect (Question 5) is a `Pay.razor`
+  render-logic fix only.
+
+**No, for true offline payment creation** — recording a payment while the browser has no network
+path to the API at all requires a local write queue and deferred replay, which is explicitly out of
+this session's approved scope ("Do not implement offline payments unless explicitly approved... Do
+not create a local server"). This report does not propose it. If the human wants that door opened,
+it needs its own explicit decision and is a materially larger change (queue persistence, replay
+ordering against `IDraftOrderStore`, and a product decision on which payment methods, if any, may
+ever be attempted offline) — flagged, not designed here.
+
+### 7. Main risks
+
+- The idempotency-key generation site must move from "inline `Guid.NewGuid()` per call" to
+  "generated once per logical attempt, reused verbatim on Retry." Getting this subtly wrong (e.g. a
+  Retry path that re-derives a fresh key) silently defeats the entire safety property this milestone
+  depends on — this is the single highest-attention implementation detail.
+- The `EnterReceiptStateAsync` fallback-to-payment-UI defect (Question 5) pre-dates this milestone
+  but overlaps its scope; leaving it unfixed means any new receipt-retry UI sits on top of an
+  existing broken state transition.
+- `RecordPaymentAsync`'s 401/403 handling is already inconsistent with `LoadAsync`'s
+  `ForLoadFailure` pattern on the same page — in scope to align, but not explicitly requested; a
+  judgment call for the checklist (Question 8).
+- A generic `Failed` rejection currently doesn't distinguish "this specific payment amount is wrong"
+  from "the order changed underneath you" (completed/voided elsewhere) — extending ADR-0007's
+  revalidate-on-reconnect principle to cover rejections (not just `NetworkFailure`) is a bigger
+  behavioural change than Milestone A/B made and needs an explicit decision, not an assumption.
+- UI/state complexity: representing "not submitted / submitted-but-unconfirmed / rejected /
+  recorded-and-confirmed" for payments, plus "receipt temporarily unavailable" as a distinct
+  non-payment-failure state, is more states than Milestone B's single pending-retry needed to model —
+  risk of over-building `Pay.razor` beyond what staff actually need to see.
+- Staff may treat a "Retry" affordance as safe to press repeatedly without reading the message; a
+  "Check status" action (refetch, no POST) is strictly safer than "Retry" (re-POST with the same
+  key) and is recommended as a second, distinct affordance rather than folding both into one button.
+
+### 8. Decisions needed before implementation
+
+- Confirm Milestone C's scope is "make the existing `RecordPaymentAsync`/`GetReceiptAsync`/
+  `ReprintReceiptAsync` flows resilient and honest about ambiguous outcomes, reusing existing
+  payment idempotency" — **not** offline payment capability. (This matches the session's explicit
+  constraints; stated here for an explicit sign-off, not assumed.)
+- Confirm the idempotency-key-reuse-on-retry mechanism (Question 3/6) as the approved technical
+  approach, since it is the load-bearing safety property.
+- Decide: does Milestone C add a distinct "Check status" action (recheck via `GetPaymentsAsync`/
+  `GetOrderAsync`, no POST) alongside "Retry" (re-POST with the stored key), or Retry only, matching
+  Milestone B's exact one-button shape? Recommended: add both — "Check status" is strictly safer and
+  cheap to add.
+- Decide: is fixing the pre-existing `EnterReceiptStateAsync` fallback defect (Question 5) in scope
+  for Milestone C, or should it land as a small separate fix first? Recommended: in scope, since it
+  is literally "receipt retrieval behaviour under intermittent connectivity."
+- Decide: is aligning `RecordPaymentAsync`'s 401/403 messaging with `ForLoadFailure` in scope, or
+  deferred? Recommended: in scope, small and directly touches the method being modified anyway.
+- Decide: does a generic rejection (`Failed`, not `NetworkFailure`) trigger a server-state
+  revalidation/refresh, or is that a larger behavioural change deferred to a later milestone?
+  Recommended: defer — keep Milestone C's blast radius matched to Milestone A/B's (network-failure
+  and ack-loss handling only, not a general rejection-revalidation feature).
+- Sign off on the message copy proposed in the checklist below.
+
+### 9. Proposed narrow Milestone C checklist (not yet approved)
+
+1. `ApiErrorMessages`: add `PaymentNotConfirmed` ("This payment wasn't confirmed by the server.
+   Check your connection, then tap Retry or Check status.") and `ReceiptUnavailable` ("Receipt
+   temporarily unavailable. Your payment was recorded — try again to view or print it."). Neither
+   reuses `ConnectionLost` (implies auto-retry) or the existing overpayment string.
+2. `Pay.razor`: replace the inline `Guid.NewGuid()` in `RecordPaymentAsync` with a per-attempt field
+   (e.g. `_pendingPayment` holding `(PaymentMethodResult Method, decimal Amount, Guid
+   IdempotencyKey)?`), generated fresh only when a payment button (Cash/EFTPOS) is first pressed —
+   never regenerated on Retry.
+3. On `ApiResultKind.NetworkFailure` from `RecordPaymentAsync`, keep `_pendingPayment` set, show
+   `PaymentNotConfirmed`, and offer two actions: "Retry" (re-invokes `RecordPaymentAsync` with the
+   same stored `Method`/`Amount`/`IdempotencyKey`) and "Check status" (calls `GetPaymentsAsync`/
+   `GetOrderAsync` only, no POST, to detect whether the payment already landed).
+4. On any other outcome (success, 401/403/`Failed` rejection), clear `_pendingPayment` — mirrors
+   `Sales.razor`'s `SetAddLineFailure`: a genuine rejection is never offered Retry.
+5. Fix `EnterReceiptStateAsync`: on receipt-fetch failure for a `Completed` order, show a distinct
+   "payment recorded, receipt temporarily unavailable" state with its own Retry
+   (re-calls `GetReceiptAsync`) instead of falling through to the payment-entry UI.
+6. `ReprintAsync`: route `NetworkFailure` through `ReceiptUnavailable`, distinct from a genuine
+   rejection message.
+7. Align `RecordPaymentAsync`'s 401/403 branch with `ApiErrorMessages.ForLoadFailure`
+   (`SessionExpired`/`Forbidden`), matching `LoadAsync` on the same page.
+8. bUnit coverage: network failure recording payment shows the unconfirmed state with Retry and
+   Check-status affordances, order/payment state unchanged; Retry with the stored key succeeds once
+   connectivity returns and creates exactly one payment row (assert via the fake backend, not just
+   the resulting UI); Check status detects an already-recorded payment (simulating ack loss — backend
+   already holds a payment under that key) and transitions to the confirmed/receipt state without
+   issuing a second POST; 401/403/`Failed` rejections are never offered Retry; a receipt-fetch
+   failure after a completed order shows the new unavailable-state, not payment-entry buttons; Reprint
+   network failure vs. rejection show distinct messages.
+9. No `IDraftOrderStore` schema change, no new `localStorage` key (pending-payment state stays
+   in-memory/component-scoped, matching Milestone A/B), no migration, no backend file changes.
+10. Update `docs/modules/sync.md`/payments module doc and this plan's Milestone C closeout once
+    implemented.
+
+**Not proposed, and out of scope unless separately approved:** offline payment creation of any kind,
+a persisted write queue, auto-replay triggered by connectivity change alone, offline refunds, and
+any change to `RecordPaymentRequest`/`PaymentEndpoints` (server-side idempotency already covers this
+milestone's needs).
+
+## Human Decision (2026-07-08): Milestone C approved — narrow safe scope
+
+All six Question 8 decisions were confirmed as recommended, with the checklist's message-copy
+proposals accepted:
+
+1. **Scope**: `Pay.razor` payment/receipt resilience only. No offline payments, no automatic
+   background payment replay, no refunds, no backend/schema/migration work.
+2. **Idempotency reuse**: the existing `RecordPaymentRequest.IdempotencyKey` is reused verbatim for
+   an explicit staff Retry of a `NetworkFailure` attempt. A new key is generated only for a
+   genuinely new attempt, after the previous one is resolved/cleared.
+3. **"Check status"**: added as a distinct, non-POST affordance alongside Retry — re-fetches order,
+   payments, and receipt state via existing read endpoints; must not assume failure just because the
+   response was lost.
+4. **Receipt fallback bug**: in scope. `EnterReceiptStateAsync` must no longer silently swallow a
+   receipt-fetch failure and fall through to the payment-entry UI for an already-`Completed` order.
+5. **401/403 alignment**: `RecordPaymentAsync` aligned with the existing `ApiErrorMessages` pattern
+   (`SessionExpired`/`Forbidden`, matching `LoadAsync` on the same page); not treated as retryable.
+6. **Rejections and revalidation**: a server rejection (`ApiResultKind.Failed`) shows the rejection
+   message and triggers a revalidation refresh of order/payment state (ADR-0007's "revalidate
+   against the server" principle applied to a rejection, not just a reconnect) — never an automatic
+   retry.
+
+## Milestone C — Payment/Receipt Resilience
+
+**Scope:**
+
+- `Pay.razor` only, plus `ApiErrorMessages` (two new constants) and one test-infrastructure addition
+  (`StubHttpMessageHandler.FailingPathSuffix`, needed to simulate a receipt-specific network failure
+  independent of the payment POST in tests).
+- On `ApiResultKind.NetworkFailure` from `RecordPaymentAsync`, preserve the attempted payment
+  (method, amount, and the exact `IdempotencyKey` used) as a single pending payment — not a queue —
+  and show `ApiErrorMessages.PaymentNotConfirmed`.
+- Two explicit staff actions for a pending payment: **Retry** (resubmits with the same stored
+  idempotency key) and **Check status** (re-fetches order/payments/receipt only, never re-POSTs;
+  resolves the pending state if a payment under that key is found).
+- While a payment is pending, the Cash/Manual EFTPOS buttons are disabled (both in markup and
+  guarded in `RecordPaymentAsync` itself) — a new payment attempt is not offered until the pending
+  one is explicitly resolved, since payments are more consequential than Sales.razor's order lines.
+- `EnterReceiptStateAsync` now sets a `_receiptError` on any non-success `GetReceiptAsync` result
+  instead of swallowing it; a `Completed` order with no receipt yet shows a distinct
+  loading/recoverable state (with its own Retry) rather than falling through to payment-entry
+  markup.
+- A genuine rejection (401/403/validation/conflict) is never offered Retry/Check status; 401/403 use
+  the existing `SessionExpired`/`Forbidden` messages, and a `Failed` rejection triggers a
+  revalidation refresh so a since-completed/voided order is reflected immediately.
+
+**Non-goals (Milestone C specifically):**
+
+- No offline payment creation, no persisted/`localStorage` write queue, no automatic replay
+  triggered by connectivity change alone, no refunds.
+- No backend, schema, or migration changes — `RecordPaymentRequest`/`PaymentEndpoints`' existing
+  idempotency check is reused as-is.
+- No local server, no PLAN-0009, MAUI, OI-0018, printer routing, or KDS station lifecycle.
+
+**Implementation / Documentation Steps:**
+
+1. Add `ApiErrorMessages.PaymentNotConfirmed` and `ApiErrorMessages.ReceiptUnavailable`.
+2. `StubHttpMessageHandler`: add `FailingPathSuffix` for path-scoped simulated network failures
+   (test infrastructure only).
+3. `Pay.razor`: add `_pendingPayment`/`_receiptError` fields; introduce `SubmitPaymentAsync` (shared
+   by a fresh `RecordPaymentAsync` attempt and `RetryPendingPaymentAsync`), `CheckPaymentStatusAsync`,
+   `RefreshOrderAndPaymentsAsync`/`ApplyCompletionStateAsync` helpers, and fix `EnterReceiptStateAsync`.
+4. bUnit coverage per the kickoff report's Question 9 test list.
+5. Update this plan's Milestone C closeout (below) and the Milestone Breakdown table.
+
+### Milestone C Implementation Report (2026-07-08)
+
+Implemented directly on `main`, TDD throughout (each test written first and watched fail for the
+expected reason before implementing — see Verification).
+
+**What was built:**
+
+- `src/DaxaPos.Web/Api/ApiErrorMessages.cs` — `PaymentNotConfirmed` and `ReceiptUnavailable`
+  constants, each documented with why they're distinct from `ConnectionLost`/the old hardcoded
+  strings.
+- `src/DaxaPos.Web/Pages/Pay.razor`:
+  - New `_pendingPayment` field (`(PaymentMethodResult Method, decimal Amount, Guid IdempotencyKey)?`,
+    single slot) and `_receiptError` field.
+  - `RecordPaymentAsync` now only ever generates a fresh `Guid.NewGuid()` for a genuinely new
+    attempt, and refuses to start one while `_pendingPayment` is set (defence in depth alongside the
+    markup's `disabled` binding on `#record-cash`/`#record-eftpos`).
+  - New `SubmitPaymentAsync(method, amount, idempotencyKey)` — the single place that calls
+    `RecordPaymentAsync` on the API client — used by both a fresh attempt and
+    `RetryPendingPaymentAsync` (which reuses `_pendingPayment.Value.IdempotencyKey` verbatim). On
+    `NetworkFailure` it sets `_pendingPayment`/`PaymentNotConfirmed`; on any other non-success outcome
+    it clears `_pendingPayment` (never retryable) and, specifically for `ApiResultKind.Failed`,
+    revalidates order/payment state before returning control to the staff member.
+  - New `CheckPaymentStatusAsync` — refreshes order/payments (and receipt, if now `Completed`), then
+    resolves `_pendingPayment` only if a payment with a matching `IdempotencyKey` is found in the
+    refreshed list. Never calls `RecordPaymentAsync`.
+  - New `RefreshOrderAndPaymentsAsync`/`ApplyCompletionStateAsync` helpers, extracted to avoid
+    duplicating the "refresh, then branch on `Completed`" sequence across the success path, the
+    `Failed`-rejection revalidation path, and `CheckPaymentStatusAsync`.
+  - `EnterReceiptStateAsync` now sets `_receiptError` (mapped like `RecordPaymentAsync`'s own
+    401/403/generic switch) on any non-success `GetReceiptAsync` result instead of leaving `_receipt`
+    null with no signal; a new `RetryReceiptAsync` re-invokes it.
+  - Markup: a new branch for `_order is { Status: OrderStatusResult.Completed }` with `_receipt`
+    still null, showing either "Loading receipt…" or the new `_receiptError` with a `#retry-receipt`
+    button — inserted between the existing `_receipt is { }` branch and the `_order is null` branch,
+    so it only intercepts the specific "payment confirmed, receipt not yet shown" window. The
+    existing payment-entry branch gained a `#retry-payment`/`#check-payment-status` button pair
+    (shown only when `_pendingPayment is not null`, mirroring `Sales.razor`'s Milestone B
+    `_pendingRetry` markup pattern) and disabled the Cash/EFTPOS buttons while pending.
+- `tests/DaxaPos.Web.Tests/Fakes/StubHttpMessageHandler.cs` — added `FailingPathSuffix` (fails only
+  requests whose path ends with the given suffix), needed to simulate a receipt-fetch-specific
+  network failure without also failing the payment POST that must precede it in the same test.
+- `tests/DaxaPos.Web.Tests/Pages/PayTests.cs` — renamed/rewrote
+  `NetworkFailureRecordingPayment_ShowsConnectionLostMessage_NotTheOverpaymentMessage` to
+  `NetworkFailureRecordingPayment_ShowsPendingPaymentState_WithRetryAndCheckStatusActions`; added
+  `Retry_AfterNetworkFailure_ReusesTheSameIdempotencyKey_AndSucceeds` (asserts the retried request's
+  `IdempotencyKey` matches the failed attempt's, read from `StubHttpMessageHandler.LastRequest`, and
+  that exactly one payment row results), `ConnectivityRestoring_WithoutRetryClick_DoesNotAutoSubmitPayment`,
+  `CheckStatus_WhenPaymentAlreadyLandedServerSide_ResolvesPendingState_WithoutASecondPost` (seeds
+  `FakeOrderBackend.Payments` directly under the failed attempt's captured idempotency key to
+  simulate ack loss, then asserts Check status resolves to the receipt view with no second POST),
+  `ReceiptFetchFailure_AfterPaymentCompletesTheOrder_ShowsRecoverableState_NotPaymentButtons` and
+  `RetryReceipt_OnceTheEndpointRecovers_ShowsTheReceipt` (using the new `FailingPathSuffix`),
+  `ServerRejectsPayment_WhenOrderCompletedElsewhere_RevalidatesAndShowsReceipt`, and a
+  `[Theory] AuthFailureRecordingPayment_ShowsAlignedMessage_WithNoRetryOrCheckStatus` covering
+  401/403. Extended the existing `OverpaymentAttempt_ShowsServerRejectionMessage_AndOrderStaysOpen`
+  test with assertions that no retry/check-status buttons are offered for a genuine rejection.
+
+**Deviations from the approved checklist:** None. One addition beyond the checklist's explicit
+items, within its spirit: `RecordPaymentAsync` also guards against starting a new attempt while
+`_pendingPayment` is set (not just disabling the buttons in markup), and the Cash/EFTPOS buttons are
+disabled while a payment is pending — the checklist didn't spell this out item-by-item, but it
+follows directly from "payments are more dangerous than order lines, so be conservative" and from
+Decision 2's "generate a new key only after the previous attempt is resolved/cleared."
+
+**Verification:**
+
+- `dotnet build DaxaPos.sln` — 0 errors.
+- TDD: all 8 new/modified `PayTests.cs` tests were run before implementation and failed for the
+  expected reason (feature not yet built — either the new markup/messages didn't exist, or the old
+  behaviour was still in place); one test (`AuthFailureRecordingPayment_ShowsAlignedMessage...`,
+  Forbidden case) incidentally passed pre-implementation because the old hardcoded message already
+  contained the word "permission," which is expected and not a TDD violation (the paired
+  Unauthorized case failed correctly, proving the alignment gap was real).
+- `dotnet test tests/DaxaPos.Web.Tests --filter "FullyQualifiedName~PayTests"` — 21/21 passing after
+  implementation.
+- `dotnet test DaxaPos.sln` — see the report footer below for the full-suite count and
+  `git diff --stat` confirmation of scope.
+
 ## Recommended Next Session
 
-Milestones A and B are both done. Any further PLAN-0007 work requires its own kickoff-decision
-pass:
+Milestones A, B, and C are done. Milestone D (multi-tab/multi-device consistency, KDS resilience
+under sustained reconnect cycling) is the only remaining outline-only placeholder and requires its
+own kickoff-decision pass before implementation.
 
-- Milestone C (payment/receipt behaviour policy under intermittent connectivity) is the next
-  outline-only candidate, but likely needs an explicit product decision on whether any payment
-  method may ever be recorded while offline before a kickoff checklist can be written.
-- Do not start Milestone C or D implementation without a kickoff pass and explicit approval.
+- Do not start Milestone D without its own kickoff pass and explicit approval.
 - Do not start the future Daxa Local Server / Daxa Sync plan — it is not numbered or scheduled yet.
 - Do not start PLAN-0009, MAUI, OI-0018, printer routing, or KDS station lifecycle work.
+- `main` is 1 commit ahead of `origin/main` (`584b739`) — not pushed this session; push only if the
+  human explicitly asks.
