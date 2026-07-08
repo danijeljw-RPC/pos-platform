@@ -330,4 +330,88 @@ public class SalesTests : TestContext
     }
 
     private static T Also<T>(T value) => value;
+
+    /// <summary>
+    /// PLAN-0007 Milestone A. Separate from <see cref="RegisterCommonServices"/> so the existing
+    /// tests above keep constructing their <see cref="DaxaApiClient"/> exactly as before — only the
+    /// new connectivity-specific tests below opt into <see cref="ConnectivityHandler"/>/
+    /// <see cref="IConnectivityTracker"/> wiring.
+    /// </summary>
+    private StubHttpMessageHandler RegisterCommonServicesWithConnectivity(FakeOrderBackend backend, IConnectivityTracker connectivity, DraftOrderStore? draftStore = null)
+    {
+        var deviceStore = new DeviceContextStore(new InMemoryBrowserStorage());
+        deviceStore.SaveAsync(SampleDevice()).AsTask().Wait();
+        Services.AddSingleton<IDeviceContextStore>(deviceStore);
+
+        var sessionStore = new AuthSessionStore(new InMemoryBrowserStorage());
+        sessionStore.SaveAsync(new SessionState(
+            "token", DateTimeOffset.UtcNow.AddHours(1), Guid.NewGuid(), "Jane Staff", ["StaffPin"], ["orders.manage"], TerminalId)).AsTask().Wait();
+        Services.AddSingleton<IAuthSessionStore>(sessionStore);
+
+        Services.AddSingleton<IDraftOrderStore>(draftStore ?? RegisterDraftStore());
+        Services.AddSingleton(connectivity);
+
+        var stub = new StubHttpMessageHandler { Respond = backend.Respond };
+        var handler = new ConnectivityHandler(connectivity) { InnerHandler = stub };
+        Services.AddSingleton(new DaxaApiClient(new HttpClient(handler) { BaseAddress = new Uri("http://test/") }));
+        return stub;
+    }
+
+    [Fact]
+    public void WhenMenuLoadFailsWithNetworkFailure_ShowsConnectionLostMessage_AndRetryButton()
+    {
+        var backend = new FakeOrderBackend();
+        var stub = RegisterCommonServicesWithConnectivity(backend, new ConnectivityTracker());
+        stub.ThrowNetworkFailure = true;
+
+        var cut = RenderComponent<Sales>();
+
+        cut.WaitForAssertion(() => Assert.Contains(ApiErrorMessages.ConnectionLost, cut.Markup));
+        Assert.NotEmpty(cut.FindAll("#retry-load"));
+    }
+
+    [Fact]
+    public void RetryButton_OnceConnectivityRestored_LoadsTheMenu()
+    {
+        var productId = Guid.NewGuid();
+        var backend = new FakeOrderBackend { Menu = SimpleMenu(productId, "Flat White", 5.5m) };
+        var stub = RegisterCommonServicesWithConnectivity(backend, new ConnectivityTracker());
+        stub.ThrowNetworkFailure = true;
+        var cut = RenderComponent<Sales>();
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("#retry-load")));
+
+        stub.ThrowNetworkFailure = false;
+        cut.Find("#retry-load").Click();
+
+        cut.WaitForAssertion(() => Assert.Contains("Flat White", cut.Markup));
+    }
+
+    [Fact]
+    public void NetworkFailureOnLoad_ShowsOfflineBanner()
+    {
+        var backend = new FakeOrderBackend();
+        var stub = RegisterCommonServicesWithConnectivity(backend, new ConnectivityTracker());
+        stub.ThrowNetworkFailure = true;
+
+        var cut = RenderComponent<Sales>();
+
+        cut.WaitForAssertion(() => Assert.Contains("Reconnecting", cut.Markup));
+    }
+
+    [Fact]
+    public void NetworkFailureAddingALine_ShowsConnectionLostMessage_NotAGenericRejection()
+    {
+        var productId = Guid.NewGuid();
+        var backend = new FakeOrderBackend { Menu = SimpleMenu(productId, "Flat White", 5.5m) };
+        backend.RegisterProduct(productId, "Flat White", 5.5m);
+        var connectivity = new ConnectivityTracker();
+        var stub = RegisterCommonServicesWithConnectivity(backend, connectivity);
+        var cut = RenderComponent<Sales>();
+        cut.WaitForAssertion(() => Assert.Contains("Flat White", cut.Markup));
+
+        stub.ThrowNetworkFailure = true;
+        cut.Find("button.btn-outline-primary").Click();
+
+        cut.WaitForAssertion(() => Assert.Contains(ApiErrorMessages.ConnectionLost, cut.Markup));
+    }
 }

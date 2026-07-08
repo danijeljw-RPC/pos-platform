@@ -55,6 +55,23 @@ public class KdsTests : TestContext
     private IRenderedComponent<Kds> RenderKds() =>
         RenderComponent<Kds>(parameters => parameters.Add(p => p.PollInterval, FastPoll));
 
+    /// <summary>
+    /// PLAN-0007 Milestone A. Separate from <see cref="RegisterServices"/> so the existing tests
+    /// above keep constructing their <see cref="DaxaApiClient"/> exactly as before — only the new
+    /// connectivity-specific tests below opt into <see cref="ConnectivityHandler"/>/
+    /// <see cref="IConnectivityTracker"/> wiring.
+    /// </summary>
+    private StubHttpMessageHandler RegisterServicesWithConnectivity(FakeOrderBackend backend, IConnectivityTracker connectivity)
+    {
+        RegisterDeviceStore(withDevice: true);
+        Services.AddSingleton(connectivity);
+
+        var stub = new StubHttpMessageHandler { Respond = backend.Respond };
+        var handler = new ConnectivityHandler(connectivity) { InnerHandler = stub };
+        Services.AddSingleton(new DaxaApiClient(new HttpClient(handler) { BaseAddress = new Uri("http://test/") }));
+        return stub;
+    }
+
     [Fact]
     public void NoDeviceRegistered_ShowsSetupPrompt()
     {
@@ -180,5 +197,49 @@ public class KdsTests : TestContext
         backend.Orders.Add(SampleOrder(OrderStatusResult.Open, 55, DateTimeOffset.UtcNow));
 
         cut.WaitForAssertion(() => Assert.Contains("55", cut.Markup));
+    }
+
+    [Fact]
+    public void NetworkFailure_ShowsConnectionLostMessage_NotGenericFailure()
+    {
+        var connectivity = new ConnectivityTracker();
+        var backend = new FakeOrderBackend();
+        var stub = RegisterServicesWithConnectivity(backend, connectivity);
+        stub.ThrowNetworkFailure = true;
+
+        var cut = RenderKds();
+
+        cut.WaitForAssertion(() => Assert.Contains(ApiErrorMessages.ConnectionLost, cut.Markup));
+    }
+
+    [Fact]
+    public void NetworkFailureAfterOrdersLoaded_KeepsShowingTheLastBoard()
+    {
+        var connectivity = new ConnectivityTracker();
+        var backend = new FakeOrderBackend();
+        var order = SampleOrder(OrderStatusResult.Open, 99, DateTimeOffset.UtcNow);
+        backend.Orders.Add(order);
+        var stub = RegisterServicesWithConnectivity(backend, connectivity);
+
+        var cut = RenderKds();
+        cut.WaitForAssertion(() => Assert.Contains("99", cut.Markup));
+
+        stub.ThrowNetworkFailure = true;
+
+        cut.WaitForAssertion(() => Assert.Contains(ApiErrorMessages.ConnectionLost, cut.Markup));
+        Assert.Contains("99", cut.Markup);
+    }
+
+    [Fact]
+    public void NetworkFailure_ShowsOfflineBanner()
+    {
+        var connectivity = new ConnectivityTracker();
+        var backend = new FakeOrderBackend();
+        var stub = RegisterServicesWithConnectivity(backend, connectivity);
+        stub.ThrowNetworkFailure = true;
+
+        var cut = RenderKds();
+
+        cut.WaitForAssertion(() => Assert.Contains("Reconnecting", cut.Markup));
     }
 }

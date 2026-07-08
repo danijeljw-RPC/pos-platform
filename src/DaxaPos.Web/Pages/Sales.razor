@@ -7,6 +7,8 @@
 
 <PageTitle>Sales</PageTitle>
 
+<ConnectivityBanner />
+
 <h1>Sales</h1>
 
 @if (DeviceContextStore.Current is not { } device)
@@ -23,6 +25,7 @@ else if (SessionStore.Current?.TerminalId is null)
 else if (_loadError is not null)
 {
     <p class="text-danger" role="alert">@_loadError</p>
+    <button type="button" id="retry-load" class="btn btn-outline-primary" @onclick="LoadAsync">Retry</button>
 }
 else if (_menu is null)
 {
@@ -183,12 +186,21 @@ else
     private ResolvedMenuItemResult? _selectingItem;
     private readonly Dictionary<Guid, List<Guid>> _modalSelections = [];
 
-    protected override async Task OnInitializedAsync()
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    /// <summary>
+    /// PLAN-0007 Milestone A: also called from the "Retry" button shown alongside <see cref="_loadError"/>,
+    /// so an initial load that fails (most commonly a network failure) can recover without a full
+    /// page reload — the read path is the only thing retried; nothing here writes offline.
+    /// </summary>
+    private async Task LoadAsync()
     {
         if (DeviceContextStore.Current is not { } device || SessionStore.Current?.TerminalId is null)
         {
             return;
         }
+
+        _loadError = null;
 
         var menuResult = await ApiClient.GetResolvedMenuAsync(device.LocationId);
         if (menuResult.Kind != ApiResultKind.Success || menuResult.Value is null)
@@ -285,7 +297,7 @@ else
             var openResult = await ApiClient.OpenOrderAsync(new CreateOrderRequest(terminalId));
             if (openResult.Kind != ApiResultKind.Success || openResult.Value is null)
             {
-                _actionError = "Could not open an order for this terminal.";
+                _actionError = ApiErrorMessages.ForLoadFailure(openResult.Kind, "Could not open an order for this terminal.");
                 _isBusy = false;
                 return;
             }
@@ -299,7 +311,7 @@ else
 
         if (addResult.Kind != ApiResultKind.Success || addResult.Value is null)
         {
-            _actionError = "Could not add that item to the order.";
+            _actionError = ApiErrorMessages.ForLoadFailure(addResult.Kind, "Could not add that item to the order.");
             _isBusy = false;
             return;
         }
@@ -327,7 +339,7 @@ else
         }
         else
         {
-            _actionError = "Could not update that item's quantity.";
+            _actionError = ApiErrorMessages.ForLoadFailure(result.Kind, "Could not update that item's quantity.");
         }
 
         _isBusy = false;
@@ -352,7 +364,7 @@ else
             }
             else
             {
-                _actionError = "Could not remove that item.";
+                _actionError = ApiErrorMessages.ForLoadFailure(result.Kind, "Could not remove that item.");
                 break;
             }
         }
@@ -386,7 +398,7 @@ else
         }
         else
         {
-            _actionError = "Could not clear the order.";
+            _actionError = ApiErrorMessages.ForLoadFailure(result.Kind, "Could not clear the order.");
         }
 
         _isBusy = false;

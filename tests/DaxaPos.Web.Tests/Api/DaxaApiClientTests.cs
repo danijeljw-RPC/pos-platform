@@ -56,14 +56,14 @@ public class DaxaApiClientTests
     }
 
     [Fact]
-    public async Task RegisterDeviceAsync_OnNetworkFailure_ReturnsFailedKind()
+    public async Task RegisterDeviceAsync_OnNetworkFailure_ReturnsNetworkFailureKind()
     {
         var (client, stub) = BuildClient();
         stub.ThrowNetworkFailure = true;
 
         var result = await client.RegisterDeviceAsync(new DeviceRegistrationRequest("000000", "KioskBrowser", null));
 
-        Assert.Equal(ApiResultKind.Failed, result.Kind);
+        Assert.Equal(ApiResultKind.NetworkFailure, result.Kind);
         Assert.NotNull(result.Error);
     }
 

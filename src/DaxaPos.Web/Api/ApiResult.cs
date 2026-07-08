@@ -13,6 +13,14 @@ public enum ApiResultKind
     Unauthorized,
     Forbidden,
     Failed,
+
+    /// <summary>
+    /// The request never reached the server (DNS/connection/timeout failure), as distinct from
+    /// <see cref="Failed"/>, which means a response was received but was not a success/401/403
+    /// (PLAN-0007 Milestone A). Callers use this to distinguish "you're offline" from "the server
+    /// rejected this."
+    /// </summary>
+    NetworkFailure,
 }
 
 public sealed record ApiResult<T>(ApiResultKind Kind, T? Value, HttpStatusCode? StatusCode, string? Error)
@@ -22,7 +30,7 @@ public sealed record ApiResult<T>(ApiResultKind Kind, T? Value, HttpStatusCode? 
     public static ApiResult<T> FromStatusCode(HttpStatusCode statusCode, string? error = null) =>
         new(Classify(statusCode), default, statusCode, error);
 
-    public static ApiResult<T> NetworkFailure(string error) => new(ApiResultKind.Failed, default, null, error);
+    public static ApiResult<T> NetworkFailure(string error) => new(ApiResultKind.NetworkFailure, default, null, error);
 
     internal static ApiResultKind Classify(HttpStatusCode statusCode) => statusCode switch
     {
@@ -39,5 +47,5 @@ public sealed record ApiResult(ApiResultKind Kind, HttpStatusCode? StatusCode, s
     public static ApiResult FromStatusCode(HttpStatusCode statusCode, string? error = null) =>
         new(ApiResult<object>.Classify(statusCode), statusCode, error);
 
-    public static ApiResult NetworkFailure(string error) => new(ApiResultKind.Failed, null, error);
+    public static ApiResult NetworkFailure(string error) => new(ApiResultKind.NetworkFailure, null, error);
 }

@@ -7,6 +7,8 @@
 
 <PageTitle>Customer Display</PageTitle>
 
+<ConnectivityBanner />
+
 @if (_receipt is { } receipt)
 {
     <div class="display-state">
@@ -155,6 +157,15 @@ else
     private async Task LoadOrderAsync(Guid orderId)
     {
         var orderResult = await ApiClient.GetOrderAsync(orderId);
+
+        if (orderResult.Kind == ApiResultKind.NetworkFailure)
+        {
+            // Transient connectivity loss — keep showing whatever was last successfully loaded
+            // rather than blanking to idle. The poll loop already retries on its own next tick
+            // (PLAN-0007 Milestone A).
+            return;
+        }
+
         if (orderResult.Kind != ApiResultKind.Success || orderResult.Value is null)
         {
             ResetToIdle();

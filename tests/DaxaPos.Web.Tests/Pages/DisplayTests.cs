@@ -52,6 +52,31 @@ public class DisplayTests : TestContext
     private IRenderedComponent<Display> RenderDisplay() =>
         RenderComponent<Display>(parameters => parameters.Add(p => p.PollInterval, FastPoll));
 
+    /// <summary>
+    /// PLAN-0007 Milestone A. Separate from <see cref="RegisterServices"/> so the existing ~10
+    /// pre-Milestone-A tests above keep constructing their <see cref="DaxaApiClient"/> exactly as
+    /// before (no <see cref="ConnectivityHandler"/>/<see cref="IConnectivityTracker"/> involved) —
+    /// only the new connectivity-specific tests below opt into this wiring.
+    /// </summary>
+    private (DraftOrderStore DraftStore, StubHttpMessageHandler Stub, ConnectivityTracker Connectivity) RegisterServicesWithConnectivity(FakeOrderBackend backend)
+    {
+        var deviceStore = new DeviceContextStore(new InMemoryBrowserStorage());
+        deviceStore.SaveAsync(SampleDevice()).AsTask().Wait();
+        Services.AddSingleton<IDeviceContextStore>(deviceStore);
+
+        var draftStore = RegisterDraftStore();
+        Services.AddSingleton<IDraftOrderStore>(draftStore);
+
+        var connectivity = new ConnectivityTracker();
+        Services.AddSingleton<IConnectivityTracker>(connectivity);
+
+        var stub = new StubHttpMessageHandler { Respond = backend.Respond };
+        var handler = new ConnectivityHandler(connectivity) { InnerHandler = stub };
+        Services.AddSingleton(new DaxaApiClient(new HttpClient(handler) { BaseAddress = new Uri("http://test/") }));
+
+        return (draftStore, stub, connectivity);
+    }
+
     [Fact]
     public void NoDeviceRegistered_ShowsIdleBranding()
     {
@@ -201,5 +226,50 @@ public class DisplayTests : TestContext
         cut.WaitForAssertion(() => Assert.Contains("Daxa POS", cut.Markup));
         Assert.DoesNotContain("Muffin", cut.Markup);
         Assert.DoesNotContain("error", cut.Markup, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// PLAN-0007 Milestone A. Before this fix, <c>LoadOrderAsync</c> called <c>ResetToIdle()</c> on
+    /// any non-success result, including a transient network failure — meaning a customer-facing
+    /// display would flash back to "Welcome" mid-order just because one poll tick couldn't reach the
+    /// server. A network failure must instead preserve whatever was last successfully shown; the
+    /// poll loop already retries on its own next tick.
+    /// </summary>
+    [Fact]
+    public async Task NetworkFailureWhilePolling_KeepsShowingTheActiveOrder_NotIdle()
+    {
+        var order = new OrderResult(Guid.NewGuid(), TerminalId, OrderStatusResult.Open, 5.00m, 0m, 5.00m,
+            [SampleLine("Muffin", 5.00m)]);
+        var backend = new FakeOrderBackend { Order = order };
+        var (draftStore, stub, _) = RegisterServicesWithConnectivity(backend);
+        await draftStore.SaveOrderIdAsync(DeviceId, order.Id);
+
+        var cut = RenderDisplay();
+        cut.WaitForAssertion(() => Assert.Contains("Muffin", cut.Markup));
+
+        stub.ThrowNetworkFailure = true;
+
+        // Give the poll loop several ticks to observe the failure — the display must not blank to
+        // idle at any point during this window.
+        await Task.Delay(FastPoll * 5);
+        Assert.Contains("Muffin", cut.Markup);
+        Assert.DoesNotContain("Welcome", cut.Markup);
+    }
+
+    [Fact]
+    public async Task NetworkFailureWhilePolling_ShowsOfflineBanner()
+    {
+        var order = new OrderResult(Guid.NewGuid(), TerminalId, OrderStatusResult.Open, 5.00m, 0m, 5.00m,
+            [SampleLine("Muffin", 5.00m)]);
+        var backend = new FakeOrderBackend { Order = order };
+        var (draftStore, stub, _) = RegisterServicesWithConnectivity(backend);
+        await draftStore.SaveOrderIdAsync(DeviceId, order.Id);
+
+        var cut = RenderDisplay();
+        cut.WaitForAssertion(() => Assert.Contains("Muffin", cut.Markup));
+
+        stub.ThrowNetworkFailure = true;
+
+        cut.WaitForAssertion(() => Assert.Contains("Reconnecting", cut.Markup));
     }
 }

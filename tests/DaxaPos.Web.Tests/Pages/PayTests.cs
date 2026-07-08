@@ -178,4 +178,87 @@ public class PayTests : TestContext
 
         cut.WaitForAssertion(() => Assert.Contains("could not be found", cut.Markup));
     }
+
+    /// <summary>
+    /// PLAN-0007 Milestone A. Separate from <see cref="RegisterServices"/> so the existing tests
+    /// above keep constructing their <see cref="DaxaApiClient"/> exactly as before — only the new
+    /// connectivity-specific tests below opt into <see cref="ConnectivityHandler"/>/
+    /// <see cref="IConnectivityTracker"/> wiring.
+    /// </summary>
+    private StubHttpMessageHandler RegisterServicesWithConnectivity(FakeOrderBackend backend, IConnectivityTracker connectivity)
+    {
+        var deviceStore = new DeviceContextStore(new InMemoryBrowserStorage());
+        deviceStore.SaveAsync(SampleDevice()).AsTask().Wait();
+        Services.AddSingleton<IDeviceContextStore>(deviceStore);
+        Services.AddSingleton<IDraftOrderStore>(RegisterDraftStore());
+        Services.AddSingleton(connectivity);
+
+        var stub = new StubHttpMessageHandler { Respond = backend.Respond };
+        var handler = new ConnectivityHandler(connectivity) { InnerHandler = stub };
+        Services.AddSingleton(new DaxaApiClient(new HttpClient(handler) { BaseAddress = new Uri("http://test/") }));
+        return stub;
+    }
+
+    [Fact]
+    public void NetworkFailureLoadingOrder_ShowsConnectionLostMessage_AndRetryButton()
+    {
+        var backend = new FakeOrderBackend();
+        var stub = RegisterServicesWithConnectivity(backend, new ConnectivityTracker());
+        stub.ThrowNetworkFailure = true;
+
+        var cut = RenderPay(Guid.NewGuid());
+
+        cut.WaitForAssertion(() => Assert.Contains(ApiErrorMessages.ConnectionLost, cut.Markup));
+        Assert.NotEmpty(cut.FindAll("#retry-load"));
+    }
+
+    [Fact]
+    public void RetryButton_OnceConnectivityRestored_LoadsTheOrder()
+    {
+        var order = new OrderResult(Guid.NewGuid(), TerminalId, OrderStatusResult.Open, 10.00m, 1.00m, 11.00m, [SampleLine(11.00m)]);
+        var backend = new FakeOrderBackend { Order = order };
+        var stub = RegisterServicesWithConnectivity(backend, new ConnectivityTracker());
+        stub.ThrowNetworkFailure = true;
+        var cut = RenderPay(order.Id);
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("#retry-load")));
+
+        stub.ThrowNetworkFailure = false;
+        cut.Find("#retry-load").Click();
+
+        cut.WaitForAssertion(() => Assert.Contains("$11.00", cut.Markup));
+    }
+
+    [Fact]
+    public void NetworkFailureLoadingOrder_ShowsOfflineBanner()
+    {
+        var backend = new FakeOrderBackend();
+        var stub = RegisterServicesWithConnectivity(backend, new ConnectivityTracker());
+        stub.ThrowNetworkFailure = true;
+
+        var cut = RenderPay(Guid.NewGuid());
+
+        cut.WaitForAssertion(() => Assert.Contains("Reconnecting", cut.Markup));
+    }
+
+    /// <summary>
+    /// Before this fix, any non-success <c>RecordPaymentAsync</c> result other than 401/403 showed
+    /// "may exceed the amount owing" — actively misleading when the real cause was a dropped
+    /// connection and no payment was attempted at all.
+    /// </summary>
+    [Fact]
+    public void NetworkFailureRecordingPayment_ShowsConnectionLostMessage_NotTheOverpaymentMessage()
+    {
+        var order = new OrderResult(Guid.NewGuid(), TerminalId, OrderStatusResult.Open, 10.00m, 1.00m, 11.00m, [SampleLine(11.00m)]);
+        var backend = new FakeOrderBackend { Order = order };
+        var connectivity = new ConnectivityTracker();
+        var stub = RegisterServicesWithConnectivity(backend, connectivity);
+        var cut = RenderPay(order.Id);
+        cut.WaitForAssertion(() => Assert.Contains("$11.00", cut.Markup));
+
+        stub.ThrowNetworkFailure = true;
+        cut.Find("#record-cash").Click();
+
+        cut.WaitForAssertion(() => Assert.Contains(ApiErrorMessages.ConnectionLost, cut.Markup));
+        Assert.DoesNotContain("may exceed", cut.Markup);
+    }
 }

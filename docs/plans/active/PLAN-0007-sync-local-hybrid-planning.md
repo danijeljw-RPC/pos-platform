@@ -2,10 +2,11 @@
 
 ## Status
 
-Draft. Revised 2026-07-08 to match the current implemented architecture. Milestone A
-(Reconnect And Read Resilience) is scoped in detail below; Milestones B onward are outline-only
-and not yet approved for implementation. See
-`docs/plans/active/PLAN-0007-worker-notes.md` for the full revision rationale.
+Draft. Revised 2026-07-08 to match the current implemented architecture. **Milestone A
+(Reconnect And Read Resilience) is implemented and complete** (2026-07-08) — see the worker notes'
+Milestone A Implementation Report. Milestones B onward remain outline-only and not yet approved for
+implementation. See `docs/plans/active/PLAN-0007-worker-notes.md` for the full revision rationale
+and implementation detail.
 
 ## Revision Note (2026-07-08)
 
@@ -157,7 +158,7 @@ PLAN-0006 practice.
 
 | Milestone | Scope | Status |
 |-----------|-------|--------|
-| A | Reconnect and read resilience — connectivity state, degrade/recover behaviour for `Sales`/`Pay`/`Display`/`Kds` reads. No offline writes. | Detailed below; approved for planning, not yet implemented. |
+| A | Reconnect and read resilience — connectivity state, degrade/recover behaviour for `Sales`/`Pay`/`Display`/`Kds` reads. No offline writes. | **Implemented and complete (2026-07-08).** See worker notes. |
 | B | Offline-safe local drafts / a bounded write queue for `Sales` (e.g. queuing add-line calls made while briefly disconnected, replayed on reconnect with idempotency). | Outline only — scope, risk, and product questions (e.g. how long a queue may live, what happens if the underlying order was voided elsewhere) to be defined at B kickoff. Not started. |
 | C | Payment/receipt behaviour policy under intermittent connectivity. | Outline only. Likely requires an explicit product decision on whether any payment method may ever be recorded while offline (cash is the obvious candidate; integrated/manual EFTPOS plausibly should never be) — flagged as a genuine open product question, not decided here. Not started. |
 | D | Multi-tab/multi-device consistency and KDS resilience under sustained reconnect cycling (e.g. a KDS board that has been offline for an extended period). | Outline only. Not started. |
@@ -206,6 +207,33 @@ Milestone A's own kickoff-decision work, not this planning revision's):**
 6. Update `docs/modules/sync.md` and this plan's Status/closeout to reflect what Milestone A
    actually built.
 
+### Milestone A Closeout (2026-07-08)
+
+Implemented as planned above, no deviations from the non-goals. Summary — full detail in the
+worker notes' Milestone A Implementation Report:
+
+- `ApiResultKind` gained a distinct `NetworkFailure` case (previously indistinguishable from a real
+  HTTP error, both mapped to `Failed`); `ApiErrorMessages` gained a matching `ConnectionLost` message.
+- New `IConnectivityTracker`/`ConnectivityTracker` (in-memory, per-tab, not persisted) and a
+  `ConnectivityHandler` (`DelegatingHandler`, mirroring the existing `AuthHeaderHandler` pattern) —
+  reports connectivity automatically for every API call with zero changes to `DaxaApiClient`'s
+  public surface.
+- New `ConnectivityBanner.razor` — resolves the tracker defensively (`IServiceProvider.GetService`,
+  not `@inject`), so it renders nothing wherever a tracker isn't wired, rather than throwing.
+  Added to `Sales`/`Pay`/`Display`/`Kds`.
+- `Display.razor`'s `LoadOrderAsync` fixed: a network failure now preserves the last-shown
+  order/receipt instead of resetting to idle (`Kds.razor` already did the equivalent correctly and
+  needed no logic change, only the banner).
+- `Sales.razor`/`Pay.razor`: initial load extracted into a retryable `LoadAsync()` with a manual
+  "Retry" button; action-failure messages (add-line, void, clear, record payment) now route through
+  `ApiErrorMessages` so a dropped connection reads as "Can't reach the server," not a misleading
+  server-rejection message (`Pay.razor`'s payment-failure message previously said "may exceed the
+  amount owing" even on a pure network failure).
+- No backend/API/schema changes — confirmed via `git diff --stat`, entirely `src/DaxaPos.Web` and
+  `tests/DaxaPos.Web.Tests`.
+- Full solution suite: **1224/1224 passing** (144 unit + 150 Web + 930 API — up from the
+  pre-Milestone-A baseline of 1196; 28 new Web tests, 0 API changes). No regressions.
+
 ## Tests To Run Later
 
 - Full solution suite: `dotnet test DaxaPos.sln` (regression baseline, currently 1178/1178 passing
@@ -241,14 +269,17 @@ offline — but does not block Milestone A; a 401 on reconnect is handled the sa
 ```text
 docs: revise PLAN-0007 scope to browser/PWA offline resilience
 docs: add PLAN-0007 worker notes
+feat(web): add connectivity tracking and reconnect resilience for Sales/Pay/Display/Kds
 ```
 
 ## Handoff Notes
 
 ### Immediate
 
-Milestone A is scoped for planning but **not yet approved for implementation** as of this
-revision. The next step is human approval of Milestone A's scope above before any code changes.
+Milestone A is implemented and complete (2026-07-08; see Milestone A Closeout above and the worker
+notes' Implementation Report). Milestone B (offline-safe local drafts / bounded write queue) remains
+an outline-only placeholder and requires its own kickoff-decision pass before any implementation
+starts — not begun.
 
 ### Future Plan — Daxa Local Server / Daxa Sync
 

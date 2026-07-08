@@ -21,4 +21,10 @@ public class ApiErrorMessagesTests
     {
         Assert.Equal("generic", ApiErrorMessages.ForLoadFailure(ApiResultKind.Failed, "generic"));
     }
+
+    [Fact]
+    public void ForLoadFailure_NetworkFailure_ReturnsConnectionLostMessage()
+    {
+        Assert.Equal(ApiErrorMessages.ConnectionLost, ApiErrorMessages.ForLoadFailure(ApiResultKind.NetworkFailure, "generic"));
+    }
 }

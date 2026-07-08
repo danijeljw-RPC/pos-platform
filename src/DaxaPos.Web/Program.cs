@@ -18,10 +18,13 @@ builder.Services.AddSingleton<IDeviceContextStore, DeviceContextStore>();
 builder.Services.AddSingleton<IAuthSessionStore, AuthSessionStore>();
 builder.Services.AddSingleton<IBackOfficeSessionStore, BackOfficeSessionStore>();
 builder.Services.AddSingleton<IDraftOrderStore, DraftOrderStore>();
+builder.Services.AddSingleton<IConnectivityTracker, ConnectivityTracker>();
 builder.Services.AddTransient<AuthHeaderHandler>();
+builder.Services.AddTransient<ConnectivityHandler>();
 
 builder.Services.AddHttpClient<DaxaApiClient>(client => client.BaseAddress = new Uri(apiBaseUrl))
-    .AddHttpMessageHandler<AuthHeaderHandler>();
+    .AddHttpMessageHandler<AuthHeaderHandler>()
+    .AddHttpMessageHandler<ConnectivityHandler>();
 
 builder.Services.AddAuthorizationCore();
 builder.Services.AddScoped<ApiAuthenticationStateProvider>();

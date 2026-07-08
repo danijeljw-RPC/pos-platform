@@ -6,11 +6,14 @@
 
 <PageTitle>Payment</PageTitle>
 
+<ConnectivityBanner />
+
 <h1>Payment</h1>
 
 @if (_loadError is not null)
 {
     <p class="text-danger" role="alert">@_loadError</p>
+    <button type="button" id="retry-load" class="btn btn-outline-primary" @onclick="LoadAsync">Retry</button>
     <a href="/sales">Back to sales</a>
 }
 else if (_receipt is { } receipt)
@@ -146,12 +149,19 @@ else
 
     private decimal AmountDue => _order is null ? 0m : _order.GrandTotalAmount - AmountPaid;
 
-    protected override async Task OnInitializedAsync()
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    /// <summary>
+    /// PLAN-0007 Milestone A: also called from the "Retry" button shown alongside <see cref="_loadError"/>.
+    /// </summary>
+    private async Task LoadAsync()
     {
+        _loadError = null;
+
         var orderResult = await ApiClient.GetOrderAsync(OrderId);
         if (orderResult.Kind != ApiResultKind.Success || orderResult.Value is null)
         {
-            _loadError = "This order could not be found.";
+            _loadError = ApiErrorMessages.ForLoadFailure(orderResult.Kind, "This order could not be found.");
             return;
         }
 
@@ -198,6 +208,7 @@ else
             _actionError = result.Kind switch
             {
                 ApiResultKind.Unauthorized or ApiResultKind.Forbidden => "You don't have permission to record payments.",
+                ApiResultKind.NetworkFailure => ApiErrorMessages.ConnectionLost,
                 _ => "This payment could not be recorded. It may exceed the amount owing.",
             };
             _isBusy = false;
