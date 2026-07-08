@@ -13,4 +13,11 @@ public interface IDraftOrderStore
     ValueTask SaveOrderIdAsync(Guid deviceId, Guid orderId);
 
     ValueTask ClearAsync(Guid deviceId);
+
+    /// <summary>
+    /// PLAN-0007 Milestone D: the exact <c>localStorage</c> key this device's draft pointer is
+    /// stored under, so a cross-tab <c>storage</c>-event watcher can be told what to watch without
+    /// duplicating the key format.
+    /// </summary>
+    string KeyFor(Guid deviceId);
 }

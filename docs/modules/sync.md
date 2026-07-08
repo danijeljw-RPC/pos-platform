@@ -4,6 +4,13 @@ The sync module provides local-to-cloud and cloud-to-local data synchronisation.
 
 See also: `docs/architecture/sync.md`.
 
+**Not this document:** browser/PWA offline and reconnect resilience for the existing single-API
+Terminal/Display/KDS screens (connectivity tracking, reconnect revalidation, offline-safe action
+retry, cross-tab draft-pointer detection) is a separate, already-implemented concern — see
+[PLAN-0007](../plans/active/PLAN-0007-sync-local-hybrid-planning.md). It does not use a local
+server, a sync worker, or anything described below; it operates entirely browser-side against the
+one existing Daxa API.
+
 ---
 
 ## Responsibilities
@@ -27,6 +34,6 @@ See also: `docs/architecture/sync.md`.
 
 ## Related Plans
 
-- [PLAN-0007 — Sync, Local, Hybrid](../plans/active/PLAN-0007-sync-local-hybrid-planning.md)
+- [PLAN-0007 — Browser/PWA Offline and Reconnect Resilience](../plans/active/PLAN-0007-sync-local-hybrid-planning.md)
 - [ADR-0007 — Local/Hybrid Sync Principles](../adr/accepted/ADR-0007-local-hybrid-sync-principles.md)
 - [OI-0006 — Hybrid Sync Conflict Rules](../issues/closed/OI-0006-hybrid-sync-conflict-rules.md)

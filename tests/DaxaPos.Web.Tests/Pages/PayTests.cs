@@ -131,14 +131,16 @@ public class PayTests : TestContext
     }
 
     /// <summary>
-    /// PLAN-0007 Milestone C: a rejection must not be trusted blindly — ADR-0007's "revalidate
-    /// against the server" principle applied to a rejection, not just a reconnect. Here the order was
-    /// actually completed by another terminal between this page's load and its payment attempt; the
-    /// server rejects with 409, and the revalidation this milestone adds discovers the order is now
-    /// Completed and shows the receipt instead of leaving stale payment buttons on screen.
+    /// PLAN-0007 Milestone D: <see cref="SubmitPaymentAsync"/> now revalidates immediately before
+    /// the POST (not only after a rejection, per Milestone C) — narrows the two-tabs-same-order
+    /// double-payment race by catching a since-completed order proactively. The order was completed
+    /// by another terminal between this page's load and the payment attempt; the pre-submit
+    /// revalidation discovers this via a plain GET and shows the receipt without ever sending the
+    /// payment POST at all — an improvement over Milestone C's rejection-triggered revalidation,
+    /// which only recovered after a doomed submit attempt.
     /// </summary>
     [Fact]
-    public void ServerRejectsPayment_WhenOrderCompletedElsewhere_RevalidatesAndShowsReceipt()
+    public void OrderCompletedElsewhere_PreSubmitRevalidationCatchesIt_BeforeAnyPost()
     {
         var order = new OrderResult(Guid.NewGuid(), TerminalId, OrderStatusResult.Open, 10.00m, 1.00m, 11.00m, [SampleLine(11.00m)]);
         var backend = new FakeOrderBackend { Order = order };
@@ -151,15 +153,89 @@ public class PayTests : TestContext
             11.00m, 11.00m, Guid.NewGuid(), null, null, DateTimeOffset.UtcNow, null));
         backend.Order = order with { Status = OrderStatusResult.Completed };
 
+        var paymentPostAttempts = 0;
         var originalRespond = stub.Respond;
-        stub.Respond = req => req.Method == HttpMethod.Post && req.RequestUri!.AbsolutePath.EndsWith("/payments", StringComparison.Ordinal)
-            ? new HttpResponseMessage(HttpStatusCode.Conflict)
-            : originalRespond(req);
+        stub.Respond = req =>
+        {
+            if (req.Method == HttpMethod.Post && req.RequestUri!.AbsolutePath.EndsWith("/payments", StringComparison.Ordinal))
+            {
+                paymentPostAttempts++;
+            }
+
+            return originalRespond(req);
+        };
 
         cut.Find("#record-cash").Click();
 
         cut.WaitForAssertion(() => Assert.Contains("Receipt", cut.Markup));
         Assert.Empty(cut.FindAll("#record-cash"));
+        Assert.Equal(0, paymentPostAttempts);
+    }
+
+    /// <summary>
+    /// PLAN-0007 Milestone D: the same pre-submit revalidation for a non-Completed "no longer
+    /// payable" outcome (voided elsewhere) — shows <see cref="ApiErrorMessages.OrderChangedElsewhere"/>
+    /// and never sends the payment POST, mirroring Milestone C's own
+    /// <c>RefreshOrderAndPaymentsAsync</c>/<c>ApplyCompletionStateAsync</c> composition rather than a
+    /// new state machine.
+    /// </summary>
+    [Fact]
+    public void OrderVoidedElsewhere_PreSubmitRevalidation_ShowsMessage_AndNeverSubmits()
+    {
+        var order = new OrderResult(Guid.NewGuid(), TerminalId, OrderStatusResult.Open, 10.00m, 1.00m, 11.00m, [SampleLine(11.00m)]);
+        var backend = new FakeOrderBackend { Order = order };
+        var stub = RegisterServices(backend);
+        var cut = RenderPay(order.Id);
+        cut.WaitForAssertion(() => Assert.Contains("$11.00", cut.Markup));
+
+        backend.Order = order with { Status = OrderStatusResult.Voided };
+
+        var paymentPostAttempts = 0;
+        var originalRespond = stub.Respond;
+        stub.Respond = req =>
+        {
+            if (req.Method == HttpMethod.Post && req.RequestUri!.AbsolutePath.EndsWith("/payments", StringComparison.Ordinal))
+            {
+                paymentPostAttempts++;
+            }
+
+            return originalRespond(req);
+        };
+
+        cut.Find("#record-cash").Click();
+
+        cut.WaitForAssertion(() => Assert.Contains(ApiErrorMessages.OrderChangedElsewhere, cut.Markup));
+        Assert.Equal(0, paymentPostAttempts);
+        Assert.Empty(backend.Payments);
+    }
+
+    /// <summary>
+    /// PLAN-0007 Milestone D: if the pre-submit revalidation GET itself fails (network blip), it
+    /// must not block the real payment attempt — <see cref="RefreshOrderAndPaymentsAsync"/> already
+    /// leaves <c>_order</c> unchanged on a failed read, so the still-Open in-memory order lets
+    /// submission proceed exactly as it did before Milestone D. Without this, a network blip on the
+    /// read would silently swallow a payment attempt that Milestone C's own NetworkFailure handling
+    /// is supposed to catch.
+    /// </summary>
+    [Fact]
+    public void PreSubmitRevalidationReadFailure_StillAttemptsThePayment()
+    {
+        var order = new OrderResult(Guid.NewGuid(), TerminalId, OrderStatusResult.Open, 10.00m, 1.00m, 11.00m, [SampleLine(11.00m)]);
+        var backend = new FakeOrderBackend { Order = order };
+        var stub = RegisterServices(backend);
+        var cut = RenderPay(order.Id);
+        cut.WaitForAssertion(() => Assert.Contains("$11.00", cut.Markup));
+
+        // Fails only the order GET (path ends with the order id), leaving the payment POST (path
+        // ends with "/payments") reachable. Asserted server-side, not via the "Receipt" markup —
+        // the existing post-success refresh (Milestone C) also calls GetOrderAsync and would itself
+        // be blocked by the same FailingPathSuffix for the rest of this test, which is a separate,
+        // pre-existing limitation unrelated to what this test verifies.
+        stub.FailingPathSuffix = order.Id.ToString();
+
+        cut.Find("#record-cash").Click();
+
+        cut.WaitForAssertion(() => Assert.Single(backend.Payments));
     }
 
     /// <summary>

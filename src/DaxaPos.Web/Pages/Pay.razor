@@ -258,6 +258,22 @@ else
         _isBusy = true;
         _actionError = null;
 
+        // PLAN-0007 Milestone D: revalidate immediately before the POST, not only after a rejection
+        // (Milestone C) — narrows (does not eliminate — no server-side lock) the two-tabs-same-order
+        // double-payment race by catching a since-completed/voided order proactively, avoiding a
+        // doomed submit attempt. RefreshOrderAndPaymentsAsync leaves `_order` unchanged if the read
+        // itself fails, so a network blip on this check falls through to the real attempt below
+        // rather than blocking a write on an unrelated read failure.
+        await RefreshOrderAndPaymentsAsync();
+        if (_order is not { Status: OrderStatusResult.Open or OrderStatusResult.Held })
+        {
+            _pendingPayment = null;
+            _actionError = ApiErrorMessages.OrderChangedElsewhere;
+            await ApplyCompletionStateAsync();
+            _isBusy = false;
+            return;
+        }
+
         var result = await ApiClient.RecordPaymentAsync(_order.Id, new RecordPaymentRequest(method, amount, idempotencyKey));
         if (result.Kind != ApiResultKind.Success || result.Value is null)
         {

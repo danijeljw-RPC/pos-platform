@@ -242,4 +242,37 @@ public class KdsTests : TestContext
 
         cut.WaitForAssertion(() => Assert.Contains("Reconnecting", cut.Markup));
     }
+
+    /// <summary>
+    /// PLAN-0007 Milestone D kickoff Question 6: <c>ConnectivityTracker.SetStatus</c> reads as
+    /// stateless per cycle (no counters/timers that could accumulate across many transitions), but
+    /// that was an assumption pending a test that actually cycles failure/success several times in
+    /// sequence, not a verified fact — this is that test. It confirms Milestone A's design already
+    /// holds; no production code change was needed once this passed.
+    /// </summary>
+    [Fact]
+    public void SustainedReconnectCycling_KeepsShowingTheLastBoard_AndRecoversCleanlyEachTime()
+    {
+        var connectivity = new ConnectivityTracker();
+        var backend = new FakeOrderBackend();
+        var order = SampleOrder(OrderStatusResult.Open, 99, DateTimeOffset.UtcNow);
+        backend.Orders.Add(order);
+        var stub = RegisterServicesWithConnectivity(backend, connectivity);
+
+        var cut = RenderKds();
+        cut.WaitForAssertion(() => Assert.Contains("99", cut.Markup));
+
+        for (var cycle = 0; cycle < 5; cycle++)
+        {
+            stub.ThrowNetworkFailure = true;
+            cut.WaitForAssertion(() => Assert.Contains(ApiErrorMessages.ConnectionLost, cut.Markup));
+            Assert.Contains("99", cut.Markup);
+
+            stub.ThrowNetworkFailure = false;
+            cut.WaitForAssertion(() => Assert.DoesNotContain(ApiErrorMessages.ConnectionLost, cut.Markup));
+        }
+
+        Assert.Equal(ConnectivityStatus.Online, connectivity.Status);
+        Assert.Contains("99", cut.Markup);
+    }
 }

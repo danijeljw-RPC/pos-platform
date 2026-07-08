@@ -272,4 +272,39 @@ public class DisplayTests : TestContext
 
         cut.WaitForAssertion(() => Assert.Contains("Reconnecting", cut.Markup));
     }
+
+    /// <summary>
+    /// PLAN-0007 Milestone D kickoff Question 6: <c>ConnectivityTracker.SetStatus</c> reads as
+    /// stateless per cycle (no counters/timers that could accumulate across many transitions), but
+    /// that was an assumption pending a test that actually cycles failure/success several times in
+    /// sequence, not a verified fact — this is that test. It confirms Milestone A's design already
+    /// holds; no production code change was needed once this passed.
+    /// </summary>
+    [Fact]
+    public async Task SustainedReconnectCycling_NeverBlanksToIdle_AndRecoversCleanlyEachTime()
+    {
+        var order = new OrderResult(Guid.NewGuid(), TerminalId, OrderStatusResult.Open, 5.00m, 0m, 5.00m,
+            [SampleLine("Muffin", 5.00m)]);
+        var backend = new FakeOrderBackend { Order = order };
+        var (draftStore, stub, connectivity) = RegisterServicesWithConnectivity(backend);
+        await draftStore.SaveOrderIdAsync(DeviceId, order.Id);
+
+        var cut = RenderDisplay();
+        cut.WaitForAssertion(() => Assert.Contains("Muffin", cut.Markup));
+
+        for (var cycle = 0; cycle < 5; cycle++)
+        {
+            stub.ThrowNetworkFailure = true;
+            await Task.Delay(FastPoll * 3);
+            Assert.Contains("Muffin", cut.Markup);
+            Assert.DoesNotContain("Welcome", cut.Markup);
+
+            stub.ThrowNetworkFailure = false;
+            cut.WaitForAssertion(() => Assert.DoesNotContain("Reconnecting", cut.Markup));
+            cut.WaitForAssertion(() => Assert.DoesNotContain("Offline", cut.Markup));
+        }
+
+        Assert.Equal(ConnectivityStatus.Online, connectivity.Status);
+        Assert.Contains("Muffin", cut.Markup);
+    }
 }

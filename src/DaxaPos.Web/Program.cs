@@ -19,6 +19,7 @@ builder.Services.AddSingleton<IAuthSessionStore, AuthSessionStore>();
 builder.Services.AddSingleton<IBackOfficeSessionStore, BackOfficeSessionStore>();
 builder.Services.AddSingleton<IDraftOrderStore, DraftOrderStore>();
 builder.Services.AddSingleton<IConnectivityTracker, ConnectivityTracker>();
+builder.Services.AddTransient<IDraftPointerWatcher, JsDraftPointerWatcher>();
 builder.Services.AddTransient<AuthHeaderHandler>();
 builder.Services.AddTransient<ConnectivityHandler>();
 

@@ -1,13 +1,24 @@
 @page "/sales"
+@using Microsoft.Extensions.DependencyInjection
 @inject DaxaApiClient ApiClient
 @inject IDeviceContextStore DeviceContextStore
 @inject IAuthSessionStore SessionStore
 @inject IDraftOrderStore DraftOrderStore
 @inject NavigationManager Navigation
+@inject IServiceProvider ServiceProvider
+@implements IAsyncDisposable
 
 <PageTitle>Sales</PageTitle>
 
 <ConnectivityBanner />
+
+@if (_draftChangedElsewhere)
+{
+    <div class="alert alert-warning py-2 px-3 mb-3" role="alert">
+        @ApiErrorMessages.DraftChangedElsewhere
+        <button type="button" id="refresh-draft" class="btn btn-sm btn-outline-primary ms-2" @onclick="RefreshAfterDraftChangedAsync">Refresh</button>
+    </div>
+}
 
 <h1>Sales</h1>
 
@@ -197,7 +208,53 @@ else
     private ResolvedMenuItemResult? _selectingItem;
     private readonly Dictionary<Guid, List<Guid>> _modalSelections = [];
 
-    protected override async Task OnInitializedAsync() => await LoadAsync();
+    /// <summary>
+    /// PLAN-0007 Milestone D: set when another tab of the same browser/device moved the shared draft
+    /// order pointer (detected via <see cref="IDraftPointerWatcher"/>, or found by the pre-action
+    /// re-check in <see cref="AddLineAsync"/>). Never silently applied — staff must tap Refresh,
+    /// which re-runs <see cref="LoadAsync"/> against the server.
+    /// </summary>
+    private bool _draftChangedElsewhere;
+    private IDraftPointerWatcher? _draftWatcher;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // PLAN-0007 Milestone D: resolved via IServiceProvider.GetService (nullable), not @inject,
+        // matching ConnectivityBanner's precedent — a test/host that doesn't register a watcher must
+        // keep working exactly as before, not start throwing because of an unrelated, additive change.
+        if (DeviceContextStore.Current is { } device)
+        {
+            _draftWatcher = ServiceProvider.GetService<IDraftPointerWatcher>();
+            if (_draftWatcher is not null)
+            {
+                _draftWatcher.ChangedElsewhere += HandleDraftChangedElsewhere;
+                await _draftWatcher.WatchAsync(DraftOrderStore.KeyFor(device.DeviceId));
+            }
+        }
+
+        await LoadAsync();
+    }
+
+    private void HandleDraftChangedElsewhere()
+    {
+        _draftChangedElsewhere = true;
+        InvokeAsync(StateHasChanged);
+    }
+
+    private async Task RefreshAfterDraftChangedAsync()
+    {
+        _draftChangedElsewhere = false;
+        await LoadAsync();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_draftWatcher is not null)
+        {
+            _draftWatcher.ChangedElsewhere -= HandleDraftChangedElsewhere;
+            await _draftWatcher.DisposeAsync();
+        }
+    }
 
     /// <summary>
     /// PLAN-0007 Milestone A: also called from the "Retry" button shown alongside <see cref="_loadError"/>,
@@ -297,6 +354,18 @@ else
     {
         if (DeviceContextStore.Current is not { } device || SessionStore.Current?.TerminalId is not { } terminalId)
         {
+            return;
+        }
+
+        // PLAN-0007 Milestone D: re-check the shared draft pointer immediately before mutating,
+        // not just at page load. Narrows (does not eliminate — no server-side lock) the two-tabs
+        // split-order race: if another tab already opened/cleared/replaced the order since this tab
+        // last loaded, the pointer here will have diverged from the in-memory `_order`, and this tab
+        // must not silently open a second order or add to one that's no longer the shared draft.
+        var storedOrderId = await DraftOrderStore.GetOrderIdAsync(device.DeviceId);
+        if (storedOrderId != _order?.Id)
+        {
+            _draftChangedElsewhere = true;
             return;
         }
 

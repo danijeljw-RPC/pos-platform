@@ -5,7 +5,10 @@
 **Milestone A (Reconnect And Read Resilience) is implemented and complete** (2026-07-08). See the
 Milestone A Implementation Report below. **Milestone B (Offline-Safe Sales Action Retry, Option 2)
 is implemented and complete** (2026-07-08) — see the Milestone B Implementation Report below.
-Milestones C–D remain outline-only placeholders, not started. See the plan doc
+**Milestone C (Payment/Receipt Resilience) is implemented and complete** (2026-07-08) — see the
+Milestone C Implementation Report below. **Milestone D (Multi-Tab/KDS Consistency) is approved
+(2026-07-08) — narrow same-device/same-browser detect-and-prompt scope — and implementation is
+underway.** See the Human Decision and Implementation Report below. See the plan doc
 (`docs/plans/active/PLAN-0007-sync-local-hybrid-planning.md`) for the authoritative scope.
 
 ## Purpose Of This Revision
@@ -726,14 +729,399 @@ Decision 2's "generate a new key only after the previous attempt is resolved/cle
 - `dotnet test DaxaPos.sln` — see the report footer below for the full-suite count and
   `git diff --stat` confirmation of scope.
 
+## Milestone D Kickoff Report (2026-07-08)
+
+Verification-only session, no product code touched. Confirmed repository state before reading:
+`git status --short --branch` — clean, `main` matches `origin/main` exactly (0 ahead/0 behind).
+`dotnet test DaxaPos.sln` — **1237/1237 passing** (144 unit + 163 Web + 930 API), matching the
+Milestone C closeout baseline exactly, no drift. `npx markdownlint-cli2 "**/*.md"` — 0 errors across
+167 files. Read the plan doc, these worker notes, `ApiResultKind`/`ApiResult.cs`,
+`ConnectivityTracker.cs`/`ConnectivityHandler.cs`/`ConnectivityBanner.razor`, `ApiErrorMessages.cs`,
+`Sales.razor`, `Pay.razor`, `Display.razor`, `Kds.razor`, `Program.cs` (DI registration lifetimes),
+`DeviceContextStore`/`AuthSessionStore`/`BackOfficeSessionStore`/`DraftOrderStore`/`JsonLocalStore`/
+`IBrowserStorage`/`LocalStorageBrowserStorage`, and `docs/architecture/sync.md` (confirmed it
+describes only the future local-server sync layer, unrelated to this milestone's browser-tab scope).
+Grepped the entire `src/DaxaPos.Web` tree (excluding `bin`/`obj`) for `BroadcastChannel`,
+`addEventListener('storage'...)`, and any JS interop event-callback registration — none exist today
+beyond an unrelated Bootstrap `resize` listener.
+
+### 1. What the plan says Milestone D should cover
+
+The Milestone Breakdown table's only line for D: *"Multi-tab/multi-device consistency and KDS
+resilience under sustained reconnect cycling (e.g. a KDS board that has been offline for an extended
+period)."* Status: outline only. The "Recommended Next Session" section (this file, above) repeats
+the same one-liner and adds no further detail. Unlike A/B/C, which each got a full Scope/Non-goals
+section in the plan doc before their kickoff, **D has no such section yet** — this kickoff report is
+the first pass at turning that one sentence into a concrete, boundaried scope, matching the pattern
+Milestone B's kickoff used when it found the plan's original framing didn't hold up against the real
+code.
+
+### 2. Existing multi-tab/browser-state behaviour today
+
+There is none, by design. Blazor WebAssembly runs each browser tab as a fully separate WASM app
+instance with its own process memory and its own dependency-injection container (built once per tab
+in that tab's `Program.cs Main`). The `AddSingleton` registrations for `IDeviceContextStore`,
+`IAuthSessionStore`, `IBackOfficeSessionStore`, `IDraftOrderStore`, and `IConnectivityTracker`
+(`Program.cs:16-21`) are singletons **within one tab's app instance only** — nothing shares state
+across tabs except `localStorage` itself, which is per-origin and visible to every tab, but nothing
+in the codebase listens for another tab's writes to it. `IBrowserStorage`'s three methods
+(`GetItemAsync`/`SetItemAsync`/`RemoveItemAsync`) are call/response JS interop only — no event
+subscription exists in either direction. Confirmed by grep: no `BroadcastChannel`, no
+`window.addEventListener('storage', ...)`, no SignalR/WebSocket anywhere in `DaxaPos.Web`.
+
+### 3. What state is localStorage-backed, in-memory, or server-authoritative
+
+- **localStorage-backed** (shared across tabs at the storage layer, but not reactively): `DeviceContext`
+  (`daxa.device-context.v1`), `SessionState` (`daxa.session.v1`), `BackOfficeSessionState`
+  (`daxa.backoffice-session.v1`), and the draft order pointer (`daxa.sales-draft.v1.{deviceId}`,
+  `DraftOrderStore.cs:25` — a bare `OrderId`, nothing else).
+- **In-memory only, per-tab, not persisted**: `ConnectivityTracker`'s status (a deliberate Milestone A
+  design choice, per its own doc comment — connectivity is a transient per-tab signal); every page's
+  own component fields — `Sales.razor`'s `_order`/`_menu`/`_pendingRetry`/`_actionError`,
+  `Pay.razor`'s `_order`/`_payments`/`_receipt`/`_pendingPayment`/`_receiptError`, `Display.razor`'s
+  `_trackedOrderId`/`_order`/`_receipt`, `Kds.razor`'s `_orders` list.
+- **Server-authoritative**: all actual order/line/payment/receipt content. The client never computes
+  or stores financial truth beyond the bare `OrderId` pointer and whatever the last successful GET put
+  into a page's own in-memory fields.
+
+### 4. What happens today with two tabs open, per screen
+
+- **Sales** (real risk, not hypothetical): `DeviceContextStore`'s key has no per-tab component, so two
+  Sales tabs on the same browser/device share the same `daxa.sales-draft.v1.{deviceId}` key. Each tab
+  reads that key only once, in its own `OnInitializedAsync` → `LoadAsync` (`Sales.razor:200-244`) — no
+  poll loop, no re-read on demand. If Tab 1 opens an order (first tile tap → `OpenOrderAsync`,
+  `Sales.razor:307-319`) after Tab 2 already loaded with `_order is null`, Tab 2 has no way to learn
+  this happened. A tile tap in Tab 2 re-enters `AddLineAsync` with its own stale `_order is null` and
+  calls `OpenOrderAsync` **again**, creating a second, independent order and overwriting the shared
+  localStorage key with Tab 2's `OrderId` (`SaveOrderIdAsync`, last-write-wins). Tab 1 keeps its own
+  in-memory `_order` reference and keeps adding lines to the first (now pointer-orphaned but still
+  real, open, billable) order — a genuine split-order defect reachable by two tabs on the same device,
+  confirmed by reading the code, not assumed.
+- **Pay** (real risk, distinct from Sales'): addressed by `OrderId` in the URL
+  (`/sales/pay/{OrderId:guid}`), so the two-tabs risk here is two tabs on the **same order** (e.g.
+  staff had trouble in one tab and opened a second to retry). Each tab generates its own fresh
+  `Guid.NewGuid()` idempotency key per new attempt (`Pay.razor:234`) — Milestone C's idempotency-reuse
+  fix only protects a single tab's own retry of its own uncertain attempt; it does nothing for two
+  independent tabs each submitting what the server sees as two distinct new payments. If both tabs'
+  staff press "Record cash payment" close together, the server's per-key dedupe does not fire (the
+  keys differ), so **two real `Payment` rows can be created**, caught only if the second happens to
+  push the running total over `GrandTotalAmount` (`WouldExceedOrderTotal`) — a duplicate that fits
+  under the total (e.g. an early split payment) succeeds silently as a second real payment.
+  Separately, once one tab's payment completes the order, the other tab's stale in-memory `_order`
+  still shows payment-entry buttons until it submits and gets rejected — Milestone C's
+  rejection-revalidation then correctly flips it to the receipt view, but only after a doomed submit
+  attempt, not proactively.
+- **Display** (already safe): doesn't write the draft pointer, only reads it every poll tick
+  (default 4s, `Display.razor:64,123`). Two Display tabs on the same device independently converge to
+  the same server truth within one poll interval — no write race is possible since there is no write
+  path at all.
+- **Kds** (already safe): doesn't use the draft pointer at all — lists all open/held orders for the
+  location directly from the server on its own poll tick (`Kds.razor:107-126`). Multiple Kds tabs (or
+  devices) are inherently consistent for the same reason as Display: pure read/poll against
+  server-authoritative state, no client-cached "truth" to diverge.
+
+### 5. What happens when one tab changes the draft pointer and another is stale
+
+Exactly the Sales scenario in Question 4: `DraftOrderStore.SaveOrderIdAsync` is a plain
+`localStorage.setItem` overwrite (`DraftOrderStore.cs:19-20`) with no notification of any kind.
+Nothing invalidates or informs an already-loaded Sales tab holding a different (or no) order in
+memory. That tab will not discover the change until it independently re-reads the store, which today
+only happens at initial `OnInitializedAsync` or via the "Retry" button shown alongside `_loadError`
+(`Sales.razor:25-29`) — which only appears after a *load* failure, not after a *stale-pointer*
+situation, so in practice it almost never fires for this case. A stale tab can silently keep operating
+against a now-orphaned or now-superseded order indefinitely, until the page is manually reloaded.
+
+### 6. Are Display and KDS already safe because they poll server state?
+
+Yes, for ordinary reconnect behaviour — confirmed by Question 4's reasoning: both are pure read/poll
+loops with no local write path and no per-tab cached "intent" to diverge from another tab or device.
+The one wrinkle is `Display.razor`'s deliberate "sticky-completed" receipt cache
+(`_trackedOrderId`/`_receipt`, kept in memory specifically so the receipt survives
+`Pay.razor` clearing the draft pointer, per the Milestone A closeout notes) — two Display tabs each
+keep their own sticky copy, which is harmless (display-only, no write) and not a correctness issue.
+The second half of Milestone D's one-liner — "KDS resilience under **sustained** reconnect
+cycling," as opposed to Milestone A's single-then-second-failure model — is not yet verified by any
+existing test. Reading `ConnectivityTracker.SetStatus` (`ConnectivityTracker.cs:46-55`) shows the
+transition logic is stateless per cycle (no counters or timers that could accumulate or drift across
+many cycles), so there's no code-level evidence of a "sustained cycling" bug — but this is an
+assumption pending a test that actually cycles `NetworkFailure`/`Success` several times in sequence,
+not a verified fact yet.
+
+### 7. Are Sales and Pay safe enough, or do they need refresh/revalidation prompts?
+
+No, not safe enough — Question 4's split-order (Sales) and double-payment (Pay, same order, two tabs)
+scenarios are real gaps, not edge-case theorizing. Both need either (a) a re-check of the relevant
+server/pointer state immediately before a mutating action, not only at page load, or (b) a
+browser-native notification when the underlying `localStorage` key changes under a tab, prompting a
+refresh rather than silently continuing. This matches the plan's own stated preference for "server
+revalidation over browser-local assumptions" and extends the idiom Milestone C already established
+(revalidate on rejection) to also cover "revalidate just before acting," which is new.
+
+### 8. Is Milestone D safe to implement without backend/schema changes?
+
+Yes, for a **detection-and-prompt** scope:
+
+- Detecting "another tab moved the draft pointer" can use the browser's native `storage` event, which
+  fires in *other* tabs of the same origin when `localStorage` changes (and deliberately does not fire
+  in the tab that made the change — exactly the "stale tab" case here). This is a browser API
+  `DaxaPos.Web` has never wired up (`IBrowserStorage` is call/response only), so it needs a small new
+  JS-interop callback (a `DotNetObjectReference` registration), but it is still purely browser-side —
+  no backend change.
+- Detecting "another tab already paid this order" (Pay) can reuse the exact same
+  `GetOrderAsync`/`GetPaymentsAsync` reads Milestone C already calls — no backend change.
+
+No, for **eliminating** the underlying races outright:
+
+- Preventing the double-payment race with certainty needs server-side mutual exclusion on "start a
+  payment for this order," which is the kind of locking the session's constraints say not to build
+  unless explicitly required.
+- Preventing the double-order-open race with certainty has the same shape as Milestone B's already-
+  accepted residual risk (no idempotency key on `CreateOrderRequest`) — Milestone B's own conclusion
+  (accept under staff-visible detection, don't solve server-side) applies identically here.
+
+### 9. Main risks
+
+- Scope-creep pull toward building actual cross-tab locking/coordination (a `BroadcastChannel` mutex,
+  server-side "order locked by tab X" state) — explicitly excluded by the session's constraints unless
+  separately approved.
+- The `storage` event is a genuinely new JS-interop surface for this codebase (current
+  `IBrowserStorage` has no event-subscription capability at all) — more implementation surface than
+  Milestone A/B/C needed, even though it stays browser-only.
+- `Sales.razor`'s `_pendingRetry` (Milestone B) and `Pay.razor`'s `_pendingPayment` (Milestone C) are
+  deliberately in-memory/component-scoped, not persisted — any Milestone D cross-tab detection work
+  must not accidentally start persisting these to `localStorage`, which would contradict B/C's explicit
+  non-goals.
+- The plan's one-liner conflates "multi-tab" and "multi-device," but they are different problems with
+  different mechanisms: same-browser tabs share `localStorage` (so `storage` events apply), while
+  different devices don't share it at all (different `DeviceContextStore`/`DraftOrderStore` keys
+  entirely) — multi-device consistency is really "server is authoritative, Display/KDS already poll
+  it," which is already true today (Question 6). Conflating the two risks overbuilding for a problem
+  (cross-device) that's arguably already solved.
+- Verifying "sustained reconnect cycling" needs a new test shape (repeated cycling) that doesn't exist
+  in the current bUnit suite — needs to be written, not assumed to pass.
+- `AuthSessionStore`/`BackOfficeSessionStore` have the identical stale-tab problem as the draft pointer
+  (e.g. staff logs out in one tab, another tab doesn't know) — tangentially related to the
+  already-flagged OI-0012, but outside Milestone D's named scope (`Sales`/`Pay`/`Display`/`Kds`); noted
+  here to avoid silently folding it in, not proposed for this milestone.
+
+### 10. Decisions needed before implementation
+
+- Confirm Milestone D's "multi-tab" scope is **same-device/same-browser tabs only** (what
+  `localStorage`/`storage` events can actually detect), treating multi-device consistency as already
+  covered by Display/KDS's existing poll pattern (Question 6) — recommended, to avoid conflating two
+  different problems (Question 9).
+- Confirm the mechanism is the native browser `storage` event (detect another tab changed the draft
+  pointer, then prompt/offer refresh) rather than anything heavier — recommended, matches the user's
+  stated preference for "simple browser storage event handling... not a complex coordination
+  framework."
+- Confirm `Sales.razor` should re-check the draft pointer immediately before a mutating action
+  (`OpenOrderAsync`/`AddOrderLineAsync` inside `AddLineAsync`), not just react to a `storage` event —
+  recommended, narrows the split-order race using only the existing `GetOrderAsync` read.
+- Confirm `Pay.razor` should re-check order/payment status immediately before `SubmitPaymentAsync`'s
+  POST (in addition to any `storage`-event prompt) — recommended, narrows (does not eliminate) the
+  double-payment race using only existing reads, mirroring Milestone C's Check-status idiom.
+- Confirm that eliminating these races via server-side locking is explicitly **out of scope** for
+  Milestone D (recommended: yes — matches Milestone B's accepted-risk precedent and the session's "no
+  complex locking" constraint). Milestone D would then be "detect and prompt," not "make impossible."
+- Confirm "sustained reconnect cycling" for Display/KDS is verify-with-a-new-test-first (only change
+  code if the test finds an actual defect), not an assumed behavior change.
+- Confirm the `AuthSessionStore`/`BackOfficeSessionStore` staleness (Question 9, OI-0012-adjacent) is
+  explicitly deferred, not folded into Milestone D.
+- Sign off on message copy / UX shape for the proposed prompts once drafted below.
+
+### 11. Proposed narrow Milestone D checklist (not yet approved)
+
+1. Add a `storage`-event notification path: a small new JS-interop callback (via
+   `DotNetObjectReference`) so a page can learn when the browser fires a native `storage` event for
+   the `daxa.sales-draft.v1.{deviceId}` key — i.e., another tab of the same browser/device changed it.
+   New capability, browser-only, no backend change.
+2. `Sales.razor`: on detecting the draft pointer changed in another tab, show a clear prompt (e.g. "
+   This order may have changed in another tab — Refresh") with an explicit action that re-runs
+   `LoadAsync` — never a silent automatic switch of `_order` out from under in-progress staff input.
+3. `Sales.razor`: immediately before `OpenOrderAsync`/`AddOrderLineAsync` inside `AddLineAsync`,
+   re-check the stored draft pointer against the in-memory `_order?.Id`; if they've diverged, surface
+   the same prompt from step 2 instead of proceeding blind.
+4. `Pay.razor`: immediately before `SubmitPaymentAsync` issues its POST, re-fetch order/payment status
+   (reusing `RefreshOrderAndPaymentsAsync`) and abort with a clear message if the order is no longer
+   payable — narrows, does not eliminate, the two-tabs-same-order double-payment race, using only
+   existing read endpoints.
+5. `Display.razor`/`Kds.razor`: no behaviour change expected. Add a bUnit test that cycles
+   `NetworkFailure` → `Success` several times in sequence to verify no state leak/drift across
+   "sustained reconnect cycling" — confirming Milestone A's design already holds, rather than assuming
+   it.
+6. bUnit coverage: Sales — another tab's draft-pointer change is detected and prompts a refresh rather
+   than being silently applied; a stale in-memory `_order` vs. store-pointer mismatch blocks the next
+   add-line with a prompt instead of proceeding. Pay — a pre-submit revalidation that finds the order
+   already `Completed`/not payable shows the receipt/rejection path instead of double-submitting;
+   existing single-tab Retry/Check-status behaviour from Milestone C is unaffected.
+7. No `IDraftOrderStore` schema change beyond, at most, the new event-subscription capability; no new
+   persisted state; no migration; no backend endpoint or contract changes.
+8. Update `docs/modules/sync.md`/this plan doc/these worker notes with the Milestone D closeout once
+   implemented.
+
+**Not proposed, and out of scope unless separately approved:** any server-side lock/mutex on orders or
+payments; a persisted cross-tab coordination store; automatic conflict resolution/merging; any
+multi-device (cross-browser) consistency work beyond Display/KDS's existing poll pattern; any change
+to `AuthSessionStore`/`BackOfficeSessionStore` staleness (OI-0012-adjacent, deferred).
+
+## Human Decision (2026-07-08): Milestone D approved — narrow same-device/same-browser scope
+
+The kickoff report's Question 10 decisions were confirmed as recommended, with one scope
+clarification (Display/KDS: verify-first, and if the review finds no defect, document that instead
+of changing code — not merely "recommended," made explicit):
+
+1. **Scope boundary**: same-device/same-browser tabs only. No multi-device concurrency, no
+   multi-terminal concurrency, no server-side locking. Multi-device consistency remains covered by
+   Display/KDS's existing poll-against-server pattern (kickoff Question 6), not extended here.
+2. **Mechanism**: the native browser `storage` event (fires in *other* tabs when `localStorage`
+   changes, not in the tab that made the change), or the existing `IBrowserStorage` abstraction if it
+   can expose equivalent behaviour cleanly. No `BroadcastChannel` unless the `storage` event proves
+   impractical. Kept small.
+3. **Sales**: detect when the draft order pointer (`daxa.sales-draft.v1.{deviceId}`) changes in
+   another tab; show a clear prompt/state (refresh/reload/revalidate UX, not a silent switch).
+   Before `OpenOrderAsync`/`AddOrderLineAsync` inside `AddLineAsync`, re-read/revalidate the stored
+   draft pointer where practical, so a stale tab never silently opens a second order when the shared
+   pointer already indicates another active order exists.
+4. **Pay**: before `SubmitPaymentAsync` issues its POST, revalidate current order/payment state
+   where practical (reusing `RefreshOrderAndPaymentsAsync`, Milestone C's existing read path). If the
+   draft pointer/order state changed elsewhere, show a clear refresh/check-status prompt rather than
+   submitting blindly. No complex lock; does not block all multi-tab use globally (single-tab
+   Retry/Check-status from Milestone C is unaffected).
+5. **Display/Kds**: remain read/poll-driven; no locks, no cross-tab state. Add a sustained
+   reconnect/poll-cycling test if practical and low-risk (kickoff Question 6's cycling behaviour was
+   assumed safe from reading `ConnectivityTracker.SetStatus`, but not yet verified by a test that
+   actually cycles). If the test confirms no defect, that is documented as the outcome — not treated
+   as a reason to change code that isn't broken.
+6. **Auth/session-store staleness**: explicitly deferred (kickoff Question 9, OI-0012-adjacent). Not
+   touched unless directly required for draft/order consistency, which it is not.
+7. **Out of scope, confirmed**: no backend changes, no migrations, no server-side locking, no full
+   browser-tab coordinator, no offline write queues, no offline payments, no refunds, no local
+   server, no PLAN-0008/PLAN-0009, no Stripe Terminal, no MAUI, no OI-0018, no printer routing, no KDS
+   station lifecycle.
+
+This confirms the kickoff report's Section 11 checklist as the approved implementation plan,
+essentially verbatim — see that checklist for the item-by-item technical steps.
+
+## Milestone D Implementation Report (2026-07-08)
+
+Implemented directly on `main` per the approved checklist above, TDD throughout (each new/changed
+behaviour written test-first, watched fail for the expected reason, then implemented minimally).
+
+**What was built:**
+
+- `src/DaxaPos.Web/State/IDraftPointerWatcher.cs` (new) — `event Action? ChangedElsewhere` +
+  `ValueTask WatchAsync(string key)`, `IAsyncDisposable`. The one new cross-tab-detection interface,
+  scoped to a single watched key per instance (`Sales.razor` is the only consumer).
+- `src/DaxaPos.Web/State/JsDraftPointerWatcher.cs` (new) — the real implementation, wrapping
+  `wwwroot/js/storageWatch.js` via `IJSRuntime`/`DotNetObjectReference`. Deliberately **not** unit
+  tested directly — same idiom as the pre-existing, also-untested `LocalStorageBrowserStorage` (a
+  thin JS pass-through); pages depend on the interface and are tested against a fake.
+- `src/DaxaPos.Web/wwwroot/js/storageWatch.js` (new) — ~20 lines. `subscribe(key, dotNetRef)`
+  registers a `window.addEventListener('storage', ...)` handler filtered to the given key and calls
+  back `OnStorageChangedElsewhere`; `unsubscribe(key)` removes it. No `BroadcastChannel`, no polling,
+  no coordination protocol — exactly the native browser event the approved scope specified.
+- `src/DaxaPos.Web/State/IDraftOrderStore.cs`/`DraftOrderStore.cs` — added `string KeyFor(Guid
+  deviceId)`, exposing the existing private key format so the watcher can be told what to watch
+  without duplicating `"daxa.sales-draft.v1.{deviceId}"` in a second place.
+- `src/DaxaPos.Web/Program.cs` — registered `IDraftPointerWatcher` as **Transient** (one instance per
+  page/component instantiation, matching Blazor's per-navigation component lifecycle — not Singleton
+  like the other stores, since this needs one watcher per Sales page mount, disposed on navigate-away).
+- `src/DaxaPos.Web/Api/ApiErrorMessages.cs` — `DraftChangedElsewhere` (Sales) and
+  `OrderChangedElsewhere` (Pay), each distinct from every existing message per the established
+  pattern (not `ConnectionLost`, not the generic rejection strings).
+- `src/DaxaPos.Web/Pages/Sales.razor`:
+  - `@inject IServiceProvider ServiceProvider`, `@implements IAsyncDisposable`. Resolves
+    `IDraftPointerWatcher` via `ServiceProvider.GetService` (nullable), **not** `@inject` — identical
+    reasoning to `ConnectivityBanner`'s Milestone A precedent: a test/host that doesn't register a
+    watcher must keep working exactly as before. Subscribes in `OnInitializedAsync` once the device
+    is known, to `DraftOrderStore.KeyFor(device.DeviceId)`.
+  - New `_draftChangedElsewhere` field and a warning banner + `#refresh-draft` button, shown above
+    all other content whenever set. `HandleDraftChangedElsewhere` (the JS-interop-driven event
+    handler) sets it and calls `InvokeAsync(StateHasChanged)`, matching `Display.razor`'s existing
+    poll-loop-driven re-render idiom. `RefreshAfterDraftChangedAsync` clears it and re-runs
+    `LoadAsync()` — never a silent automatic switch.
+  - `AddLineAsync` now re-reads `DraftOrderStore.GetOrderIdAsync(device.DeviceId)` immediately before
+    doing anything else and compares it to the in-memory `_order?.Id`; a mismatch sets
+    `_draftChangedElsewhere` and returns without opening an order or adding a line — this is the
+    direct fix for the kickoff report's confirmed split-order defect (Question 4): a second tab can
+    no longer silently open a duplicate order or add to one the shared pointer no longer points at.
+  - `DisposeAsync` unsubscribes and disposes the watcher, so navigating away from Sales doesn't leak
+    the JS `storage` listener (Blazor's router disposes the old page component on navigation; the DI
+    container alone would not have disposed a Transient service on its own).
+- `src/DaxaPos.Web/Pages/Pay.razor` — `SubmitPaymentAsync` now calls the existing
+  `RefreshOrderAndPaymentsAsync()` immediately before the payment POST (both for a fresh attempt and
+  a Retry) and aborts — showing `OrderChangedElsewhere` and running `ApplyCompletionStateAsync()` —
+  if the freshly-read order is not `Open`/`Held`. Because `RefreshOrderAndPaymentsAsync` leaves
+  `_order` unchanged when its own read fails, a network blip on this pre-submit check falls through
+  to the real payment attempt exactly as before Milestone D, instead of blocking a write on an
+  unrelated read failure — deliberately chosen over reusing the heavier `LoadAsync()` (which would
+  have swallowed a failed pre-submit read as `_loadError`, discarding Milestone C's own
+  `NetworkFailure`/pending-payment handling for a first attempt made while briefly offline).
+- `tests/DaxaPos.Web.Tests/Fakes/FakeDraftPointerWatcher.cs` (new) — test double exposing
+  `RaiseChangedElsewhere()`, since bUnit has no real browser to dispatch a native `storage` event.
+- Tests: `DraftOrderStoreTests.KeyFor_MatchesTheKeyActuallyWrittenByBrowserStorage` (1 new);
+  `SalesTests` — `AnotherTabChangesTheDraftPointer_ShowsRefreshPrompt`,
+  `RefreshButton_AfterDraftChangedElsewhere_ReloadsFromServer_AndClearsThePrompt`,
+  `DraftPointerDivergedFromInMemoryOrder_BlocksAddLine_AndShowsPrompt`, and
+  `DraftPointerAlreadyPointsElsewhere_WhenNoLocalOrderYet_BlocksOpeningASecondOrder` (the last one is
+  a direct regression test for kickoff Question 4's exact split-order scenario) — 4 new;
+  `PayTests` — replaced `ServerRejectsPayment_WhenOrderCompletedElsewhere_RevalidatesAndShowsReceipt`
+  with `OrderCompletedElsewhere_PreSubmitRevalidationCatchesIt_BeforeAnyPost` (asserts the payment
+  POST is never even attempted, not just that the end state is correct — a stronger assertion than
+  the Milestone C test it replaces, since Milestone D's whole point is catching this *before* the
+  doomed POST), plus new `OrderVoidedElsewhere_PreSubmitRevalidation_ShowsMessage_AndNeverSubmits`
+  and `PreSubmitRevalidationReadFailure_StillAttemptsThePayment` (locks in the no-regression
+  guarantee for Milestone C's offline-payment-attempt handling) — net +2; `DisplayTests`/`KdsTests`
+  — `SustainedReconnectCycling_*` (1 each), cycling `NetworkFailure`/`Success` five times in sequence
+  per kickoff Question 6 — **both passed on the first run with no production code change**, confirming
+  `ConnectivityTracker.SetStatus`'s stateless-per-cycle design already holds; documented here as the
+  verified outcome rather than an assumed one, per the approved scope's explicit instruction.
+
+**Deviations from the approved checklist:** None. The Display/Kds item was explicitly
+verify-then-decide per the Human Decision above; the verification found no defect, so no Display/Kds
+production code changed — documented, not treated as a reason to change working code.
+
+**Not built, confirmed still out of scope:** any server-side lock/mutex on orders or payments, a
+persisted cross-tab coordination store, automatic conflict resolution/merging, cross-device
+consistency work beyond Display/KDS's existing poll pattern, and any change to
+`AuthSessionStore`/`BackOfficeSessionStore` staleness (OI-0012-adjacent, deferred per the Human
+Decision).
+
+**Known limitation, accepted per the approved scope:** the Sales pre-action re-check and the Pay
+pre-submit revalidation both narrow, but do not eliminate, their respective races — a request that
+lands on the server in the brief window between the client-side check and the POST landing (no
+server-side lock exists) is not caught by either mechanism. This matches Milestone B's already-
+accepted residual-risk precedent and the session's explicit "no server-side locking" constraint.
+
+**Verification:**
+
+- `dotnet build DaxaPos.sln` — 0 errors (2 pre-existing `NU1510` package-pruning warnings, unrelated
+  to this milestone, present before this session started).
+- TDD: every new/changed test (`DraftOrderStoreTests`, 4 `SalesTests`, 3 `PayTests`,
+  `DisplayTests`/`KdsTests` sustained-cycling) was run before implementing and failed for the
+  expected reason — a compile error for `KeyFor` (member didn't exist yet), and behavioural
+  assertion failures for every other test (feature not yet wired) — except the two sustained-cycling
+  tests, which were written as verification tests per the approved scope and passed immediately,
+  confirming rather than driving new behaviour (documented above, not treated as a TDD violation).
+- `dotnet test DaxaPos.sln` — **1246/1246 passing** (144 unit + 172 Web + 930 API — up from the
+  pre-Milestone-D baseline of 1237; 9 new/net-new Web tests, 0 regressions, 0 API/unit changes
+  confirmed by `git diff --stat` touching only `src/DaxaPos.Web` and `tests/DaxaPos.Web.Tests`, plus
+  the `docs/` updates below).
+- `npx markdownlint-cli2 "**/*.md"` — 0 errors across 167 files, both before and after the doc edits.
+- Scope confirmation: no backend (`DaxaPos.Api`/`.Application`/`.Domain`/`.Infrastructure`/
+  `.Persistence`) file touched, no EF Core migration, no server-side locking, no
+  `BroadcastChannel`, no offline write queue, no offline payments, no refunds, no local server, no
+  PLAN-0008/PLAN-0009, no Stripe Terminal, no MAUI, no OI-0018, no printer routing, no KDS station
+  lifecycle — confirmed by `git diff --stat` and by re-reading the full diff before commit.
+
 ## Recommended Next Session
 
-Milestones A, B, and C are done. Milestone D (multi-tab/multi-device consistency, KDS resilience
-under sustained reconnect cycling) is the only remaining outline-only placeholder and requires its
-own kickoff-decision pass before implementation.
+Milestones A, B, C, and D are done. PLAN-0007 has no further approved/scoped milestone as of this
+session — the plan's Handoff Notes describe a future, separately-numbered Daxa Local Server / Daxa
+Sync plan, not a continuation of PLAN-0007 itself.
 
-- Do not start Milestone D without its own kickoff pass and explicit approval.
 - Do not start the future Daxa Local Server / Daxa Sync plan — it is not numbered or scheduled yet.
 - Do not start PLAN-0009, MAUI, OI-0018, printer routing, or KDS station lifecycle work.
-- `main` is 1 commit ahead of `origin/main` (`584b739`) — not pushed this session; push only if the
-  human explicitly asks.
+- The `AuthSessionStore`/`BackOfficeSessionStore` cross-tab staleness noted in the Milestone D
+  kickoff report (Question 9, OI-0012-adjacent) remains explicitly deferred, not scheduled.
+- `main` matched `origin/main` exactly (0 ahead/0 behind) at the start of the Milestone D session.

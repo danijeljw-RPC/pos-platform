@@ -49,7 +49,7 @@ public class SalesTests : TestContext
 
     private DraftOrderStore RegisterDraftStore() => Also(new DraftOrderStore(new InMemoryBrowserStorage()));
 
-    private StubHttpMessageHandler RegisterCommonServices(FakeOrderBackend backend, DraftOrderStore? draftStore = null, bool withTerminal = true)
+    private StubHttpMessageHandler RegisterCommonServices(FakeOrderBackend backend, DraftOrderStore? draftStore = null, bool withTerminal = true, IDraftPointerWatcher? draftWatcher = null)
     {
         var deviceStore = new DeviceContextStore(new InMemoryBrowserStorage());
         deviceStore.SaveAsync(SampleDevice()).AsTask().Wait();
@@ -62,6 +62,15 @@ public class SalesTests : TestContext
         Services.AddSingleton<IAuthSessionStore>(sessionStore);
 
         Services.AddSingleton<IDraftOrderStore>(draftStore ?? RegisterDraftStore());
+
+        // PLAN-0007 Milestone D: optional, mirroring ConnectivityBanner's pattern — a test that
+        // doesn't care about cross-tab detection doesn't register a watcher, and Sales resolves it
+        // defensively (IServiceProvider.GetService), so none of the ~15 pre-existing tests above
+        // needed to change.
+        if (draftWatcher is not null)
+        {
+            Services.AddSingleton(draftWatcher);
+        }
 
         var stub = new StubHttpMessageHandler { Respond = backend.Respond };
         Services.AddSingleton(new DaxaApiClient(new HttpClient(stub) { BaseAddress = new Uri("http://test/") }));
@@ -488,5 +497,84 @@ public class SalesTests : TestContext
 
         cut.WaitForAssertion(() => Assert.Contains(expectedMessage, cut.Markup));
         Assert.Empty(cut.FindAll("#retry-add-line"));
+    }
+
+    [Fact]
+    public void AnotherTabChangesTheDraftPointer_ShowsRefreshPrompt()
+    {
+        var productId = Guid.NewGuid();
+        var backend = new FakeOrderBackend { Menu = SimpleMenu(productId, "Flat White", 5.5m) };
+        backend.RegisterProduct(productId, "Flat White", 5.5m);
+        var watcher = new FakeDraftPointerWatcher();
+        RegisterCommonServices(backend, draftWatcher: watcher);
+
+        var cut = RenderComponent<Sales>();
+        cut.WaitForAssertion(() => Assert.Contains("Flat White", cut.Markup));
+        Assert.Equal(watcher.WatchedKey, RegisterDraftStore().KeyFor(DeviceId));
+
+        watcher.RaiseChangedElsewhere();
+
+        cut.WaitForAssertion(() => Assert.Contains(ApiErrorMessages.DraftChangedElsewhere, cut.Markup));
+        Assert.NotEmpty(cut.FindAll("#refresh-draft"));
+    }
+
+    [Fact]
+    public void RefreshButton_AfterDraftChangedElsewhere_ReloadsFromServer_AndClearsThePrompt()
+    {
+        var productId = Guid.NewGuid();
+        var backend = new FakeOrderBackend { Menu = SimpleMenu(productId, "Flat White", 5.5m) };
+        backend.RegisterProduct(productId, "Flat White", 5.5m);
+        var watcher = new FakeDraftPointerWatcher();
+        RegisterCommonServices(backend, draftWatcher: watcher);
+        var cut = RenderComponent<Sales>();
+        cut.WaitForAssertion(() => Assert.Contains("Flat White", cut.Markup));
+        watcher.RaiseChangedElsewhere();
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("#refresh-draft")));
+
+        cut.Find("#refresh-draft").Click();
+
+        cut.WaitForAssertion(() => Assert.Empty(cut.FindAll("#refresh-draft")));
+    }
+
+    [Fact]
+    public async Task DraftPointerDivergedFromInMemoryOrder_BlocksAddLine_AndShowsPrompt()
+    {
+        var productId = Guid.NewGuid();
+        var backend = new FakeOrderBackend { Menu = SimpleMenu(productId, "Flat White", 5.5m) };
+        backend.RegisterProduct(productId, "Flat White", 5.5m);
+        var draftStore = RegisterDraftStore();
+        RegisterCommonServices(backend, draftStore);
+        var cut = RenderComponent<Sales>();
+        cut.WaitForAssertion(() => Assert.Contains("Flat White", cut.Markup));
+        cut.Find("button.btn-outline-primary").Click();
+        cut.WaitForAssertion(() => Assert.Contains("$5.50", cut.Markup));
+
+        // Simulate another tab moving the shared pointer to a different order.
+        await draftStore.SaveOrderIdAsync(DeviceId, Guid.NewGuid());
+
+        cut.Find("button.btn-outline-primary").Click();
+
+        cut.WaitForAssertion(() => Assert.Contains(ApiErrorMessages.DraftChangedElsewhere, cut.Markup));
+        Assert.Single(backend.Order!.Lines);
+    }
+
+    [Fact]
+    public async Task DraftPointerAlreadyPointsElsewhere_WhenNoLocalOrderYet_BlocksOpeningASecondOrder()
+    {
+        var productId = Guid.NewGuid();
+        var backend = new FakeOrderBackend { Menu = SimpleMenu(productId, "Flat White", 5.5m) };
+        backend.RegisterProduct(productId, "Flat White", 5.5m);
+        var draftStore = RegisterDraftStore();
+        RegisterCommonServices(backend, draftStore);
+        var cut = RenderComponent<Sales>();
+        cut.WaitForAssertion(() => Assert.Contains("Flat White", cut.Markup));
+
+        // Another tab already opened an order and saved its pointer before this tab's first tap.
+        await draftStore.SaveOrderIdAsync(DeviceId, Guid.NewGuid());
+
+        cut.Find("button.btn-outline-primary").Click();
+
+        cut.WaitForAssertion(() => Assert.Contains(ApiErrorMessages.DraftChangedElsewhere, cut.Markup));
+        Assert.Null(backend.Order);
     }
 }

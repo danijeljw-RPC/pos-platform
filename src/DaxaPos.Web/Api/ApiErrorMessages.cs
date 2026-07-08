@@ -35,6 +35,21 @@ public static class ApiErrorMessages
     /// </summary>
     public const string ReceiptUnavailable = "Receipt temporarily unavailable. Your payment was recorded — try again to view or print it.";
 
+    /// <summary>
+    /// PLAN-0007 Milestone D: shown on <c>Sales</c> when another browser tab of the same device
+    /// moved the shared draft order pointer (via a native <c>storage</c> event) or a pre-action
+    /// re-check found it had already diverged from the in-memory order. Points staff at an explicit
+    /// Refresh rather than silently switching orders under them.
+    /// </summary>
+    public const string DraftChangedElsewhere = "This order may have changed in another tab. Refresh to see the latest state before continuing.";
+
+    /// <summary>
+    /// PLAN-0007 Milestone D: shown on <c>Pay</c> when a pre-submit revalidation finds the order is
+    /// no longer payable (completed, voided, or otherwise moved on) — narrows, but does not
+    /// eliminate, the two-tabs-same-order double-payment race using only existing read endpoints.
+    /// </summary>
+    public const string OrderChangedElsewhere = "This order's status changed elsewhere. Refreshing before you continue.";
+
     public static string ForLoadFailure(ApiResultKind kind, string genericMessage) => kind switch
     {
         ApiResultKind.Unauthorized => SessionExpired,

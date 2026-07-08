@@ -22,5 +22,5 @@ public sealed class DraftOrderStore(IBrowserStorage storage) : IDraftOrderStore
     public ValueTask ClearAsync(Guid deviceId) =>
         storage.RemoveItemAsync(KeyFor(deviceId));
 
-    private static string KeyFor(Guid deviceId) => $"daxa.sales-draft.v1.{deviceId}";
+    public string KeyFor(Guid deviceId) => $"daxa.sales-draft.v1.{deviceId}";
 }
