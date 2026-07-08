@@ -12,6 +12,14 @@ public static class ApiErrorMessages
     public const string Forbidden = "You don't have permission to view this.";
     public const string ConnectionLost = "Can't reach the server. Check your connection — we'll keep trying.";
 
+    /// <summary>
+    /// PLAN-0007 Milestone B: distinct from <see cref="ConnectionLost"/> — that wording implies
+    /// automatic retry (true for read/poll paths), but order-open/add-line has no idempotency key,
+    /// so Milestone B never auto-replays. This message points the staff member at the explicit
+    /// Retry action instead.
+    /// </summary>
+    public const string AddLineNotConfirmed = "This item wasn't confirmed by the server. Check your connection, then tap Retry.";
+
     public static string ForLoadFailure(ApiResultKind kind, string genericMessage) => kind switch
     {
         ApiResultKind.Unauthorized => SessionExpired,

@@ -4,9 +4,13 @@
 
 Draft. Revised 2026-07-08 to match the current implemented architecture. **Milestone A
 (Reconnect And Read Resilience) is implemented and complete** (2026-07-08) — see the worker notes'
-Milestone A Implementation Report. Milestones B onward remain outline-only and not yet approved for
-implementation. See `docs/plans/active/PLAN-0007-worker-notes.md` for the full revision rationale
-and implementation detail.
+Milestone A Implementation Report. **Milestone B (Offline-Safe Sales Action Retry) is implemented
+and complete** (2026-07-08) — rescoped from the original "queued/replayed with idempotency"
+framing after its kickoff report found `CreateOrderRequest`/`AddOrderLineRequest` carry no
+idempotency key (unlike `RecordPaymentRequest`, per ADR-0010); the human chose Option 2 — explicit
+staff-initiated retry only, no backend/idempotency/migration work, no auto-replay queue. See the
+worker notes' Milestone B Kickoff Report, Human Decision, and Implementation Report for the full
+record. Milestones C and D remain outline-only and not yet approved for implementation.
 
 ## Revision Note (2026-07-08)
 
@@ -159,7 +163,7 @@ PLAN-0006 practice.
 | Milestone | Scope | Status |
 |-----------|-------|--------|
 | A | Reconnect and read resilience — connectivity state, degrade/recover behaviour for `Sales`/`Pay`/`Display`/`Kds` reads. No offline writes. | **Implemented and complete (2026-07-08).** See worker notes. |
-| B | Offline-safe local drafts / a bounded write queue for `Sales` (e.g. queuing add-line calls made while briefly disconnected, replayed on reconnect with idempotency). | Outline only — scope, risk, and product questions (e.g. how long a queue may live, what happens if the underlying order was voided elsewhere) to be defined at B kickoff. Not started. |
+| B | Offline-Safe Sales Action Retry — `Sales.razor`'s `AddLineAsync` preserves a single failed attempt as a pending retry on `NetworkFailure` and offers an explicit staff-initiated Retry button. No automatic replay, no write queue, no idempotency-key/backend/migration work. | **Implemented and complete (2026-07-08).** See worker notes' Milestone B Implementation Report. |
 | C | Payment/receipt behaviour policy under intermittent connectivity. | Outline only. Likely requires an explicit product decision on whether any payment method may ever be recorded while offline (cash is the obvious candidate; integrated/manual EFTPOS plausibly should never be) — flagged as a genuine open product question, not decided here. Not started. |
 | D | Multi-tab/multi-device consistency and KDS resilience under sustained reconnect cycling (e.g. a KDS board that has been offline for an extended period). | Outline only. Not started. |
 
@@ -233,6 +237,71 @@ worker notes' Milestone A Implementation Report:
   `tests/DaxaPos.Web.Tests`.
 - Full solution suite: **1224/1224 passing** (144 unit + 150 Web + 930 API — up from the
   pre-Milestone-A baseline of 1196; 28 new Web tests, 0 API changes). No regressions.
+
+### Milestone B — Offline-Safe Sales Action Retry
+
+**Scope:**
+
+- `Sales.razor` only, `AddLineAsync` specifically (covers both the implicit `OpenOrderAsync` call
+  it makes when no order is open yet, and `AddOrderLineAsync`).
+- On `ApiResultKind.NetworkFailure`, preserve the attempted product/modifier selection as a single
+  pending retry (not a queue) and show a message distinct from the generic action-failure text,
+  making clear the item was not confirmed by the server.
+- An explicit staff-initiated "Retry" button reattempts the same call. No automatic replay — a
+  connectivity-state change alone never re-triggers the add.
+- No persistence to `localStorage`; the pending retry does not survive a browser refresh.
+
+**Non-goals (Milestone B specifically):**
+
+- No backend idempotency-key work, no EF Core migrations.
+- No automatic write queue or auto-replay of any kind.
+- No offline payments, refunds, or receipts.
+- No local server, no PLAN-0009, MAUI, OI-0018, printer routing, or KDS station lifecycle.
+
+**Why not the plan's original "queued/replayed" framing:** kickoff found `CreateOrderRequest`/
+`AddOrderLineRequest` carry no idempotency key (unlike `RecordPaymentRequest`, which has one per
+ADR-0010), so the server cannot tell a genuine retry from a duplicate. Automatic replay under that
+condition risks duplicate orders/lines. Manual, staff-visible retry accepts the same "did it land"
+ambiguity only under explicit human review, not silently in the background — see the worker notes'
+Milestone B Kickoff Report and Human Decision for the full reasoning.
+
+**Implementation / Documentation Steps:**
+
+1. Add a distinct `ApiErrorMessages` message for "item not confirmed by the server" (not the
+   existing `ConnectionLost` wording, which implies automatic retry).
+2. `Sales.razor`: track a single pending-retry field; set it on `NetworkFailure` from
+   `AddLineAsync`, clear it otherwise; add a Retry button that reattempts with the stored
+   arguments.
+3. bUnit coverage: network failure preserves the pending action and offers Retry; Retry succeeds
+   once connectivity returns; 401/403/404 are not offered as retryable; connectivity restoring
+   alone (no Retry click) triggers no request.
+4. Update `docs/modules/sync.md` and this plan's Milestone B closeout.
+
+### Milestone B Closeout (2026-07-08)
+
+Implemented as planned above, no deviations from the non-goals. Full detail in the worker notes'
+Milestone B Implementation Report:
+
+- `ApiErrorMessages` gained a new `AddLineNotConfirmed` message, deliberately distinct from
+  `ConnectionLost` (whose "we'll keep trying" wording would misleadingly imply auto-retry here).
+- `Sales.razor` gained a single `_pendingRetry` field (product + modifier selection, not a queue)
+  and a `SetAddLineFailure` helper: a `NetworkFailure` from either the implicit `OpenOrderAsync` or
+  the `AddOrderLineAsync` call inside `AddLineAsync` sets it and shows `AddLineNotConfirmed`; any
+  other outcome (success or a genuine 401/403/404/Failed rejection) clears it, so a real rejection
+  is never offered a Retry button. A new `RetryPendingAddLineAsync` method re-invokes `AddLineAsync`
+  with the stored arguments on explicit staff tap of the new `#retry-add-line` button.
+- No `IDraftOrderStore` change, no `localStorage` key, no migration, no backend file touched —
+  confirmed via `git diff --stat`.
+- Full solution suite: **1229/1229 passing** (144 unit + 155 Web + 930 API — up from the
+  pre-Milestone-B baseline of 1224; 5 new Web tests, 0 API/unit changes). No regressions.
+
+**Known limitation, accepted per the approved scope:** if the `NetworkFailure` happens on the
+implicit `OpenOrderAsync` call (no order open yet) rather than on `AddOrderLineAsync`, a subsequent
+Retry re-attempts opening the order too. If the original open-order request actually reached the
+server before the response was lost, this could create a second order. This residual "did it land"
+ambiguity is not solved — it is accepted under explicit staff-initiated, staff-visible review rather
+than solved automatically, matching the approved Human Decision. It applies only to the
+first-item-on-a-new-order case, not to adding further lines to an already-open order.
 
 ## Tests To Run Later
 

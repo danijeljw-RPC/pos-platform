@@ -399,7 +399,7 @@ public class SalesTests : TestContext
     }
 
     [Fact]
-    public void NetworkFailureAddingALine_ShowsConnectionLostMessage_NotAGenericRejection()
+    public void NetworkFailureAddingALine_ShowsNotConfirmedMessage_AndOffersRetry()
     {
         var productId = Guid.NewGuid();
         var backend = new FakeOrderBackend { Menu = SimpleMenu(productId, "Flat White", 5.5m) };
@@ -412,6 +412,81 @@ public class SalesTests : TestContext
         stub.ThrowNetworkFailure = true;
         cut.Find("button.btn-outline-primary").Click();
 
-        cut.WaitForAssertion(() => Assert.Contains(ApiErrorMessages.ConnectionLost, cut.Markup));
+        cut.WaitForAssertion(() => Assert.Contains(ApiErrorMessages.AddLineNotConfirmed, cut.Markup));
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("#retry-add-line")));
+        Assert.Contains("No items selected yet.", cut.Markup);
+        Assert.Null(backend.Order);
+    }
+
+    [Fact]
+    public void RetryPendingAddLine_OnceConnectivityRestored_CompletesTheAdd()
+    {
+        var productId = Guid.NewGuid();
+        var backend = new FakeOrderBackend { Menu = SimpleMenu(productId, "Flat White", 5.5m) };
+        backend.RegisterProduct(productId, "Flat White", 5.5m);
+        var connectivity = new ConnectivityTracker();
+        var stub = RegisterCommonServicesWithConnectivity(backend, connectivity);
+        var cut = RenderComponent<Sales>();
+        cut.WaitForAssertion(() => Assert.Contains("Flat White", cut.Markup));
+
+        stub.ThrowNetworkFailure = true;
+        cut.Find("button.btn-outline-primary").Click();
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("#retry-add-line")));
+
+        stub.ThrowNetworkFailure = false;
+        cut.Find("#retry-add-line").Click();
+
+        cut.WaitForAssertion(() => Assert.Contains("$5.50", cut.Markup));
+        Assert.Single(backend.Order!.Lines);
+        Assert.Empty(cut.FindAll("#retry-add-line"));
+    }
+
+    [Fact]
+    public void ConnectivityRestoring_WithoutRetryClick_DoesNotAutoReplayTheAdd()
+    {
+        var productId = Guid.NewGuid();
+        var backend = new FakeOrderBackend { Menu = SimpleMenu(productId, "Flat White", 5.5m) };
+        backend.RegisterProduct(productId, "Flat White", 5.5m);
+        var connectivity = new ConnectivityTracker();
+        var stub = RegisterCommonServicesWithConnectivity(backend, connectivity);
+        var cut = RenderComponent<Sales>();
+        cut.WaitForAssertion(() => Assert.Contains("Flat White", cut.Markup));
+
+        stub.ThrowNetworkFailure = true;
+        cut.Find("button.btn-outline-primary").Click();
+        cut.WaitForAssertion(() => Assert.NotEmpty(cut.FindAll("#retry-add-line")));
+
+        stub.ThrowNetworkFailure = false;
+        connectivity.ReportOnline();
+
+        Assert.Null(backend.Order);
+        Assert.Contains("No items selected yet.", cut.Markup);
+        Assert.NotEmpty(cut.FindAll("#retry-add-line"));
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.Unauthorized, ApiErrorMessages.SessionExpired)]
+    [InlineData(HttpStatusCode.Forbidden, ApiErrorMessages.Forbidden)]
+    [InlineData(HttpStatusCode.NotFound, "Could not add that item to the order.")]
+    public void HttpRejectionAddingALine_IsNotOfferedAsRetryable(HttpStatusCode statusCode, string expectedMessage)
+    {
+        var productId = Guid.NewGuid();
+        var backend = new FakeOrderBackend { Menu = SimpleMenu(productId, "Flat White", 5.5m) };
+        backend.RegisterProduct(productId, "Flat White", 5.5m);
+        var connectivity = new ConnectivityTracker();
+        var stub = RegisterCommonServicesWithConnectivity(backend, connectivity);
+        var cut = RenderComponent<Sales>();
+        cut.WaitForAssertion(() => Assert.Contains("Flat White", cut.Markup));
+
+        var originalRespond = stub.Respond;
+        stub.Respond = request =>
+            request.Method == HttpMethod.Post && request.RequestUri!.AbsolutePath.EndsWith("/lines", StringComparison.Ordinal)
+                ? new HttpResponseMessage(statusCode)
+                : originalRespond(request);
+
+        cut.Find("button.btn-outline-primary").Click();
+
+        cut.WaitForAssertion(() => Assert.Contains(expectedMessage, cut.Markup));
+        Assert.Empty(cut.FindAll("#retry-add-line"));
     }
 }

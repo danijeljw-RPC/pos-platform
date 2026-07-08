@@ -36,6 +36,10 @@ else
     @if (_actionError is not null)
     {
         <p class="text-danger" role="alert">@_actionError</p>
+        @if (_pendingRetry is not null)
+        {
+            <button type="button" id="retry-add-line" class="btn btn-outline-primary btn-sm mb-2" disabled="@_isBusy" @onclick="RetryPendingAddLineAsync">Retry</button>
+        }
     }
 
     <div class="row">
@@ -183,6 +187,13 @@ else
     private OrderResult? _order;
     private bool _isBusy;
 
+    /// <summary>
+    /// PLAN-0007 Milestone B: the most recent add-line attempt that failed with
+    /// <see cref="ApiResultKind.NetworkFailure"/>, offered back as a single staff-initiated Retry —
+    /// never auto-replayed, never persisted, and overwritten (not queued) by the next attempt.
+    /// </summary>
+    private (Guid ProductId, IReadOnlyList<Guid> ModifierIds)? _pendingRetry;
+
     private ResolvedMenuItemResult? _selectingItem;
     private readonly Dictionary<Guid, List<Guid>> _modalSelections = [];
 
@@ -291,13 +302,14 @@ else
 
         _isBusy = true;
         _actionError = null;
+        _pendingRetry = null;
 
         if (_order is null)
         {
             var openResult = await ApiClient.OpenOrderAsync(new CreateOrderRequest(terminalId));
             if (openResult.Kind != ApiResultKind.Success || openResult.Value is null)
             {
-                _actionError = ApiErrorMessages.ForLoadFailure(openResult.Kind, "Could not open an order for this terminal.");
+                SetAddLineFailure(openResult.Kind, productId, modifierIds, "Could not open an order for this terminal.");
                 _isBusy = false;
                 return;
             }
@@ -311,13 +323,43 @@ else
 
         if (addResult.Kind != ApiResultKind.Success || addResult.Value is null)
         {
-            _actionError = ApiErrorMessages.ForLoadFailure(addResult.Kind, "Could not add that item to the order.");
+            SetAddLineFailure(addResult.Kind, productId, modifierIds, "Could not add that item to the order.");
             _isBusy = false;
             return;
         }
 
         _order = addResult.Value;
         _isBusy = false;
+    }
+
+    /// <summary>
+    /// PLAN-0007 Milestone B: a <see cref="ApiResultKind.NetworkFailure"/> here means the client
+    /// never received a response — the request may or may not have reached the server, since
+    /// neither <c>OpenOrderAsync</c> nor <c>AddOrderLineAsync</c> carries an idempotency key (unlike
+    /// <c>RecordPaymentAsync</c>). Rather than auto-replaying (which could duplicate an order or a
+    /// line), the attempt is preserved for an explicit staff-initiated Retry. A genuine rejection
+    /// (401/403/404/Failed) is not retryable — retrying would just repeat the same rejection — so it
+    /// keeps the existing generic message and no pending retry is offered.
+    /// </summary>
+    private void SetAddLineFailure(ApiResultKind kind, Guid productId, IReadOnlyList<Guid> modifierIds, string genericMessage)
+    {
+        if (kind == ApiResultKind.NetworkFailure)
+        {
+            _actionError = ApiErrorMessages.AddLineNotConfirmed;
+            _pendingRetry = (productId, modifierIds);
+        }
+        else
+        {
+            _actionError = ApiErrorMessages.ForLoadFailure(kind, genericMessage);
+        }
+    }
+
+    private async Task RetryPendingAddLineAsync()
+    {
+        if (_pendingRetry is { } pending)
+        {
+            await AddLineAsync(pending.ProductId, pending.ModifierIds);
+        }
     }
 
     private async Task Increment(CartGroup group) => await AddLineAsync(group.ProductId, group.ModifierIds);
